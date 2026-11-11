@@ -1,0 +1,16 @@
+
+{
+  "name": "global-auto-importer",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:extension": "npm run dev -w @auto-importer/extension",
+    "build:extension": "npm run build -w @auto-importer/extension",
+    "dev:admin": "npm run dev -w @auto-importer/admin",
+    "build:admin": "npm run build -w @auto-importer/admin"
+  }
+}
