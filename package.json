@@ -8,6 +8,7 @@
     "packages/*"
   ],
   "scripts": {
+    "build": "npm run build:extension",
     "dev:extension": "npm run dev -w @auto-importer/extension",
     "build:extension": "npm run build -w @auto-importer/extension",
     "dev:admin": "npm run dev -w @auto-importer/admin",

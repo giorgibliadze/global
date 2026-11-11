@@ -1,0 +1,11 @@
+* { box-sizing: border-box; }
+.import-action { margin-top: 16px; }
+.import-button { width: 100%; min-height: 46px; display: flex; align-items: center; justify-content: center; gap: 12px; border: 1px solid transparent; border-radius: 11px; background: #2563EB; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; box-shadow: 0 3px 8px #2563eb20; transition: background .15s, box-shadow .15s, transform .15s; }
+.import-button:hover:enabled { background: #1D4ED8; box-shadow: 0 5px 12px #2563eb30; transform: translateY(-1px); }
+.import-button:active:enabled { transform: translateY(0); }
+.import-button:focus-visible { outline: 3px solid #93C5FD; outline-offset: 3px; }
+.import-button:disabled { background: #E2E8F0; color: #64748B; box-shadow: none; cursor: not-allowed; }
+.import-button span { font-size: 18px; }
+.guidance { margin: 0; color: #64748B; font-size: 11px; line-height: 1.6; text-align: center; padding: 10px 8px 0; }
+.notice { margin: 12px 0 0; padding: 12px; border: 1px solid #BFDBFE; background: #EFF6FF; border-radius: 10px; font-size: 12px; line-height: 1.5; color: #1E40AF; }
+@media (prefers-reduced-motion: reduce) { .import-button { transition: none; } }

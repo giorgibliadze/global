@@ -14,11 +14,11 @@ const matchesDomain = (hostname: string, domain: string) =>
   hostname === domain || hostname.endsWith(`.${domain}`)
 
 export function detectWebsite(url?: string): Website {
-  const unsupported: Website = { kind: 'unsupported', hostname: '', name: 'Unknown website' }
+  const unsupported: Website = { kind: 'unsupported', hostname: '', name: 'უცნობი ვებსაიტი' }
   if (!url) return unsupported
   try {
     const parsed = new URL(url)
-    if (!['https:', 'http:'].includes(parsed.protocol)) return { ...unsupported, name: 'Browser page' }
+    if (!['https:', 'http:'].includes(parsed.protocol)) return { ...unsupported, name: 'ბრაუზერის გვერდი' }
     const hostname = parsed.hostname.toLowerCase()
     const auction = auctionSites.find((site) => matchesDomain(hostname, site.domain))
     if (auction) return { kind: 'auction', hostname, name: auction.name }

@@ -1,0 +1,20 @@
+:host { color-scheme: light; }
+.dock { all: initial; font: 13px/1.5 Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #0F172A; color-scheme: light; pointer-events: none; -webkit-font-smoothing: antialiased; }
+h1, h2, p { margin: 0; }
+button { font: inherit; }
+.panel { position: fixed; top: 100px; right: 80px; pointer-events: auto; width: min(390px, calc(100vw - 92px)); max-height: calc(100dvh - 112px); overflow: auto; overscroll-behavior: contain; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; box-shadow: 0 12px 48px #0f172a26, 0 2px 8px #0f172a0a; animation: appear .18s ease-out; }
+.panel .popup { width: 100%; }
+.panel .brand-logo { padding-inline: 34px; }
+.panel .supported-sites ul { flex-wrap: wrap; }
+.panel footer { flex-wrap: wrap; }
+.close-button { position: absolute; top: 30px; right: 30px; z-index: 1; display: grid; place-items: center; border: 1px solid #E2E8F0; border-radius: 8px; width: 30px; height: 30px; background: #FFFFFF; color: #475569; font: 22px/1 sans-serif; cursor: pointer; }
+.close-button:hover { background: #F1F5F9; }
+button:focus-visible { outline: 3px solid #93C5FD; outline-offset: 3px; }
+.launcher { position: fixed; top: 100px; right: 16px; isolation: isolate; padding: 4px; display: grid; place-items: center; pointer-events: auto; width: 52px; height: 52px; border: 2px solid #FFFFFF; border-radius: 17px; background: #2563EB; color: #FFFFFF; cursor: pointer; box-shadow: 0 4px 18px #0f172a30; transition: background .18s, box-shadow .18s; }
+.launcher img { display: block; width: 40px; height: 40px; object-fit: contain; }
+.launcher::before { content: ''; position: absolute; inset: -4px; z-index: -1; border-radius: 21px; pointer-events: none; box-shadow: 0 0 14px 4px #2563EB55; opacity: .3; animation: launcher-glow 4s ease-in-out infinite; }
+@keyframes launcher-glow { 0%, 100% { opacity: .25; } 50% { opacity: .65; } }
+.launcher:hover { background: #1D4ED8; box-shadow: 0 8px 24px #2563eb40; }
+@keyframes appear { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 480px) { .panel .popup { padding: 16px; } .panel .brand-logo { padding-inline: 0; } .close-button { top: 24px; right: 24px; } }
+@media (prefers-reduced-motion: reduce) { .launcher { transition: none; } .launcher::before { animation: none; opacity: .3; } .panel { animation: none; } }
