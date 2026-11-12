@@ -9,12 +9,14 @@ export type Detection = { status: 'loading' | 'error' } | { status: 'ready'; web
 export function PopupContent({ detection }: { detection: Detection }) {
   const website = detection.status === 'ready' ? detection.website : undefined
   const canImport = website?.kind === 'auction'
+  const manheim24 = website?.hostname === 'manheim24.com' || website?.hostname.endsWith('.manheim24.com') === true
   const status = detection.status === 'loading' ? 'მოწმდება ვებსაიტი…'
     : detection.status === 'error' ? 'ვებსაიტის ამოცნობა ვერ მოხერხდა'
     : canImport ? 'მხარდაჭერილი ვებსაიტი'
     : website?.kind === 'destination' ? 'თქვენ MyAuto-ზე ხართ' : 'ვებსაიტი არ არის მხარდაჭერილი'
   const guidance = detection.status === 'loading' ? 'მიმდინარეობს აქტიური ჩანართის ამოცნობა.'
     : detection.status === 'error' ? 'ხელახლა გახსენით გაფართოება ვებსაიტის ამოსაცნობად.'
+    : manheim24 ? 'გადაამოწმეთ ორიგინალი და ქართული მონაცემები, შემდეგ დაადასტურეთ MyAuto-ზე გადატანა.'
     : canImport ? 'ეს აუქციონის ვებსაიტი მხარდაჭერილია. ავტომობილის მონაცემების გადატანის ფუნქცია მალე დაემატება.'
     : website?.kind === 'destination' ? 'MyAuto-ზე ავტომობილის მონაცემების გადასატანად გახსენით მხარდაჭერილი აუქციონის ვებსაიტი.'
     : 'დასაწყებად გახსენით ქვემოთ ჩამოთვლილი აუქციონის ერთ-ერთი ვებსაიტი.'
@@ -35,7 +37,7 @@ export function PopupContent({ detection }: { detection: Detection }) {
           <span className="status-dot" />{status}
         </div>
       </section>
-      <ImportAction enabled={canImport} guidance={guidance} />
+      <ImportAction enabled={canImport} guidance={guidance} manheim24={manheim24} />
       <section className="supported-sites" aria-labelledby="supported-title">
         <h2 className="section-label" id="supported-title">მხარდაჭერილი პლატფორმები</h2>
         <ul>{auctionSites.map((site) => <li className={website?.name === site.name ? 'active-platform' : undefined} key={site.domain}>{site.name}</li>)}</ul>

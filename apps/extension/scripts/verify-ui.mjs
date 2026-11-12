@@ -16,7 +16,7 @@ const manifest = JSON.parse(await readFile(join(dist, 'manifest.json'), 'utf8'))
 assert.equal(manifest.manifest_version, 3)
 assert.equal(manifest.content_scripts[0].all_frames, false)
 assert.deepEqual(manifest.content_scripts[0].matches.sort(), [
-  '*://*.adesa.com/*', '*://*.edgepipeline.com/*', '*://*.manheim.com/*',
+  '*://*.adesa.com/*', '*://*.edgepipeline.com/*', '*://*.manheim.com/*', 'https://*.manheim24.com/*',
 ])
 for (const size of [16, 32, 48, 128]) {
   const png = await readFile(join(dist, manifest.action.default_icon[size]))
@@ -82,7 +82,7 @@ function fixture(popup, supported, state = 'ready') {
         checkGeorgian(document.querySelector('.popup'))
         if (!button.disabled) {
           button.click(); await wait()
-          check(document.querySelector('.notice').textContent === 'ავტომობილის მონაცემების გადატანის ფუნქცია მალე დაემატება.', 'Popup feedback')
+          check(document.querySelector('.notice').textContent === 'ავტომობილის მონაცემების გადატანის ფუნქცია ამ პლატფორმისთვის მალე დაემატება.', 'Popup feedback')
           checkGeorgian(document.querySelector('.popup'))
         }
       ` : `
@@ -120,7 +120,21 @@ function fixture(popup, supported, state = 'ready') {
           for (let attempt = 0; attempt < 10 && !companyLogo.complete; attempt++) await wait()
           check(companyLogo.complete && companyLogo.naturalWidth > 0, 'Popup company logo loads inside page')
           shadow.querySelector('.import-button').click(); await wait()
-          check(shadow.querySelector('.notice').textContent === 'ავტომობილის მონაცემების გადატანის ფუნქცია მალე დაემატება.', 'Panel feedback')
+          if (location.hostname.endsWith('manheim24.com')) {
+            check(!!shadow.querySelector('.vehicle-review'), 'Original and Georgian details displayed before transfer')
+            check(window.fixtureStarts === 0 && window.fixtureDestinations === 0, 'Review cannot open or fill destination')
+            check(shadow.querySelector('.vehicle-review').textContent.includes('ორიგინალი:') && shadow.querySelector('.vehicle-review').textContent.includes('ქართული:'), 'Both original and localized columns rendered')
+            shadow.querySelectorAll('.vehicle-review button')[1].click(); await wait()
+            check(!shadow.querySelector('.vehicle-review') && window.fixtureDestinations === 0, 'Review cancellation has no destination side effects')
+            shadow.querySelector('.import-button').click(); await wait()
+            shadow.querySelector('.vehicle-review .import-button').click(); await wait()
+            check(!!shadow.querySelector('.transfer-progress') && window.fixtureStarts === 1 && window.fixtureDestinations === 1, 'Confirmed review starts transfer')
+            shadow.querySelector('.import-button').click(); await wait()
+            shadow.querySelector('.vehicle-review .import-button').click(); await wait()
+            check(window.fixtureDestinations === 1, 'Repeated reviewed active vehicle reuses destination')
+          } else {
+            check(shadow.querySelector('.notice').textContent === 'ავტომობილის მონაცემების გადატანის ფუნქცია ამ პლატფორმისთვის მალე დაემატება.', 'Panel feedback')
+          }
           checkGeorgian(shadow)
           check(shadow.querySelector('.dock').lang === 'ka', 'Georgian panel language')
           const panel = shadow.querySelector('.panel').getBoundingClientRect()
@@ -128,7 +142,7 @@ function fixture(popup, supported, state = 'ready') {
           check(panel.right < launcher.getBoundingClientRect().left, 'Panel opens to left of launcher')
           check(Math.abs(panel.width - Math.min(390, innerWidth - 92)) < 1, 'Responsive panel width')
           check(panel.top >= 0 && panel.bottom <= innerHeight, 'Panel stays vertically within viewport')
-          shadow.querySelector('.notice').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true }))
+          shadow.querySelector('.notice, .transfer-progress').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true }))
           await wait()
           check(!!shadow.querySelector('.panel'), 'Inside click does not close panel')
           shadow.querySelector('.close-button').click(); await wait()
@@ -169,10 +183,19 @@ function fixture(popup, supported, state = 'ready') {
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost')
-    const supported = /^(?:[^.]+\.)*(?:manheim\.com|adesa\.com|edgepipeline\.com)$/.test(req.headers.host.split(':')[0])
+    const supported = /^(?:[^.]+\.)*(?:manheim\.com|manheim24\.com|adesa\.com|edgepipeline\.com)$/.test(req.headers.host.split(':')[0])
     if (url.pathname === '/fixture') {
       res.setHeader('Content-Type', 'text/html; charset=utf-8')
-      res.end(`<!doctype html>${monitor}<style>body{height:2000px}button{background:red!important;color:red!important}#auction-control{position:absolute;top:16px;left:16px;width:120px;height:40px}</style><button id="auction-control" onclick="this.textContent='Working'">Auction control</button>${fixture(false, supported)}`)
+      const sourceMock = req.headers.host.startsWith('home.manheim24.com:') ? `<script>
+        window.fixtureStarts=0;window.fixtureDestinations=0;
+        const job={id:'fixture',sourceTabId:1,destinationTabId:2,createdAt:Date.now(),updatedAt:Date.now(),stage:'opening',status:'running',claimed:false,photos:{total:1,prepared:0,uploaded:0,failed:0},fields:[],errors:[],vehicle:{source:'Manheim24',title:'სატესტო ავტომობილი',make:'სატესტო მწარმოებელი',model:'სატესტო მოდელი',trim:'სატესტო ვერსია',original:{manufacturer:'სატესტო მწარმოებელი',model:'სატესტო მოდელი',catalogModel:'სატესტო მოდელი',trim:'სატესტო ვერსია',evidence:'structured-model'},vin:'1HGCM82633A004352',images:[],warnings:[],raw:{}}};
+        window.chrome={runtime:{id:'fixture',getManifest:()=>({version:'1.0.0'}),onMessage:{addListener:()=>{}},sendMessage:async(message)=>{
+          if(message.type==='TRANSFER_REVIEW')return{ok:true,value:{vehicle:job.vehicle,reviewId:'fixture-review'}};
+          if(message.type==='TRANSFER_START'){window.fixtureStarts++;window.fixtureDestinations=1;return{ok:true,value:job}};
+          if(message.type==='TRANSFER_STATUS')return{ok:true,value:job};
+        }}};
+      </script>` : ''
+      res.end(`<!doctype html>${monitor}${sourceMock}<style>body{height:2000px}button{background:red!important;color:red!important}#auction-control{position:absolute;top:16px;left:16px;width:120px;height:40px}</style><button id="auction-control" onclick="this.textContent='Working'">Auction control</button>${fixture(false, supported)}`)
     } else if (url.pathname === '/popup-fixture') {
       let html = await readFile(join(dist, 'index.html'), 'utf8')
       const state = url.searchParams.get('state') ?? 'ready'
@@ -196,7 +219,7 @@ const chrome = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Conte
 const profile = await mkdtemp(join(tmpdir(), 'auto-importer-ui-'))
 try {
   const urls = [
-    ...['manheim.com','buy.manheim.com','adesa.com','buy.adesa.com','edgepipeline.com','www.edgepipeline.com','myauto.ge','notmanheim.com','manheim.com.example.org'].map(host => `http://${host}:${port}/fixture`),
+    ...['home.manheim24.com','manheim.com','buy.manheim.com','adesa.com','buy.adesa.com','edgepipeline.com','www.edgepipeline.com','myauto.ge','notmanheim.com','manheim.com.example.org'].map(host => `http://${host}:${port}/fixture`),
     ...['https://manheim.com','https://myauto.ge','https://example.com','chrome://extensions','invalid-url'].map(tab => `http://localhost:${port}/popup-fixture?tab=${encodeURIComponent(tab)}`),
     `http://manheim.com:${port}/fixture?motion=reduce`,
     `http://manheim.com:${port}/fixture?viewport=small`,
@@ -216,7 +239,7 @@ try {
     assert.equal(result, 'PASS', `Browser fixture failed: ${url}: ${result ?? 'Fixture did not finish'}`)
     console.log('PASS', url)
   }
-  console.log('Manifest, PNG dimensions, logo integrity, and Georgian text/layout checks in 18 built-UI Chrome fixtures passed.')
+  console.log('Manifest, PNG dimensions, logo integrity, and Georgian text/layout checks in 19 built-UI Chrome fixtures passed.')
 } finally {
   server.close()
   await rm(profile, { recursive: true, force: true })

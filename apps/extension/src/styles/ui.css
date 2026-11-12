@@ -9,3 +9,14 @@
 .guidance { margin: 0; color: #64748B; font-size: 11px; line-height: 1.6; text-align: center; padding: 10px 8px 0; }
 .notice { margin: 12px 0 0; padding: 12px; border: 1px solid #BFDBFE; background: #EFF6FF; border-radius: 10px; font-size: 12px; line-height: 1.5; color: #1E40AF; }
 @media (prefers-reduced-motion: reduce) { .import-button { transition: none; } }
+
+.transfer-progress { margin-top: 14px; padding: 14px; border: 1px solid #E2E8F0; border-radius: 12px; background: #F8FAFC; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.transfer-progress p { margin: 6px 0; }
+.missing { color: #92400E; font-weight: 600; }
+
+.vehicle-review h2 { font-size: 15px; margin: 0 0 10px; }
+.vehicle-review dl div { padding: 8px 0; border-bottom: 1px solid #E2E8F0; }
+.vehicle-review dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+.vehicle-review ul { padding-left: 16px; }
+.vehicle-review li { margin: 8px 0; }
+.vehicle-review .import-button { margin-top: 10px; }

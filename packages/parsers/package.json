@@ -1,0 +1,19 @@
+{
+  "name": "@auto-importer/parsers",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/manheim24.ts",
+    "./myauto": "./src/myauto.ts",
+    "./validation": "./src/validation.ts",
+    "./normalization": "./src/normalization.ts"
+  },
+  "dependencies": {
+    "@auto-importer/shared": "*"
+  },
+  "scripts": {
+    "test": "node tests/run-browser.mjs",
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

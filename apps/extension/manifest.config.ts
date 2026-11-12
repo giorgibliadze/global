@@ -7,14 +7,20 @@ export default defineManifest({
   version: "1.0.0",
   description: "ავტომობილის განცხადებების გადატანა აუქციონებიდან MyAuto.ge-ზე",
 
-  permissions: ["activeTab", "storage", "tabs"],
+  permissions: ["activeTab", "storage", "tabs", "alarms"],
 
   host_permissions: [
     "https://*.manheim.com/*",
+    "https://home.manheim24.com/*",
+    "https://*.manheim24.com/*",
     "https://*.edgepipeline.com/*",
     "https://*.adesa.com/*",
-    "https://*.myauto.ge/*"
+    "https://*.myauto.ge/*",
+    "https://i.fyuse.com/*",
+    "https://images.cdn.manheim.com/*"
   ],
+
+  background: { service_worker: "src/background/index.ts", type: "module" },
 
   icons: {
     16: "icons/auto-importer-16.png",
@@ -26,10 +32,16 @@ export default defineManifest({
   content_scripts: [{
     matches: [
       "*://*.manheim.com/*",
+      "https://*.manheim24.com/*",
       "*://*.adesa.com/*",
       "*://*.edgepipeline.com/*"
     ],
     js: ["src/content/index.tsx"],
+    run_at: "document_idle",
+    all_frames: false
+  }, {
+    matches: ["https://*.myauto.ge/*"],
+    js: ["src/myauto/index.tsx"],
     run_at: "document_idle",
     all_frames: false
   }],
@@ -38,6 +50,7 @@ export default defineManifest({
     resources: ["icons/auto-importer-128.png", "images/global-auto-transporter-logo.png"],
     matches: [
       "*://*.manheim.com/*",
+      "https://*.manheim24.com/*",
       "*://*.adesa.com/*",
       "*://*.edgepipeline.com/*"
     ]

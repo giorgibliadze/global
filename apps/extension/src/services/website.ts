@@ -1,5 +1,6 @@
 export const auctionSites = [
   { name: 'Manheim', domain: 'manheim.com' },
+  { name: 'Manheim24', domain: 'manheim24.com' },
   { name: 'ADESA', domain: 'adesa.com' },
   { name: 'Edge Pipeline', domain: 'edgepipeline.com' },
 ] as const

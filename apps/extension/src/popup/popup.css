@@ -17,7 +17,7 @@ h1 { font-size: 22px; font-weight: 750; letter-spacing: -.6px; }
 .loading .status-dot { background: transparent; border: 2px solid #BFDBFE; border-top-color: #2563EB; width: 11px; height: 11px; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .supported-sites { margin-top: 20px; }
-.supported-sites ul { display: flex; gap: 7px; padding: 0; margin: 10px 0 0; list-style: none; }
+.supported-sites ul { display: flex; flex-wrap: wrap; gap: 7px; padding: 0; margin: 10px 0 0; list-style: none; }
 .supported-sites li { border: 1px solid #E2E8F0; border-radius: 7px; padding: 7px 10px; background: #F8FAFC; font-size: 11px; font-weight: 600; color: #475569; }
 footer { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid #E2E8F0; margin-top: 20px; padding-top: 13px; font-size: 9px; letter-spacing: .3px; color: #64748B; }
 @media (prefers-reduced-motion: reduce) { button { transition: none; } .loading .status-dot { animation: none; } }

@@ -1,3 +1,4 @@
+import { registerManheimParser } from './manheim'
 import { createRoot } from 'react-dom/client'
 import { detectWebsite } from '../services/website'
 import { FloatingLauncher } from './FloatingLauncher'
@@ -11,6 +12,7 @@ const website = detectWebsite(window.location.href)
 // The host lives outside the page body so ordinary SPA route changes cannot remove it.
 // Match again at runtime as a defense in addition to the manifest's URL restrictions.
 if (window.top === window && website.kind === 'auction' && !document.getElementById(hostId)) {
+  if (website.hostname === 'manheim24.com' || website.hostname.endsWith('.manheim24.com')) registerManheimParser()
   const host = document.createElement('div')
   host.id = hostId
   host.style.setProperty('all', 'initial', 'important')
