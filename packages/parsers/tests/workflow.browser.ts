@@ -1,3 +1,4 @@
+import {runMandatoryTests} from './mandatorySpecifications.browser'
 import {runPhotoRegressionTests} from './photoRegression.browser'
 import {runStagedTests} from './stagedMyauto.browser'
 import { runFormLifecycleTests } from './formLifecycle.browser'
@@ -76,7 +77,7 @@ try {
   const result = await fillMyautoForm(formDoc, v, { dropdownTimeoutMs: 30 })
   check(formDoc.querySelector<HTMLInputElement>('[name="primaryFeatures.vinCode"]')!.value === v.vin, 'VIN text field filled')
   check(controlledState === String(Math.round(v.mileageKm!)) && tracker === '', 'native setter bypasses tracker; bubbling input updates controlled state')
-  check(result.filter(r => r.status === 'filled').length === 9 && result.some(r => r.field === 'მწარმოებელი' && r.status === 'unfilled'), 'honest filled/unfilled summary')
+  check(result.filter(r => r.status === 'filled').length === 10 && result.some(r => r.field === 'მწარმოებელი' && r.status === 'unfilled'), 'honest filled/unfilled summary')
   mileage.value = '999'
   const noOverwrite = await fillMyautoForm(formDoc, v, { dropdownTimeoutMs: 30 })
   check(mileage.value === '999' && noOverwrite.some(r => r.field === 'გარბენი' && r.status === 'unfilled'), 'existing user values preserved')
@@ -90,6 +91,7 @@ try {
   check(unverifiedResults.filter(r => r.status === 'filled').length === 4, 'unverified custom choices are not reported as filled')
   unverifiedFrame.remove()
 
+  await runMandatoryTests(manheim,myauto,check)
   await runPhotoRegressionTests(manheim,check)
   await runStagedTests(manheim,myauto,check)
   await runFormLifecycleTests(manheim,myauto,check)

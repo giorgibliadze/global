@@ -16,6 +16,7 @@ export function Summary({ record,onRetry }: { record: TransferRecord;onRetry?:(r
     <ul>{record.fields.filter(result=>result.key!=='description' && result.field!=='აღწერა').map((result, index) => <li key={result.key ?? index}>
       <strong>{result.status==='filled' && result.persisted?'✓':'⚠'} {result.field}</strong>
       <p>{result.key==='price' && result.status==='filled' && result.persisted?'ფასი — შეთანხმებით':result.status==='filled' && result.persisted?'შევსებულია':result.code==='verification'?'ვერ შენარჩუნდა':'ხელით შესავსები'}</p>
+      {result.sourceValue && result.status!=='filled' && <p>წყაროს მნიშვნელობა: {result.sourceValue}</p>}
     </li>)}</ul>
   </aside>
 }

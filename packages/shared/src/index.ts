@@ -24,6 +24,8 @@ export interface NormalizedVehicle {
   engineCc?: number
   cylinders?: number
   fuel?: string
+  steeringWheel?: string
+  doorCount?: number
   transmission?: string
   drivetrain?: string
   exteriorColor?: string
@@ -45,7 +47,7 @@ export interface NormalizedVehicle {
   warnings: string[]
 }
 export type FieldFailureCode='missing'|'unavailable'|'dependency'|'unresolved'|'verification'|'protected'|'privacy'|'manual'|'unverified'
-export interface FieldResult { evidence?:'react-value'|'myauto-option'|'myauto-choice'|'negotiable'; resetAfter?:string; omissions?:string[];reviewRequired?:boolean; persisted?:boolean; key?:string;retryable?:boolean;code?:FieldFailureCode; field: string; status: 'filled' | 'unfilled' | 'unverified'; reason: string; optionId?: string; optionLabel?: string; match?: 'exact' | 'equivalent' | 'custom' }
+export interface FieldResult { sourceValue?:string; evidence?:'react-value'|'myauto-option'|'myauto-choice'|'negotiable'; resetAfter?:string; omissions?:string[];reviewRequired?:boolean; persisted?:boolean; key?:string;retryable?:boolean;code?:FieldFailureCode; field: string; status: 'filled' | 'unfilled' | 'unverified'; reason: string; optionId?: string; optionLabel?: string; match?: 'exact' | 'equivalent' | 'custom' }
 
 export const transferStageLabels = {
   reading: 'მონაცემების დამუშავება',
@@ -59,7 +61,7 @@ export const transferStageLabels = {
 } as const
 export type TransferStage = keyof typeof transferStageLabels
 export interface PreparedFormField {
-  field:string;label:string;value?:string;selector?:string;dropdownKey?:string
+  field:string;label:string;value?:string;mandatory?:boolean;sourceValue?:string;selector?:string;dropdownKey?:string
   mode:'text'|'choice'|'dropdown'|'manual'|'toggle';verifySelector?:string;reason?:string
   optionValue?:{exactText?:boolean;candidates:string[];equivalents?:string[];engineCc?:number;engineUnit?:'liters'}
 }

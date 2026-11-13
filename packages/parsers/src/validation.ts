@@ -2,7 +2,7 @@ import type { NormalizedVehicle } from '@auto-importer/shared'
 import { safePhotoUrl } from './manheim24'
 const plain = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value)
 const text = (value: unknown, size = 500) => typeof value === 'string' && value.length <= size && !/(?:Bearer\s+[a-z0-9._-]{20,}|eyJ[a-z0-9_-]{20,}\.[a-z0-9_-]{20,})/i.test(value)
-const rawKeys = new Set(['fullModelName','baseModel','title','vin','model','catalogModel','models','structuredShortDescription','trim','make','year','sourceTrim','odometer','odometerUnits','engineDisplacement','engineType','engineFuelType','transmission','driveTrain','exteriorColor','interiorColor','interiorType','bodyStyle','conditionType','conditionGrade','buyNowPrice','currency','mileageDisplay','sellerTitle','equipment','announcements','description','frameDamageReported','salvageReported','optionalEquipmentSummary','name','startsAt','endsAt','status'])
+const rawKeys = new Set(['doorCount','doors','fullModelName','baseModel','title','vin','model','catalogModel','models','structuredShortDescription','trim','make','year','sourceTrim','odometer','odometerUnits','engineDisplacement','engineType','engineFuelType','transmission','driveTrain','exteriorColor','interiorColor','interiorType','bodyStyle','conditionType','conditionGrade','buyNowPrice','currency','mileageDisplay','sellerTitle','equipment','announcements','description','frameDamageReported','salvageReported','optionalEquipmentSummary','name','startsAt','endsAt','status'])
 export function assertNormalizedVehicle(value: unknown): asserts value is NormalizedVehicle {
   const fail = () => { throw new Error('ავტომობილის მონაცემების ფორმატი ან უსაფრთხოების შემოწმება ვერ დადასტურდა. ახალი ჩანართი არ გაიხსნება.') }
   if (!plain(value) || value.source !== 'Manheim24' || !text(value.title) || typeof value.vin !== 'string' || !/^[A-HJ-NPR-Z0-9]{17}$/.test(value.vin)) return fail()
@@ -11,7 +11,8 @@ export function assertNormalizedVehicle(value: unknown): asserts value is Normal
   for(const key of ['fullModelName','baseModel'])if(value.original[key]!==undefined && !text(value.original[key]))return fail()
   if(value.original.trim!==undefined && value.original.trim!==null && !text(value.original.trim))return fail()
   if (!Array.isArray(value.images) || value.images.length > 15 || !value.images.every(url => typeof url === 'string' && safePhotoUrl(url) === url)) return fail()
-  for (const key of ['listingId','fullModelName','baseModel','bodyStyle','make','model','fuel','transmission','drivetrain','exteriorColor','interiorColor','interiorMaterial','body','condition','optionalEquipmentSummary']) if (value[key] !== undefined && !text(value[key])) return fail()
+  for (const key of ['steeringWheel','listingId','fullModelName','baseModel','bodyStyle','make','model','fuel','transmission','drivetrain','exteriorColor','interiorColor','interiorMaterial','body','condition','optionalEquipmentSummary']) if (value[key] !== undefined && !text(value[key])) return fail()
+  if(value.doorCount!==undefined && (typeof value.doorCount!=='number' || !Number.isInteger(value.doorCount) || value.doorCount<=0))return fail()
   if(value.trim!==undefined && value.trim!==null && !text(value.trim))return fail()
   for (const key of ['year','mileageKm','engineCc','cylinders','conditionGrade','availableImageCount']) {
     const n = value[key]

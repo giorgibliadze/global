@@ -47,7 +47,7 @@ export async function runStagedTests(manheim:string,html:string,check:(value:unk
     planned.push({field:'description',label:'აღწერა',mode:'text',selector:'[data-testid="description-textarea"]',value:'ძველი აღწერა'})
     const filled=await fillMyautoForm(doc,vehicle,{planned,dropdownTimeoutMs:100})
     const checked=await verifyMyautoPersistence(doc,vehicle,filled,planned)
-    check(checked.filter(field=>field.status==='filled'&&field.persisted).length===16,'staged: all 16 supported fields commit; description skipped and condition manual')
+    check(checked.filter(field=>field.status==='filled'&&field.persisted).length===17,'staged: all 17 supported fields commit; description skipped and condition manual')
     check(textInputs===3 && changes===0 && focuses===0,'staged: independent native writes use one input event each; no per-field focus/blur/change probing')
     check(maxMenus===1 && Object.values(counts).every(count=>count===1),'staged: dropdowns are serialized and inspected once')
     check(doc.querySelector<HTMLInputElement>('[data-testid="single-select-input-primaryFeatures.manufacturer"]')!.value==='','staged: manufacturer succeeds without fabricating a tracking-input ID')

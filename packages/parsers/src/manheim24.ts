@@ -1,3 +1,4 @@
+import {explicitSteering,sourceDoorCount} from './mandatorySpecifications'
 import { extractOriginalIdentity } from './identity'
 import type { NormalizedVehicle } from '@auto-importer/shared'
 
@@ -94,7 +95,7 @@ export function parseManheim24(doc: Document): NormalizedVehicle {
   const warnings: string[] = [...identity.warnings]
   const raw: Record<string, string | number | boolean | string[]> = { title, vin }
   // Explicit allowlist: never copy account/contact data, script state, cookies, or tokens.
-  for (const key of ['make', 'year', 'sourceTrim', 'odometer', 'odometerUnits', 'engineDisplacement', 'engineType', 'engineFuelType', 'transmission', 'driveTrain', 'exteriorColor', 'interiorColor', 'interiorType', 'bodyStyle', 'conditionType', 'conditionGrade', 'buyNowPrice', 'currency']) {
+  for (const key of ['doorCount', 'doors', 'make', 'year', 'sourceTrim', 'odometer', 'odometerUnits', 'engineDisplacement', 'engineType', 'engineFuelType', 'transmission', 'driveTrain', 'exteriorColor', 'interiorColor', 'interiorType', 'bodyStyle', 'conditionType', 'conditionGrade', 'buyNowPrice', 'currency']) {
     const v = data[key]
     if (typeof v === 'number' && Number.isFinite(v)) raw[key] = v
     else if (typeof v === 'string' && v.length <= 500) raw[key] = v
@@ -150,6 +151,7 @@ export function parseManheim24(doc: Document): NormalizedVehicle {
     trim: identity.original.trim, mileageKm,
     engineCc: engineToCc(displacement), cylinders: cylinders ? Number(cylinders[1]) : undefined,
     fuel: string(data.engineFuelType) ?? (text(root, 'card-view-engine-fuel-type') || undefined),
+    steeringWheel:explicitSteering(equipment),doorCount:sourceDoorCount(data.doorCount,data.doors),
     transmission: string(data.transmission) ?? (text(root, 'card-view-engine-transmission') || undefined),
     drivetrain: string(data.driveTrain) ?? (text(root, 'card-view-drive-train') || undefined),
     exteriorColor: string(data.exteriorColor), interiorColor: string(data.interiorColor),

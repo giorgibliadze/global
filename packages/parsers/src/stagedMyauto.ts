@@ -70,15 +70,15 @@ export async function fillStagedMyauto(doc:Document,vehicle:NormalizedVehicle,pl
       if(km())await populate([mileage])
     }
     await populate(selected.filter(field=>field.mode==='text'&&(field.field==='trim'||!!options.recoveringFields?.includes(field.field))&&field.field!=='mileageKm'))
-    for(const field of selected.filter(item=>item.mode==='choice')){
+    for(const field of selected.filter(item=>item.mode==='choice').sort((a,b)=>Number(!!b.mandatory)-Number(!!a.mandatory))){
       options.beforeField?.();options.signal?.throwIfAborted()
       const element=field.selector?doc.querySelector<HTMLElement>(field.selector):null
-      if(!field.value || !element){results.push({key:field.field,field:field.label,status:'unfilled',code:field.value?'unavailable':'missing',reason:'არჩევანი ან წყაროს მონაცემი მიუწვდომელია.'});continue}
+      if(!field.value || !element || element.matches('[disabled],[aria-disabled="true"]') || doc.defaultView!.getComputedStyle(element).pointerEvents==='none'){results.push({key:field.field,field:field.label,sourceValue:field.sourceValue,status:'unfilled',code:field.value?'unavailable':'missing',reason:'ხელით შესავსები'});continue}
       const group=element.dataset.testid!.slice('single-checkbox-'.length).replace(/-[^-]+$/,'')
       const other=[...doc.querySelectorAll(`[data-testid^="single-checkbox-${group}-"]`)].some(node=>node!==element&&selectedChoice(node))
-      if(other){results.push({key:field.field,field:field.label,status:'unfilled',code:'protected',reason:'არსებული არჩევანი არ გადაგვიწერია.'});continue}
+      if(other){results.push({key:field.field,field:field.label,sourceValue:field.sourceValue,status:'unfilled',code:'protected',reason:'არსებული არჩევანი არ გადაგვიწერია.'});continue}
       if(!selectedChoice(element))element.click()
-      results.push({key:field.field,field:field.label,status:'unverified',evidence:'myauto-choice',optionId:field.value,reason:'კონტროლერის განახლების მოლოდინი.'})
+      results.push({key:field.field,field:field.label,sourceValue:field.sourceValue,status:'unverified',evidence:'myauto-choice',optionId:field.value,reason:'კონტროლერის განახლების მოლოდინი.'})
     }
     await commitTurn(doc,options.signal)
     // Commit just the choice batch. The controller performs the single full

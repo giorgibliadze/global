@@ -9,7 +9,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 const root=fileURLToPath(new URL('../../../',import.meta.url))
-const sourceA=await readFile(join(root,'packages/parsers/tests/fixtures/manheim24.html'),'utf8')
+const specificationTest=process.env.AUTO_SPEC_TEST==='1'
+const sourceA=(await readFile(join(root,'packages/parsers/tests/fixtures/manheim24.html'),'utf8')).replace('&quot;equipment&quot;: null',specificationTest?'&quot;equipment&quot;: [&quot;Right Hand Drive&quot;]':'&quot;equipment&quot;: null')
 const sourceB=sourceA.replaceAll('1HGCM82633A004352','2HGCM82633A004352').replaceAll('1HGCM82633 A004352','2HGCM82633 A004352').replaceAll('M5 Touring Wagon','M3 Touring').replaceAll('&quot;M5&quot;','&quot;M3&quot;').replaceAll('"M5"','"M3"').replaceAll('/fixture/','/fixture-b/')
 const form=await readFile(join(root,'packages/parsers/tests/fixtures/myauto.html'),'utf8')
 const png='iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAAAA+UlEQVR4nO3RQQ0AIAzAwJlBGfIxgYw9ekkFNLk592mxWT+IBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtPnAWxWXIaEEjAAAAAElFTkSuQmCC'
@@ -197,8 +198,8 @@ try {
     },'destination receiver completion '+name)
     if(lazyPhotosTest && name==='A')assert.ok(photosRestored && job.total===15,'Initially empty cached gallery refreshed for the same vehicle after form autofill')
     if(prefetchTest)assert.ok(job.preparation?.cacheHit && job.preparation.extractedAt<=benchmarkEpoch,'Transfer reuses text prepared before the click')
-    if(rhfTest && job.fields.filter(field=>field.status==='filled'&&field.persisted).length!==(retryTest?15:16))console.error('Field outcomes',job.fields.map(({key,status,code,reason})=>({key,status,code,reason})))
-    if(rhfTest)assert.equal(job.fields.filter(field=>field.status==='filled'&&field.persisted).length,retryTest?15:16,'Supported fields persist; the deliberate fuel failure and manual fields stay isolated')
+    if(rhfTest && job.fields.filter(field=>field.status==='filled'&&field.persisted).length!==((specificationTest?18:17)-(retryTest?1:0)))console.error('Field outcomes',job.fields.map(({key,status,code,reason})=>({key,status,code,reason})))
+    if(rhfTest)assert.equal(job.fields.filter(field=>field.status==='filled'&&field.persisted).length,(specificationTest?18:17)-(retryTest?1:0),'Supported fields persist; the deliberate fuel failure and manual fields stay isolated')
     const benchmarkTotal=performance.now()-benchmarkStarted
     if(job.uploaded!==job.total)console.error('Transfer verification errors',job.errors)
     assert.equal(job.uploaded,job.total,'Automatic photo transport and upload acknowledgment complete')
@@ -235,7 +236,7 @@ try {
       await new Promise(resolve=>setTimeout(resolve,100))
       assert.ok(await evaluate(destinationSession,`(()=>{
         const state=window.fixtureState;
-        return state && state.values.vin===document.querySelector('[name="primaryFeatures.vinCode"]').value && state.values.vin.length===17 && state.values.mileage===document.querySelector('[name="primaryFeatures.mileage"]').value && !!state.values.mileage && state.values.description===document.querySelector('[data-testid="description-textarea"]').value && !state.values.description.includes(state.values.vin) && ['manufacturer','model','issueYear','fuelType','engineVolume','cylinders'].every(key=>state.selected[key]?.id==='fixture-'+key) && state.selected.model.label===${JSON.stringify(model)} && ${rhfTest?"state.values.negotiable==='true' && document.querySelector('[name=\"sale.isNegotiablePrice\"]').checked &&":''} state.photos===15 && state.uploads===1 && state.published===0;
+        return state && state.values.vin===document.querySelector('[name="primaryFeatures.vinCode"]').value && state.values.vin.length===17 && state.values.mileage===document.querySelector('[name="primaryFeatures.mileage"]').value && !!state.values.mileage && state.values.description===document.querySelector('[data-testid="description-textarea"]').value && !state.values.description.includes(state.values.vin) && ['manufacturer','model','issueYear','fuelType','engineVolume','cylinders'].every(key=>state.selected[key]?.id==='fixture-'+key) && state.selected.model.label===${JSON.stringify(model)} && ${rhfTest?"state.values.transmission==='2' && state.values.drivetrain==='3' && state.values.doorCount==='2' && state.values.steeringWheel==='"+(specificationTest?'1':'')+"' && state.values.negotiable==='true' && document.querySelector('[name=\"sale.isNegotiablePrice\"]').checked &&":''} state.photos===15 && state.uploads===1 && state.published===0;
       })()`),'Actual React form state survives blur, rerender, another field and photo side effects without submission')
       console.log('PASS real React state: native input/change + blur commit, pointer options, dependent models, post-photo recovery, no publication')
     }

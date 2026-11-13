@@ -1,3 +1,4 @@
+import {mandatorySpecifications} from './mandatorySpecifications'
 import {enableNegotiablePrice,negotiableSelected,negotiableSelector} from './negotiablePrice'
 import {isMyautoControllerForm} from './myautoContract'
 import {fillStagedMyauto,readStagedFields} from './stagedMyauto'
@@ -75,8 +76,7 @@ export function myautoFields(v: NormalizedVehicle): FormField[] {
       verifySelector: id === undefined ? undefined : testid(`single-checkbox-input-primaryFeatures.${key}-${id}`),
     })
   }
-  choice('transmission', 'გადაცემათა კოლოფი', 'gearTypeId', v.transmission, { automatic: 2, auto: 2, manual: 1, cvt: 4 })
-  choice('drivetrain', 'წამყვანი თვლები', 'driveTypeId', v.drivetrain, { awd: 3, '4wd': 3, fwd: 1, rwd: 2 })
+  fields.push(...mandatorySpecifications(v))
   choice('exteriorColor', 'ძარის ფერი', 'vehicleColorId', v.exteriorColor, { white: 1, black: 16, silver: 12, gray: 13, grey: 13, red: 8, blue: 14, yellow: 4, green: 5, orange: 9, gold: 6, purple: 19, pink: 18, beige: 2, burgundy: 11, brown: 7 })
   choice('interiorColor', 'სალონის ფერი', 'saloonColorId', v.interiorColor, { black: 16, white: 1, gray: 13, grey: 13, brown: 7, beige: 2, red: 8, blue: 3, yellow: 4, orange: 9, burgundy: 11, gold: 6 })
   choice('interiorMaterial', 'სალონის მასალა', 'saloonMaterialId', v.interiorMaterial, { leather: 1, cloth: 2 })
@@ -123,7 +123,7 @@ export async function fillMyautoForm(doc: Document, vehicle: NormalizedVehicle, 
     options.signal?.throwIfAborted()
     options.beforeField?.()
     options.onField?.(field.label)
-    const fail = (reason:string,code:FieldFailureCode='unresolved',retryable=['unavailable','verification'].includes(code)) => results.push({key:field.field,field:field.label,status:'unfilled',reason,code,retryable})
+    const fail = (reason:string,code:FieldFailureCode='unresolved',retryable=['unavailable','verification'].includes(code)) => results.push({key:field.field,field:field.label,sourceValue:field.sourceValue,status:'unfilled',reason,code,retryable})
     let omissions:string[]|undefined,reviewRequired=false
     let diagnostic:DropdownDiagnostic | undefined
     const descriptor={...field.optionValue!,interaction:'pointer' as const,onPhase:options.onFieldStage,onDiagnostic:(item:DropdownDiagnostic)=>{diagnostic=item;reportDropdown(item);options.onTiming?.('dropdownDiscovery',item.discoveryMs ?? 0);options.onTiming?.('dropdownSelection',item.selectionMs ?? 0);options.onTiming?.('matching',item.matchingMs ?? 0);options.onTiming?.('fieldVerification',item.verificationMs ?? 0)}}
@@ -250,7 +250,7 @@ export function verifyMyautoFields(doc: Document, vehicle: NormalizedVehicle, re
       valid = matchesOption(selected, field.optionValue!) && !!result.optionId && doc.querySelector<HTMLInputElement>(`[data-testid="single-select-input-primaryFeatures.${field.dropdownKey}"]`)?.value === result.optionId
     }
     if (field.field === 'mileageKm') valid &&= doc.querySelector('[data-testid="single-select-value-primaryFeatures.mileageType"]')?.textContent?.trim() === 'კმ'
-    return valid ? result : { key:field.field,field: result.field, status: 'unfilled',persisted:false,code:'verification',retryable:true, reason: 'საბოლოო შემოწმებისას მნიშვნელობა შეიცვალა ან ვერ დადასტურდა.' }
+    return valid ? result : { key:field.field,field: result.field,sourceValue:field.sourceValue, status: 'unfilled',persisted:false,code:'verification',retryable:true, reason: 'საბოლოო შემოწმებისას მნიშვნელობა შეიცვალა ან ვერ დადასტურდა.' }
   })
 }
 
