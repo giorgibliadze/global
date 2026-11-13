@@ -1,3 +1,5 @@
+import { PreparedVehicles } from './preparation'
+import type { PreparedVehicle } from './preparation'
 import { MODEL_TRIM_WARNING } from '@auto-importer/parsers'
 import { pipelineLog } from '../services/diagnostics'
 import { timingStages } from '@auto-importer/shared'
@@ -29,6 +31,7 @@ const selectedIdentity=(vehicle:NormalizedVehicle)=>JSON.stringify([vehicle.sour
 interface VehicleReview { reviewId: string; sourceTabId: number; vehicle: NormalizedVehicle; createdAt: number }
 const REVIEW_TTL = 5 * 60 * 1000
 export class TransferManager {
+  private preparations=new PreparedVehicles()
   private beginnings=new Map<string,Promise<TransferRecord>>()
   private activeDownloads=0
   private downloadQueue:Array<()=>void>=[]
@@ -85,6 +88,7 @@ export class TransferManager {
     return valid.size
   }
   async tabClosed(tabId: number) {
+    this.preparations.remove(tabId)
     const entries = await this.api.storage.session.get(null)
     for (const [key, value] of Object.entries(entries)) {
       if (!key.startsWith('job:')) continue
@@ -128,15 +132,29 @@ export class TransferManager {
     const tab=sender.tab ?? (await this.api.tabs.query({active:true,currentWindow:true}))[0]
     if(tab?.id===undefined || !isManheimSource(tab.url))throw new Error('გახსენით ავტომობილის დეტალები Manheim24-ზე.')
     const bound={...sender,tab}
-    const review=await this.review(bound)
-    const key=`${tab.id}:${selectedIdentity(review.vehicle)}`
-    const pending=this.beginnings.get(key)
-    if(pending){await this.api.storage.session.remove(`review:${review.reviewId}`);return pending}
-    const operation=this.start(bound,review.reviewId)
-    this.beginnings.set(key,operation)
-    try{return await operation}finally{if(this.beginnings.get(key)===operation)this.beginnings.delete(key)}
+    for(let attempt=0;attempt<3;attempt++) {
+      const resolved=await this.api.tabs.sendMessage(tab.id,{type:'MANHEIM_RESOLVE'}) as {ok?:boolean;vehicle?:NormalizedVehicle;preparationId?:string}
+      if(!resolved?.ok)throw new Error('მონაცემები ვერ მომზადდა. დაელოდეთ ავტომობილის დეტალების ჩატვირთვას.')
+      let prepared:PreparedVehicle|undefined
+      if(resolved?.ok && resolved.vehicle && uuid(resolved.preparationId)){
+        assertNormalizedVehicle(resolved.vehicle)
+        prepared=this.preparations.get(tab.id,resolved.preparationId)
+        if(prepared && (selectedIdentity(prepared.vehicle)!==selectedIdentity(resolved.vehicle) || vehicleSnapshot(prepared.vehicle)!==vehicleSnapshot(resolved.vehicle)))prepared=undefined
+        if(!prepared){this.preparations.invalidate(tab.id,resolved.preparationId);prepared=this.preparations.prepare(tab.id,resolved.preparationId,resolved.vehicle,Date.now())}
+      }
+      const review=prepared?{reviewId:crypto.randomUUID(),sourceTabId:tab.id,vehicle:prepared.vehicle,createdAt:Date.now()}:await this.review(bound)
+      if(prepared)await this.api.storage.session.set({[`review:${review.reviewId}`]:review})
+      const key=`${tab.id}:${selectedIdentity(review.vehicle)}`
+      const pending=this.beginnings.get(key)
+      if(pending){await this.api.storage.session.remove(`review:${review.reviewId}`);return pending}
+      const operation=this.start(bound,review.reviewId,prepared)
+      this.beginnings.set(key,operation)
+      try{return await operation}catch(error){if(!(error instanceof Error) || error.message!=='PREPARATION_SUPERSEDED')throw error}
+      finally{if(this.beginnings.get(key)===operation)this.beginnings.delete(key)}
+    }
+    throw new Error('ავტომობილის მონაცემები ჯერ ახლდება. დაელოდეთ დეტალების ჩატვირთვას და ხელახლა სცადეთ.')
   }
-  async start(sender: Sender, reviewId?: unknown): Promise<TransferRecord> {
+  async start(sender: Sender, reviewId?: unknown, prepared?:PreparedVehicle): Promise<TransferRecord> {
     const tab = sender.tab ?? (await this.api.tabs.query({ active: true, currentWindow: true }))[0]
     if (tab?.id === undefined || !isManheimSource(tab.url)) throw new Error('გახსენით ავტომობილის დეტალები Manheim24-ზე.')
     return this.lock(`source:${tab.id}`, async () => {
@@ -145,7 +163,11 @@ export class TransferManager {
       const reviewed = (await this.api.storage.session.get(`review:${reviewId}`))[`review:${reviewId}`] as VehicleReview | undefined
       if (!reviewed || reviewed.sourceTabId !== tab.id || Date.now()-reviewed.createdAt > REVIEW_TTL) throw new Error('წინასწარი შემოწმება მოძველდა ან სხვა ჩანართს ეკუთვნის. ხელახლა გადაამოწმეთ მონაცემები.')
       const extractionStarted=performance.now()
-      const fresh = await this.extract(tab.id!,reviewId)
+      if(prepared){
+        const verified=await this.api.tabs.sendMessage(tab.id!,{type:'MANHEIM_VERIFY',preparationId:prepared.summary.id}) as {ok?:boolean;verified?:boolean}
+        if(!verified?.ok || !verified.verified){await this.api.storage.session.remove(`review:${reviewId}`);throw new Error('PREPARATION_SUPERSEDED')}
+      }
+      const fresh = prepared?prepared.vehicle:await this.extract(tab.id!,reviewId)
       const sourceExtraction=performance.now()-extractionStarted
       if (selectedIdentity(reviewed.vehicle) !== selectedIdentity(fresh)) throw new Error('არჩეული ავტომობილი ან მისი მონაცემები შეიცვალა. ხელახლა გადაამოწმეთ ორიგინალი და ქართული მონაცემები.')
       const vehicle = structuredClone(reviewed.vehicle)
@@ -166,7 +188,8 @@ export class TransferManager {
       const entries = await this.api.storage.session.get(null)
       if (Object.entries(entries).filter(([k,v]) => k.startsWith('job:') && (v as TransferRecord).status === 'running').length >= 4) throw new Error('ერთდროულად მაქსიმუმ ოთხი გადატანაა შესაძლებელი. დაელოდეთ მიმდინარე ოპერაციებს.')
       const record: TransferRecord = {
-        timings:{sourceExtraction}, id: reviewed.reviewId, sourceTabId: tab.id!, vehicle,
+        preparedFields:prepared?.fields,preparation:prepared?.summary,
+        timings:{sourceExtraction,...(prepared?{prefetch:prepared.summary.durationMs,prefetchNormalization:prepared.summary.normalizationMs}:{})}, id: reviewed.reviewId, sourceTabId: tab.id!, vehicle,
         createdAt: Date.now(), updatedAt: Date.now(), stage: 'preparing', status: 'running', claimed: false,
         photos: { total: vehicle.images.length, prepared: 0, uploaded: 0, failed: 0 }, fields: [], errors: [],
       }
@@ -177,6 +200,7 @@ export class TransferManager {
       try {
         record.stage = 'opening'; await this.save(record)
         pipelineLog(record.id,'opening','started')
+        if(prepared){const final=await this.api.tabs.sendMessage(tab.id!,{type:'MANHEIM_VERIFY',preparationId:prepared.summary.id}) as {ok?:boolean;verified?:boolean};if(!final?.ok || !final.verified)throw new Error('PREPARATION_SUPERSEDED')}
         const target: Tab = await this.api.tabs.create({ url: 'https://myauto.ge/ka/add' })
         if (target.id === undefined) throw new Error('MyAuto-ს გახსნა ვერ მოხერხდა.')
         record.destinationTabId = target.id
@@ -185,14 +209,23 @@ export class TransferManager {
         await this.api.alarms?.create('auto-importer-cleanup', { delayInMinutes: 30 })
         pipelineLog(record.id,'opening','completed')
         return record
-      } catch {
+      } catch (error) {
+        if(error instanceof Error && error.message==='PREPARATION_SUPERSEDED'){await this.remove(record);throw error}
         pipelineLog(record.id,'opening','failed')
         record.status = 'error'; record.errors = ['MyAuto-ს ახალი ჩანართის გახსნა ვერ დასრულდა.']; await this.save(record)
-        throw new Error(record.errors[0])
+        throw new Error(record.errors[0],{cause:error})
       }
     })
   }
   async handle(message: Record<string, unknown>, sender: Sender): Promise<unknown> {
+    if(message.type==='PREFETCH_INVALIDATE' || message.type==='PREFETCH_PREPARE'){
+      const tab=sender.tab?.id
+      if(tab===undefined || !isManheimSource(sender.tab?.url) || !uuid(message.preparationId))throw new Error('მომზადების წყარო არასწორია.')
+      if(message.type==='PREFETCH_INVALIDATE'){this.preparations.invalidate(tab,message.preparationId);return true}
+      if(typeof message.observedAt!=='number' || Math.abs(Date.now()-message.observedAt)>120000)throw new Error('მომზადების დრო არასწორია.')
+      assertNormalizedVehicle(message.vehicle)
+      return !!this.preparations.prepare(tab,message.preparationId,message.vehicle,message.observedAt)
+    }
     if(message.type==='TRANSFER_BEGIN')return this.begin(sender)
     if (message.type === 'TRANSFER_REVIEW') return this.review(sender)
     if (message.type === 'TRANSFER_START') return this.start(sender,message.reviewId)
@@ -276,7 +309,7 @@ export class TransferManager {
       if(message.timings!==undefined){if(!validTimings(message.timings))throw new Error('დროის გაზომვის ფორმატი არასწორია.');latest.timings=message.timings}
       latest.currentField=undefined;latest.fields = fields; latest.errors = errors; latest.photos.uploaded = message.uploaded as number
       latest.photos.failed = latest.photos.total - latest.photos.uploaded
-      latest.status = errors.length || fields.some(f => f.status === 'unfilled') || latest.photos.failed > 0 ? 'error' : 'review'
+      latest.status = errors.length || fields.some(f => f.status !== 'filled' || f.reviewRequired) || latest.photos.failed > 0 ? 'error' : 'review'
       latest.stage = latest.status === 'review' ? 'review' : 'verifying'
       await this.save(latest); await this.photos.remove(record.id); return latest
     })
@@ -286,7 +319,7 @@ export class TransferManager {
 function isFieldResult(value: unknown): value is FieldResult {
   if (!value || typeof value !== 'object') return false
   const f = value as FieldResult
-  return (f.persisted===undefined || typeof f.persisted==='boolean') && (f.retryable===undefined || typeof f.retryable==='boolean') && (f.key===undefined || (typeof f.key==='string' && /^[a-zA-Z]{1,30}$/.test(f.key))) && (f.code===undefined || ['missing','unavailable','dependency','unresolved','verification','protected','privacy','manual'].includes(f.code)) && (f.optionId === undefined || (typeof f.optionId === 'string' && f.optionId.length<=200)) && (f.optionLabel === undefined || (typeof f.optionLabel === 'string' && f.optionLabel.length<=500)) && (f.match === undefined || ['exact','equivalent','custom'].includes(f.match)) && typeof f.field === 'string' && f.field.length <= 120 && ['filled','unfilled'].includes(f.status) && typeof f.reason === 'string' && f.reason.length <= 500
+  return (f.evidence===undefined || ['react-value','myauto-option','myauto-choice'].includes(f.evidence)) && (f.resetAfter===undefined || (typeof f.resetAfter==='string' && /^[a-zA-Z]{1,30}$/.test(f.resetAfter))) && (f.reviewRequired===undefined || typeof f.reviewRequired==='boolean') && (f.omissions===undefined || (Array.isArray(f.omissions) && f.omissions.length<=10 && f.omissions.every(item=>typeof item==='string' && item.length<=500))) && (f.persisted===undefined || typeof f.persisted==='boolean') && (f.retryable===undefined || typeof f.retryable==='boolean') && (f.key===undefined || (typeof f.key==='string' && /^[a-zA-Z]{1,30}$/.test(f.key))) && (f.code===undefined || ['missing','unavailable','dependency','unresolved','verification','protected','privacy','manual','unverified'].includes(f.code)) && (f.optionId === undefined || (typeof f.optionId === 'string' && f.optionId.length<=200)) && (f.optionLabel === undefined || (typeof f.optionLabel === 'string' && f.optionLabel.length<=500)) && (f.match === undefined || ['exact','equivalent','custom'].includes(f.match)) && typeof f.field === 'string' && f.field.length <= 120 && ['filled','unfilled','unverified'].includes(f.status) && typeof f.reason === 'string' && f.reason.length <= 500
 }
 
 function validTimings(value:unknown): value is TransferTimings {

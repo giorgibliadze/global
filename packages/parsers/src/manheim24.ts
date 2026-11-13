@@ -51,7 +51,7 @@ function visible(element: Element): boolean {
   return true
 }
 
-export function parseManheim24(doc: Document): NormalizedVehicle {
+function selectedManheim24(doc: Document) {
   const roots = [...doc.querySelectorAll('.VehicleDetails__container')].filter(el => visible(el) && [...el.querySelectorAll('[data-testid="vdp-title-text"]')].some(visible))
   if (roots.length !== 1) throw new Error('გახსენით მხოლოდ ერთი ავტომობილის დეტალური გვერდი და ხელახლა სცადეთ.')
   const root = roots[0]
@@ -68,6 +68,16 @@ export function parseManheim24(doc: Document): NormalizedVehicle {
     } catch { /* Fall back to the confirmed detail attributes, never other page scripts. */ }
   }
   const identity = extractOriginalIdentity(data,title,vin)
+  return {root,title,vin,data,identity}
+}
+// Same validated selected-detail evidence as the parser, without specifications,
+// photos or description generation. Identity keys stay internal and are never logged.
+export function inspectManheim24Selection(doc:Document):{key:string;root:Element} {
+  const {root,title,vin,data,identity}=selectedManheim24(doc)
+  return {root,key:JSON.stringify([string(data.id),vin,title,identity.original.manufacturer,identity.original.fullModelName])}
+}
+export function parseManheim24(doc: Document): NormalizedVehicle {
+  const {root,title,vin,data,identity}=selectedManheim24(doc)
   const warnings: string[] = [...identity.warnings]
   const raw: Record<string, string | number | boolean | string[]> = { title, vin }
   // Explicit allowlist: never copy account/contact data, script state, cookies, or tokens.

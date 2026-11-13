@@ -57,7 +57,7 @@ export function selectableOption(option:HTMLElement):boolean {
   return shown(option) && !option.closest('[aria-disabled="true"],[disabled],[inert]')
 }
 export function visibleOptions(scopes:Element[]):HTMLElement[] {
-  return [...new Set(scopes.flatMap(scope=>[...(scope.matches('[role="option"]')?[scope as HTMLElement]:[]),...scope.querySelectorAll<HTMLElement>('[role="option"]')]))]
+  return [...new Set(scopes.flatMap(scope=>[...(scope.matches('[role="option"],option,[data-value]')?[scope as HTMLElement]:[]),...scope.querySelectorAll<HTMLElement>('[role="option"],option,[data-value]')]))]
     .filter(readableOption)
 }
 export function availableOptions(scopes:Element[]):HTMLElement[] {

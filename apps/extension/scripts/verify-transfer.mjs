@@ -13,15 +13,19 @@ const sourceA=await readFile(join(root,'packages/parsers/tests/fixtures/manheim2
 const sourceB=sourceA.replaceAll('1HGCM82633A004352','2HGCM82633A004352').replaceAll('1HGCM82633 A004352','2HGCM82633 A004352').replaceAll('M5 Touring Wagon','M3 Touring').replaceAll('&quot;M5&quot;','&quot;M3&quot;').replaceAll('"M5"','"M3"').replaceAll('/fixture/','/fixture-b/')
 const form=await readFile(join(root,'packages/parsers/tests/fixtures/myauto.html'),'utf8')
 const png='iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAAAA+UlEQVR4nO3RQQ0AIAzAwJlBGfIxgYw9ekkFNLk592mxWT+IBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtPnAWxWXIaEEjAAAAAElFTkSuQmCC'
+const prefetchTest=process.env.AUTO_PREFETCH_TEST==='1'
 const reactTest=process.env.AUTO_REACT_TEST==='1'
+const rhfTest=reactTest && !!process.env.AUTO_RHF_MODULE
+const mechanismOnly=process.env.AUTO_MECHANISM_ONLY==='1'
+const batchTest=reactTest && process.env.AUTO_BATCHED_TEST==='1'
 const reactFixture=reactTest?await buildReactFixture():''
 const retryTest=process.env.AUTO_RETRY_TEST==='1'
 let photoRequests=0
 let source=sourceA,model='M5 Touring Wagon'
-const timingScript=`<script>addEventListener('input',event=>{const input=event.target;if(!(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) || input.type==='hidden' || input.type==='search' || !input.value)return;window.fixtureFirstFieldAt ??=Date.now();if(input.name==='primaryFeatures.mileage')window.fixtureMileageAt ??=Date.now()},true)</script>`
+const timingScript=`<script>addEventListener('input',event=>{const input=event.target;if(!(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) || input.type==='hidden' || input.type==='search' || !input.value || !(input.name?.startsWith('primaryFeatures.') || input.dataset.testid==='description-textarea'))return;window.fixtureFirstFieldAt ??=Date.now();if(input.name==='primaryFeatures.mileage')window.fixtureMileageAt ??=Date.now()},true)</script>`
 function destination() {
   // Only this local fixture has these synthetic options/IDs and upload acknowledgments.
-  if(reactTest)return '<!doctype html><meta charset="utf-8"><body>'+timingScript+'<script>window.fixtureConfiguration='+JSON.stringify({model,resetAfterUpload:true,pointerOnly:true,failFuel:retryTest})+';</script><script>'+reactFixture.replaceAll('</script','<\\/script')+'</script>'
+  if(reactTest)return '<!doctype html><meta charset="utf-8"><body>'+timingScript+'<script>window.fixtureConfiguration='+JSON.stringify({model,batchedValidation:batchTest,resetAfterUpload:true,pointerOnly:true,failFuel:retryTest})+';</script><script>'+reactFixture.replaceAll('</script','<\\/script')+'</script>'
   return form+timingScript+`<script>
     window.fixtureFailFuel=${retryTest};window.fixtureOpenCounts={};
     const labels={manufacturer:'BMW',model:${JSON.stringify(model)},issueYear:'2026',fuelType:'დამუხტვადი ჰიბრიდი',engineVolume:'4.4',cylinders:'8',vehicleCategory:'უნივერსალი'};
@@ -66,7 +70,7 @@ const profile=await mkdtemp(join(tmpdir(),'auto-importer-mv3-'))
 let chromeProcess,socket
 try {
   const endpoint=await new Promise((resolve,reject)=>{
-    chromeProcess=spawn(process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',['--headless=new','--no-first-run','--no-default-browser-check','--disable-gpu','--disable-background-networking','--host-resolver-rules=MAP * ~NOTFOUND','--enable-unsafe-extension-debugging',`--user-data-dir=${profile}`,'--remote-debugging-port=0','about:blank'],{stdio:['ignore','ignore','pipe']})
+    chromeProcess=spawn(process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',['--headless=new',...(rhfTest?['--window-size=1280,900']:[]),'--no-first-run','--no-default-browser-check','--disable-gpu','--disable-background-networking','--host-resolver-rules=MAP * ~NOTFOUND','--enable-unsafe-extension-debugging',`--user-data-dir=${profile}`,'--remote-debugging-port=0','about:blank'],{stdio:['ignore','ignore','pipe']})
     let stderr='';const timeout=setTimeout(()=>reject(new Error('Chrome startup timed out')),15000)
     chromeProcess.stderr.on('data',chunk=>{stderr+=chunk;const match=stderr.match(/DevTools listening on (ws:\/\/[^\s]+)/);if(match){clearTimeout(timeout);resolve(match[1])}})
     chromeProcess.on('error',reject)
@@ -102,7 +106,7 @@ try {
       if(targetInfo.url==='https://myauto.ge/ka/add')await command('Page.navigate',{url:targetInfo.url},sessionId)
     })().catch(()=>failures.push('Fixture target setup failed'))
   })
-  const {id:extensionId}=await command('Extensions.loadUnpacked',{path:join(root,'apps/extension/dist')})
+  const {id:extensionId}=await command('Extensions.loadUnpacked',{path:process.env.AUTO_EXTENSION_DIST ?? join(root,'apps/extension/dist')})
   const wait=async(predicate,label)=>{for(let attempt=0;attempt<400;attempt++){if(await predicate())return;await new Promise(resolve=>setTimeout(resolve,100))}throw new Error('Timed out: '+label)}
   let worker
   await wait(async()=>{worker=(await command('Target.getTargets')).targetInfos.find(target=>target.type==='service_worker'&&target.url.includes(extensionId));return !!worker},'extension worker')
@@ -118,24 +122,62 @@ try {
     assert.ok(!result.exceptionDetails,'Fixture evaluation has no exception')
     return result.result.value
   }
+  if(batchTest){
+    const {targetId}=await command('Target.createTarget',{url:'about:blank'})
+    await wait(()=>sessions.has(targetId),'batched React preflight target')
+    const session=sessions.get(targetId)
+    await command('Target.activateTarget',{targetId})
+    await command('Page.navigate',{url:'https://myauto.ge/ka/add'},session)
+    await wait(()=>evaluate(session,'!!window.fixtureState'),'controlled React preflight')
+    await evaluate(session,`(()=>{const input=document.querySelector('[name="primaryFeatures.mileage"]');const peer=document.querySelector('[data-testid="description-textarea"]');input.focus();Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'12345');input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));input.blur();peer.focus();peer.blur()})()`)
+    await new Promise(resolve=>setTimeout(resolve,100))
+    assert.ok(await evaluate(session,`window.fixtureState.values.mileage==='' && document.querySelector('[name="primaryFeatures.mileage"]').value===''`),'Old synchronous blur/peer-blur reproduces lost state in real React fixture')
+    await command('Target.closeTarget',{targetId})
+    console.log('PASS real React regression: old same-task blur/peer-blur loses mileage before transfer')
+  }
+  if(rhfTest){
+    const {targetId}=await command('Target.createTarget',{url:'about:blank'})
+    await wait(()=>sessions.has(targetId),'RHF mechanism target')
+    const session=sessions.get(targetId)
+    await command('Target.activateTarget',{targetId});await command('Page.navigate',{url:'https://myauto.ge/ka/add'},session)
+    await wait(()=>evaluate(session,`!!window.fixtureState && getComputedStyle(document.querySelector('[name="primaryFeatures.mileage"]')).visibility==='visible'`),'real RHF interactive control')
+    await evaluate(session,`(()=>{const input=document.querySelector('[name="primaryFeatures.mileage"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'12345');input.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText',data:'12345'}))})()`)
+    await wait(()=>evaluate(session,`window.fixtureState.values.mileage==='12345'`),'RHF mileage committed through native input')
+    await evaluate(session,`document.querySelector('[name="primaryFeatures.mileage"]').focus();document.getElementById('fixture-other-field').click();window.fixtureForceRender()`)
+    await new Promise(resolve=>setTimeout(resolve,50))
+    assert.ok(await evaluate(session,`window.fixtureState.values.mileage==='12345' && document.querySelector('[name="primaryFeatures.mileage"]').defaultValue==='12345'`),'Public RHF controlled mileage survives peer interaction and rerender')
+    await evaluate(session,`document.querySelector('[data-testid="single-select-trigger-primaryFeatures.manufacturer"]').click()`)
+    await wait(()=>evaluate(session,`!!document.querySelector('[data-testid="single-select-option-primaryFeatures.manufacturer-fixture-manufacturer"]')`),'actual named manufacturer option')
+    await evaluate(session,`document.querySelector('[data-testid="single-select-option-primaryFeatures.manufacturer-fixture-manufacturer"]').click()`)
+    await wait(()=>evaluate(session,`window.fixtureState.selected.manufacturer?.id==='fixture-manufacturer'`),'manufacturer public controller commit')
+    assert.ok(await evaluate(session,`document.querySelector('[data-testid="single-select-input-primaryFeatures.manufacturer"]').value==='' && !!document.querySelector('[data-testid="single-select-clear-primaryFeatures.manufacturer"]')`),'Registration ref stays empty despite committed manufacturer; old ID predicate is invalid')
+    await command('Target.closeTarget',{targetId})
+    console.log('PASS actual public RHF mechanisms: mileage input commit survives rerender; named manufacturer option commits while ref.value remains empty')
+  }
   const shadow=`document.getElementById('global-auto-transporter-launcher')?.shadowRoot`
   await command('Page.navigate',{url:'https://home.manheim24.com/landingPage#/results/fixture-a'},sourceSession)
   await wait(()=>evaluate(sourceSession,`!!${shadow}?.querySelector('.launcher')`),'injected launcher')
   await evaluate(sourceSession,`${shadow}.querySelector('.launcher').click()`)
   const jobs=[]
-  for(const name of ['A','B']) {
+  for(const name of mechanismOnly?[]:['A','B']) {
     await command('Target.activateTarget',{targetId:sourceId})
     await wait(()=>evaluate(sourceSession,`!${shadow}.querySelector('.import-button').disabled`),'source action available '+name)
+    const downloadsAtSelection=photoRequests
     if(name==='B'){
       source=sourceB;model='M3 Touring'
       await evaluate(sourceSession,`document.body.innerHTML=new DOMParser().parseFromString(${JSON.stringify(sourceB)},'text/html').body.innerHTML;history.pushState({},'','#/results/fixture-b')`)
+    }
+    if(prefetchTest){
+      await wait(()=>evaluate(sourceSession,`${shadow}.querySelector('.dock').dataset.preparationState==='ready'`),'automatic preparation ready '+name)
+      assert.equal(photoRequests,downloadsAtSelection,'Prefetch never downloads full-resolution photos')
+      assert.equal((await command('Target.getTargets')).targetInfos.filter(target=>target.type==='page'&&target.url==='https://myauto.ge/ka/add').length,jobs.length,'Prefetch never opens a listing tab')
     }
     const benchmarkStarted=performance.now(),benchmarkEpoch=Date.now()
     await evaluate(sourceSession,`${shadow}.querySelector('.import-button').click();${shadow}.querySelector('.import-button').click()`)
     assert.ok(await evaluate(sourceSession,`!${shadow}.querySelector('.vehicle-review,.review-actions,[aria-modal="true"]')`),'No confirmation UI required')
     let job,inspected=false
     await wait(async()=>{
-      job=await evaluate(workerSession,`(async()=>{const entries=await chrome.storage.session.get(null);const records=Object.entries(entries).filter(([key])=>key.startsWith('job:')).map(([,value])=>value);const job=records.find(record=>record.vehicle.model===${JSON.stringify(model)});return job?{id:job.id,destinationTabId:job.destinationTabId,stage:job.stage,status:job.status,uploaded:job.photos.uploaded,total:job.photos.total,timings:job.timings,fields:job.fields,errors:job.errors}:null})()`)
+      job=await evaluate(workerSession,`(async()=>{const entries=await chrome.storage.session.get(null);const records=Object.entries(entries).filter(([key])=>key.startsWith('job:')).map(([,value])=>value);const job=records.find(record=>record.vehicle.model===${JSON.stringify(model)});return job?{id:job.id,createdAt:job.createdAt,destinationTabId:job.destinationTabId,stage:job.stage,status:job.status,uploaded:job.photos.uploaded,total:job.photos.total,timings:job.timings,fields:job.fields,errors:job.errors,preparation:job.preparation}:null})()`)
       if(reactTest && !inspected && job?.status==='running' && job.fields.some(field=>field.key==='mileageKm' && field.persisted) && job.uploaded<job.total){
         const target=(await command('Target.getTargets')).targetInfos.find(target=>target.type==='page'&&target.url==='https://myauto.ge/ka/add'&&!jobs.some(previous=>previous.targetId===target.targetId))
         const session=target&&sessions.get(target.targetId)
@@ -150,6 +192,9 @@ try {
       assert.ok(notice==='' || notice==='მონაცემების გადატანა დაიწყო','First-click start has no transfer error')
       return job?.status!=='running' && !!job?.destinationTabId
     },'destination receiver completion '+name)
+    if(prefetchTest)assert.ok(job.preparation?.cacheHit && job.preparation.extractedAt<=benchmarkEpoch,'Transfer reuses text prepared before the click')
+    if(rhfTest && job.fields.filter(field=>field.status==='filled'&&field.persisted).length!==(retryTest?15:16))console.error('Field outcomes',job.fields.map(({key,status,code,reason})=>({key,status,code,reason})))
+    if(rhfTest)assert.equal(job.fields.filter(field=>field.status==='filled'&&field.persisted).length,retryTest?15:16,'Supported fields persist; the deliberate fuel failure and manual fields stay isolated')
     const benchmarkTotal=performance.now()-benchmarkStarted
     if(job.uploaded!==job.total)console.error('Transfer verification errors',job.errors)
     assert.equal(job.uploaded,job.total,'Automatic photo transport and upload acknowledgment complete')
@@ -158,11 +203,11 @@ try {
     assert.equal(tabs.length,jobs.length+1,'Each new vehicle opens an independent destination')
     const destinationTarget=tabs.find(target=>!jobs.some(previous=>previous.targetId===target.targetId))
     const destinationSession=sessions.get(destinationTarget.targetId)
-    if(benchmark)console.log('BENCHMARK '+JSON.stringify({version:benchmark,vehicle:name,totalMs:benchmarkTotal,firstDomFieldMs:(await evaluate(destinationSession,'window.fixtureFirstFieldAt'))-benchmarkEpoch,firstMileageMs:(await evaluate(destinationSession,'window.fixtureMileageAt'))-benchmarkEpoch,stages:job.timings}))
+    if(benchmark)console.log('BENCHMARK '+JSON.stringify({version:benchmark,vehicle:name,totalMs:benchmarkTotal,clickToFormReadyMs:job.createdAt-benchmarkEpoch+(job.timings?.destinationReadiness ?? 0),clickToPhotosMs:job.timings?.photoComplete===undefined?undefined:job.createdAt-benchmarkEpoch+job.timings.photoComplete,firstDomFieldMs:(await evaluate(destinationSession,'window.fixtureFirstFieldAt'))-benchmarkEpoch,firstMileageMs:(await evaluate(destinationSession,'window.fixtureMileageAt'))-benchmarkEpoch,verifiedFields:job.fields.filter(field=>field.status==='filled'&&field.persisted).length,preparation:job.preparation,stages:job.timings}))
     if(retryTest){
       const downloadsBefore=photoRequests
       const opensBefore=await evaluate(destinationSession,'({...window.fixtureOpenCounts})')
-      await evaluate(destinationSession,'window.fixtureFailFuel=false')
+      await evaluate(destinationSession,rhfTest?'window.fixtureFailFuel=false;window.fixtureForceRender()':'window.fixtureFailFuel=false')
       const retryShadow=`document.getElementById('auto-importer-results').shadowRoot`
       await wait(()=>evaluate(destinationSession,`!!${retryShadow}.querySelector('.import-button')`),'field retry action')
       await evaluate(destinationSession,`${retryShadow}.querySelector('.import-button').click()`)
@@ -178,7 +223,7 @@ try {
     assert.ok(await evaluate(destinationSession,`(()=>{
       const vin=document.querySelector('[name="primaryFeatures.vinCode"]').value;
       const description=document.querySelector('[data-testid="description-textarea"]').value;
-      return vin.length===17 && !description.includes(vin) && description.includes(${JSON.stringify(model)}) && document.querySelector('[data-testid="single-select-value-primaryFeatures.model"]').textContent===${JSON.stringify(model)} && document.querySelector('[data-testid="single-select-value-primaryFeatures.manufacturer"]').textContent==='BMW' && !!document.querySelector('[name="primaryFeatures.mileage"]').value && ['issueYear','fuelType','engineVolume','cylinders'].every(key=>document.querySelector('[data-testid=\"single-select-input-primaryFeatures.'+key+'\"]').value==='fixture-'+key) && !!document.getElementById('auto-importer-results');
+      return vin.length===17 && !description.includes(vin) && description.includes(${JSON.stringify(model)}) && document.querySelector('[data-testid="single-select-value-primaryFeatures.model"]').textContent===${JSON.stringify(model)} && document.querySelector('[data-testid="single-select-value-primaryFeatures.manufacturer"]').textContent==='BMW' && !!document.querySelector('[name="primaryFeatures.mileage"]').value && ['issueYear','fuelType','engineVolume','cylinders'].every(key=>${rhfTest?"window.fixtureState.selected[key]?.id==='fixture-'+key":"document.querySelector('[data-testid='+JSON.stringify('single-select-input-primaryFeatures.'+key)+']').value==='fixture-'+key"}) && !!document.getElementById('auto-importer-results');
     })()`),'VIN belongs only in dedicated field; exact model, mileage and summary verified')
     if(reactTest){
       assert.ok(inspected,'User can inspect a safe field while photos and form processing continue')
@@ -193,7 +238,7 @@ try {
     jobs.push({...job,targetId:destinationTarget.targetId})
     console.log(`PASS real MV3 vehicle ${name}: first click → parser → real storage → tab → claim → fields → photos → verification`)
   }
-  assert.notEqual(jobs[0].id,jobs[1].id,'Transfer identities remain isolated')
+  if(!mechanismOnly)assert.notEqual(jobs[0].id,jobs[1].id,'Transfer identities remain isolated')
   assert.equal(failures.length,0,failures.join('; '))
   console.log('Real Chrome extension APIs passed. Websites, dropdown options and upload-server completion were simulated; authenticated live end-to-end success is not claimed.')
 } finally {

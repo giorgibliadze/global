@@ -1,0 +1,59 @@
+{
+  "environment": "Isolated desktop Chrome, actual public RHF module, source-derived MyAuto UI; websites and upload acknowledgments simulated",
+  "measurements": [
+    {
+      "version": "staged-contract",
+      "vehicle": "A",
+      "totalMs": 2918.0725279999997,
+      "clickToFormReadyMs": 760,
+      "clickToPhotosMs": 2768,
+      "firstDomFieldMs": 786,
+      "firstMileageMs": 789,
+      "verifiedFields": 16,
+      "stages": {
+        "destinationReadiness": 740,
+        "dropdownBatch": 74.59999999403954,
+        "finalValidation": 1.0999999940395355,
+        "firstField": 473,
+        "firstFieldAfterReady": 42.80000001192093,
+        "formFilling": 242.79999999701977,
+        "normalization": 0.20000000298023224,
+        "photoComplete": 2748,
+        "photoDownload": 881.7000000029802,
+        "photoUpload": 1087.5,
+        "prefetch": 47,
+        "prefetchNormalization": 31.299999997019768,
+        "sourceExtraction": 1.2999999970197678,
+        "textPopulation": 33.099999994039536,
+        "total": 2461
+      }
+    },
+    {
+      "version": "staged-contract",
+      "vehicle": "B",
+      "totalMs": 2888.757386,
+      "clickToFormReadyMs": 911,
+      "clickToPhotosMs": 2839,
+      "firstDomFieldMs": 949,
+      "firstMileageMs": 952,
+      "verifiedFields": 16,
+      "stages": {
+        "destinationReadiness": 812,
+        "dropdownBatch": 109.09999999403954,
+        "finalValidation": 1.2000000029802322,
+        "firstField": 482.40000000596046,
+        "firstFieldAfterReady": 55.5,
+        "formFilling": 189.29999999701977,
+        "normalization": 0.09999999403953552,
+        "photoComplete": 2740,
+        "photoDownload": 793.2999999970198,
+        "photoUpload": 1083.4000000059605,
+        "prefetch": 45,
+        "prefetchNormalization": 12.700000002980232,
+        "sourceExtraction": 3,
+        "textPopulation": 19.799999997019768,
+        "total": 2384.5
+      }
+    }
+  ]
+}

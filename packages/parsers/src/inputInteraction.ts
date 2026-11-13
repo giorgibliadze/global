@@ -5,20 +5,30 @@ function writable(element:HTMLElement):element is TextControl {
   const view=element.ownerDocument.defaultView!
   return (element instanceof view.HTMLInputElement || element instanceof view.HTMLTextAreaElement) && !element.disabled && !element.readOnly && shown(element)
 }
-function blur(control:HTMLElement) {
-  const doc=control.ownerDocument,view=doc.defaultView!
-  if(doc.activeElement===control)control.blur()
-  else {control.dispatchEvent(new view.FocusEvent('blur',{bubbles:false,composed:true}));control.dispatchEvent(new view.FocusEvent('focusout',{bubbles:true,composed:true}))}
-}
-// Touch only an owned form control and a confirmed safe text peer. Never click a
-// submit/action/file control or access a framework's private state/tracker.
-export async function probePersistence(doc:Document,resolve:()=>HTMLElement|null|undefined,valid:()=>boolean,signal?:AbortSignal):Promise<boolean> {
+// A native user event completes its browser task before the next focus event.
+// Synthetic dispatch does not: React can still hold handlers from the previous
+// render. Yield a task before blur and before focusing a different control.
+export function commitTurn(doc:Document,signal?:AbortSignal):Promise<void> {
   signal?.throwIfAborted()
+  return new Promise((resolve,reject)=>{
+    const channel=new doc.defaultView!.MessageChannel()
+    const clean=()=>{channel.port1.close();channel.port2.close();signal?.removeEventListener('abort',abort)}
+    const abort=()=>{clean();reject(signal?.reason)}
+    channel.port1.onmessage=()=>{clean();resolve()}
+    signal?.addEventListener('abort',abort,{once:true})
+    channel.port2.postMessage(null)
+  })
+}
+export async function probePersistence(doc:Document,resolve:()=>HTMLElement|null|undefined,valid:()=>boolean,signal?:AbortSignal):Promise<boolean> {
+  await commitTurn(doc,signal)
   const control=resolve()
   if(!control?.isConnected)return false
-  control.focus({preventScroll:true});blur(control)
-  const peer=[...doc.querySelectorAll<HTMLElement>(peers)].find(element=>element!==resolve() && writable(element))
-  if(peer){peer.focus({preventScroll:true});blur(peer)}
+  // Never dispatch focusout on an unfocused wrapper or focus a field again to
+  // verify it. Doing so can reset a mask/draft or commit stale blur handlers.
+  const active=doc.activeElement
+  if(active instanceof doc.defaultView!.HTMLElement && (active===control || control.contains(active))){active.blur();await commitTurn(doc,signal)}
+  const peer=[...doc.querySelectorAll<HTMLElement>(peers)].find(element=>element!==resolve() && element!==doc.activeElement && writable(element))
+  if(peer){peer.focus({preventScroll:true});await commitTurn(doc,signal)}
   return settleField(doc,()=>{
     const current=resolve()
     return !!current?.isConnected && current.getAttribute('aria-invalid')!=='true' && !current.closest('[aria-busy="true"]') && valid()
@@ -28,6 +38,7 @@ export async function writeControlledInput(doc:Document,resolve:()=>TextControl|
   const view=doc.defaultView!
   for(let attempt=0;attempt<2;attempt++) {
     signal?.throwIfAborted()
+    if(!mayRetry())return false
     const input=resolve()
     if(!input || !writable(input) || (!allowReplace && input.value!=='' && input.value!==value) || (input.maxLength>0 && value.length>input.maxLength))return false
     input.focus({preventScroll:true})

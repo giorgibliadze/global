@@ -1,3 +1,6 @@
+import {runStagedTests} from './stagedMyauto.browser'
+import { runFormLifecycleTests } from './formLifecycle.browser'
+import { runPrefetchTests } from './prefetch.browser'
 import { runPersistenceTests } from './persistence.browser'
 import { runModelDesignationTests } from './modelDesignation.browser'
 import { runOptimizationTests } from './optimization.browser'
@@ -86,6 +89,9 @@ try {
   check(unverifiedResults.filter(r => r.status === 'filled').length === 4, 'unverified custom choices are not reported as filled')
   unverifiedFrame.remove()
 
+  await runStagedTests(manheim,myauto,check)
+  await runFormLifecycleTests(manheim,myauto,check)
+  await runPrefetchTests(manheim,check)
   await runPersistenceTests(check)
   await runModelPrivacyTests(manheim,myauto,check)
   await runIdentityTests(manheim,myauto,check)

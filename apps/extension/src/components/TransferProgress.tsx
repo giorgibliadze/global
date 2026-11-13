@@ -6,6 +6,7 @@ export function TransferProgress({ record }: { record: TransferRecord }) {
   useEffect(()=>{if(record.status!=='running')return;const timer=setInterval(()=>setNow(Date.now()),250);return()=>clearInterval(timer)},[record.id,record.status])
   const completed=record.fields.filter(field=>field.status==='filled' && field.persisted).length
   const failed=record.fields.filter(field=>field.status==='unfilled').length
+  const unverified=record.fields.filter(field=>field.status==='unverified').length
   const unresolved=record.fields.filter(field=>field.status==='unfilled' && !field.retryable).length
   const elapsed=Math.max(0,((record.status==='running'?now:record.updatedAt)-record.createdAt)/1000)
   const activity=record.stage==='filling' && record.activity ? {discovery:'MyAuto-ს ველების შემოწმება',matching:'მონაცემების შესაბამისობის დადგენა',selection:'ფორმის შევსება'}[record.activity]:transferStageLabels[record.stage]
@@ -13,11 +14,12 @@ export function TransferProgress({ record }: { record: TransferRecord }) {
     <p role="status"><strong>{activity}</strong></p>
     <p>{record.vehicle.title}</p>
     {record.currentField && record.status==='running' && <p>შევსება მიმდინარეობს: {record.currentField}</p>}
-    <p>მონაცემების შევსება: {completed}/{record.formTotal ?? record.fields.length} · შეუვსებელი: {failed}</p>
+    <p>ტექსტური მონაცემები: {completed}/{record.formTotal ?? record.fields.length} · შეუვსებელი: {failed}</p>
+    <p>შევსება ვერ გადამოწმდა: {unverified}</p>
     <p>ხელით გადასამოწმებელი შესაბამისობები: {unresolved}</p>
     <p>გასული დრო: {elapsed.toLocaleString('ka-GE',{maximumFractionDigits:1})} წმ</p>
     <p>ჩამოტვირთული ფოტოები: {record.photos.prepared} / {record.photos.total}</p>
-    <p>ფოტოების ატვირთვა: {record.photos.uploaded}/{record.photos.total}</p>
+    <p>ფოტოები: {record.photos.uploaded}/{record.photos.total}</p>
     {record.status === 'error' && <p className="missing">გადატანა სრულად ვერ დადასტურდა. გადაამოწმეთ დარჩენილი ველები და შეცდომები MyAuto-ს ჩანართში.</p>}
     {record.vehicle.warnings.map((warning,index)=><p className="missing" key={`warning-${index}`}>{warning}</p>)}
     {record.errors.map((error, index) => <p className="missing" key={index}>{error}</p>)}

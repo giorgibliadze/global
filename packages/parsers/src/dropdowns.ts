@@ -30,7 +30,7 @@ export async function selectDropdown(doc: Document, key: string, value: Dropdown
   const announce=(stage:'discovery'|'matching'|'selection')=>{if(phase!==stage){phase=stage;value.onPhase?.(stage)}}
   announce('discovery')
   const context=dropdownCacheKey(doc,key),cached=readDropdownCache(doc,key),collected=new Map<string,DiscoveredOption>()
-  let complete=false,restored=false
+  let complete=false,restored=false,expectedOptionId:string|undefined
   const started=performance.now();let clickedAt=started,matchingMs=0
   const selector=dropdownSelector(key,'trigger'),deadline=Date.now()+timeoutMs
   const diagnostic:DropdownDiagnostic={field:key,selector,controlType:'unavailable',opened:false,optionCount:0,expected:safeExpected(value.candidates),matched:false,verified:false,outcome:'unavailable'}
@@ -53,7 +53,7 @@ export async function selectDropdown(doc: Document, key: string, value: Dropdown
     const label=doc.querySelector(dropdownSelector(key,'value'))?.textContent?.trim() ?? ''
     const optionId=doc.querySelector<HTMLInputElement>(dropdownSelector(key,'input'))?.value
     const rank=optionRank(label,value)
-    if(!optionId || optionId.length>200 || !Number.isFinite(rank))return false
+    if((expectedOptionId!==undefined && optionId!==expectedOptionId) || !optionId || optionId.length>200 || !Number.isFinite(rank))return false
     if(owner?.querySelector('[aria-busy="true"]') || owner?.getAttribute('aria-busy')==='true')return false
     lastSelection={optionId,optionLabel:label,match:rank===0?'exact':'equivalent'}
     return true
@@ -106,7 +106,7 @@ export async function selectDropdown(doc: Document, key: string, value: Dropdown
       const matches=Number.isFinite(best)?options.filter(option=>optionRank(option.getAttribute('aria-label') ?? option.textContent ?? '',value)===best):[]
       matchingMs+=performance.now()-matchingStarted
       if(!value.inspectOnly && !chosen && matches.length>1)return finish('ambiguous','ერთზე მეტი შესაბამისი ვარიანტია. არჩევანი არ შესრულდა.')
-      if(!value.inspectOnly && !chosen && matches.length===1){diagnostic.matched=true;announce('selection');clickedAt=performance.now();activateOption(matches[0],value.interaction,signal);chosen=true;continue}
+      if(!value.inspectOnly && !chosen && matches.length===1){diagnostic.matched=true;announce('selection');clickedAt=performance.now();expectedOptionId=optionData(matches[0]).value;activateOption(matches[0],value.interaction,signal);chosen=true;continue}
       if(!chosen) {
         const input=searchInput(doc,key,scopes)
         const queries=value.inspectOnly?[]:[...new Set([...(cachedMatch?[cachedMatch.label]:[]),...value.candidates,...(value.equivalents ?? [])])]
@@ -124,6 +124,7 @@ export async function selectDropdown(doc: Document, key: string, value: Dropdown
       }
       await waitForDropdownChange(doc,deadline-Date.now(),signal)
     }
+    if(chosen && matchesOption(doc.querySelector(dropdownSelector(key,'value'))?.textContent ?? '',value))return finish('unverified','არჩეული დასახელება ჩანს, მაგრამ ფორმის შენახული მნიშვნელობა ვერ გადამოწმდა.')
     return chosen?finish('not-verified','ვარიანტი დაჭერილია, მაგრამ არჩეული სახელი და მნიშვნელობა ფორმამ არ დაადასტურა.'):diagnostic.optionCount?finish('not-matched','ვარიანტები ჩაიტვირთა, მაგრამ ზუსტი ან დადასტურებული შესაბამისობა ვერ მოიძებნა.'):finish('not-discovered','ველის ვარიანტები ვერ წაიკითხა. საჭიროა გახსნილი ჩამოსაშლელი სიის სტრუქტურის შემოწმება.')
   } catch {
     signal?.throwIfAborted()

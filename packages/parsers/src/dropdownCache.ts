@@ -16,7 +16,7 @@ export function dropdownCacheKey(doc:Document,key:string):string | undefined {
   // Conservatively include all other dropdown selections, since live dependencies may
   // exceed manufacturer → model. No VIN, listing data, query strings or session state.
   const dependencies=[...dropdownKeys].filter(field=>field!==key).map(field=>{
-    const value=doc.querySelector<HTMLInputElement>(dropdownSelector(field,'input'))?.value ?? doc.querySelector<HTMLSelectElement>(`select[name="primaryFeatures.${field}"]`)?.value ?? ''
+    const value=doc.querySelector<HTMLInputElement>(dropdownSelector(field,'input'))?.value || doc.querySelector(dropdownSelector(field,'value'))?.textContent?.trim() || doc.querySelector<HTMLSelectElement>(`select[name="primaryFeatures.${field}"]`)?.value || ''
     return safe(value)?`${field}:${value}`:undefined
   })
   if(dependencies.some(value=>value===undefined))return

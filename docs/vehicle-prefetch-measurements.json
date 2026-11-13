@@ -1,0 +1,73 @@
+{
+  "method": "Two sanitized vehicle fixtures; real headless unpacked Chrome MV3; simulated source/MyAuto/options/upload server; 15 images per vehicle with 120 ms response latency; three download workers; automatic preparation must finish before click; benchmark ran without other browser tests; no live authenticated performance claim.",
+  "runs": [
+    {
+      "version": "warm-prefetch",
+      "vehicle": "A",
+      "totalMs": 3222.527217,
+      "clickToFormReadyMs": 256,
+      "clickToPhotosMs": 2155,
+      "firstDomFieldMs": 294,
+      "firstMileageMs": 421,
+      "preparation": {
+        "cacheHit": true,
+        "durationMs": 51,
+        "normalizationMs": 28.5
+      },
+      "stages": {
+        "destinationReadiness": 243,
+        "dropdownDiscovery": 853.1999999880791,
+        "dropdownSelection": 360.20000000298023,
+        "fieldVerification": 531.0000000149012,
+        "finalValidation": 620.5999999940395,
+        "firstField": 75.90000000596046,
+        "firstFieldAfterReady": 74.70000000298023,
+        "formFilling": 2199,
+        "matching": 0.19999998807907104,
+        "normalization": 0.09999999403953552,
+        "photoComplete": 2142,
+        "photoDownload": 746.2999999970198,
+        "photoUpload": 1111.6000000089407,
+        "prefetch": 51,
+        "prefetchNormalization": 28.5,
+        "sourceExtraction": 2.800000011920929,
+        "total": 2863.5
+      },
+      "readyToFirstVisibleMs": 38
+    },
+    {
+      "version": "warm-prefetch",
+      "vehicle": "B",
+      "totalMs": 3275.8054439999996,
+      "clickToFormReadyMs": 353,
+      "clickToPhotosMs": 2287,
+      "firstDomFieldMs": 403,
+      "firstMileageMs": 526,
+      "preparation": {
+        "cacheHit": true,
+        "durationMs": 64,
+        "normalizationMs": 12.599999994039536
+      },
+      "stages": {
+        "destinationReadiness": 330,
+        "dropdownDiscovery": 834.8999999910593,
+        "dropdownSelection": 364.59999999403954,
+        "fieldVerification": 534.5,
+        "finalValidation": 630.3000000119209,
+        "firstField": 88.40000000596046,
+        "firstFieldAfterReady": 87,
+        "formFilling": 2210.5999999940395,
+        "matching": 0.5999999642372131,
+        "normalization": 0.10000000894069672,
+        "photoComplete": 2264,
+        "photoDownload": 771.3999999910593,
+        "photoUpload": 1109.7000000029802,
+        "prefetch": 64,
+        "prefetchNormalization": 12.599999994039536,
+        "sourceExtraction": 7,
+        "total": 2897.1000000089407
+      },
+      "readyToFirstVisibleMs": 50
+    }
+  ]
+}

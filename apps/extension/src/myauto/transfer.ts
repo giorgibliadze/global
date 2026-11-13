@@ -1,6 +1,6 @@
 import { waitForDomReady } from '../services/domReady'
 import { pipelineLog, timingLog } from '../services/diagnostics'
-import { fillMyautoForm, verifyMyautoFields, verifyMyautoPersistence, enforceDescriptionPrivacy, myautoFields } from '@auto-importer/parsers/myauto'
+import { isMyautoControllerForm,textInteractive,fillMyautoForm, verifyMyautoFields, verifyMyautoPersistence, enforceDescriptionPrivacy, myautoFields } from '@auto-importer/parsers/myauto'
 import type { FieldResult, TransferRecord, TransferStage, TimingStage } from '@auto-importer/shared'
 import { request } from '../services/extensionApi'
 import { prepareFiles } from '../photos/client'
@@ -69,12 +69,13 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
   try {
     // Authentication/delayed SPA rendering are handled without private API calls.
     const formReady=()=>!!doc.querySelector('input[name="primaryFeatures.vinCode"],input[name="primaryFeatures.model"],select[name="primaryFeatures.model"],[data-testid="single-select-primaryFeatures.model"],[data-testid="description-textarea"]')
-    await waitForDomReady(doc,()=>{guard();return formReady()},controller.signal,25000)
+    await waitForDomReady(doc,()=>{guard();return formReady() && (!isMyautoControllerForm(doc) || textInteractive(doc))},controller.signal,25000)
+    const formReadyAt=performance.now()
     addTiming('destinationReadiness',Math.max(0,Date.now()-transfer.createdAt))
     assertFreshMyauto(doc)
     await phase('preparing')
     await phase('matching')
-    planned=await measure('normalization',async()=>myautoFields(transfer.vehicle))
+    planned=await measure('normalization',async()=>structuredClone(transfer.preparedFields ?? myautoFields(transfer.vehicle)))
     await phase('filling')
     current.formTotal=planned.length
     let firstField=false
@@ -84,13 +85,13 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
         allowAutofillCorrection:true,dropdownTimeoutMs:options.dropdownTimeoutMs,signal:controller.signal,beforeField:guard,
         onResult:async fields=>{
           guard();current.fields=fields
-          if(!firstField && fields.some(field=>field.status==='filled' && field.persisted)){firstField=true;addTiming('firstField',performance.now()-transferStarted)}
+          if(!firstField && fields.some(field=>field.status==='filled' && field.persisted)){firstField=true;addTiming('firstField',performance.now()-transferStarted);addTiming('firstFieldAfterReady',performance.now()-formReadyAt)}
           update()
           await request({type:'TRANSFER_PROGRESS',id:transfer.id,stage:'filling',fields,formTotal:planned.length,currentField:current.currentField ?? ''})
         },
       }))
       guard();current.currentField=undefined;current.activity=undefined;update()
-      pipelineLog(transfer.id,'filling',results.some(result=>result.status==='unfilled')?'partial':'completed')
+      pipelineLog(transfer.id,'filling',results.some(result=>result.status!=='filled')?'partial':'completed')
     }
     const photoPipeline=async()=>{
       pipelineLog(transfer.id,'uploading','started')
@@ -103,6 +104,7 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
       await waitForDomReady(doc,()=>{guard();return !!doc.querySelector('[data-testid="photo-video-dropzone"] input[type="file"]:not(:disabled)')},controller.signal,options.uploadTimeoutMs ?? 25000)
       const upload=await measure('photoUpload',()=>uploadPhotos(doc,prepared.files,count=>{guard();current.photos.uploaded=count;update()},{timeoutMs:options.uploadTimeoutMs,signal:controller.signal,guard}))
       uploaded=upload.verified;errors.push(...upload.errors)
+      if(uploaded)addTiming('photoComplete',Math.max(0,Date.now()-transfer.createdAt))
       await request({type:'TRANSFER_PROGRESS',id:transfer.id,stage:'filling',uploaded})
       pipelineLog(transfer.id,'uploading',upload.errors.length || prepared.errors.length?'partial':'completed')
     }
@@ -120,10 +122,10 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
     if (!(await enforceDescriptionPrivacy(doc,transfer.vehicle.vin))) throw new Error('აღწერაში საიდენტიფიკაციო მონაცემი ხელახლა გამოჩნდა. შეამოწმეთ ფორმა გამოქვეყნებამდე.')
     const beforeFinal=results
     results = await measure('finalValidation',()=>verifyMyautoPersistence(doc, transfer.vehicle, results,planned,controller.signal))
-    const lost=results.filter(field=>field.status==='unfilled' && field.code==='verification' && beforeFinal.some(previous=>previous.field===field.field && previous.status==='filled')).map(field=>field.key!).filter(Boolean)
+    const lost=results.filter(field=>field.status==='unfilled' && field.code==='verification' && (field.resetAfter || beforeFinal.some(previous=>previous.field===field.field && previous.status==='filled'))).map(field=>field.key!).filter(Boolean)
     if(lost.includes('make') && beforeFinal.some(field=>field.key==='model' && field.status==='filled') && !lost.includes('model'))lost.push('model')
     const recoverable=lost.filter(key=>!userEdited.has(key) && !(key==='model' && userEdited.has('make')))
-    if(recoverable.length){guard();results=await fillMyautoForm(doc,transfer.vehicle,{planned,onlyFields:recoverable,recoveringFields:recoverable,previousResults:results,signal:controller.signal,beforeField:guard,dropdownTimeoutMs:options.dropdownTimeoutMs,onField:label=>{current.currentField=label;update()},onResult:fields=>{current.fields=fields;update()}});results=await verifyMyautoPersistence(doc,transfer.vehicle,results,planned,controller.signal)}
+    if(recoverable.length){guard();results=await fillMyautoForm(doc,transfer.vehicle,{planned,onlyFields:recoverable,recoveringFields:recoverable,previousResults:results,signal:controller.signal,beforeField:guard,dropdownTimeoutMs:options.dropdownTimeoutMs,onField:label=>{current.currentField=label;update()},onResult:fields=>{current.fields=fields;update()}});results=await verifyMyautoPersistence(doc,transfer.vehicle,results,planned,controller.signal,recoverable)}
   } catch (error) {
     if(current.fields.length)results=verifyMyautoFields(doc,transfer.vehicle,current.fields)
     pipelineLog(transfer.id,current.stage === 'opening' || current.stage === 'reading' || current.stage === 'review' ? 'preparing' : current.stage,'failed')
@@ -168,7 +170,7 @@ export async function retryMyautoFields(doc:Document,previous:TransferRecord,onU
   current.timings={...current.timings}
   try {
     guard();onUpdate(structuredClone(current))
-    const planned=myautoFields(current.vehicle)
+    const planned=structuredClone(current.preparedFields ?? myautoFields(current.vehicle))
     const keys=current.fields.filter(field=>field.status==='unfilled' && field.retryable).map(field=>field.key ?? planned.find(item=>item.label===field.field)?.field).filter((key):key is string=>!!key)
     results=await fillMyautoForm(doc,current.vehicle,{planned,dropdownTimeoutMs:options.dropdownTimeoutMs,onlyFields:keys,previousResults:current.fields,signal:controller.signal,beforeField:guard,
       onFieldStage:activity=>{current.activity=activity;onUpdate(structuredClone(current))},

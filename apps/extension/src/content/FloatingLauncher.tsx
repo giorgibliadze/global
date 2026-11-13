@@ -1,9 +1,14 @@
+import { subscribePreparation } from './manheim'
+import type { PreparationStatus } from '@auto-importer/shared'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ExtensionIcon } from '../components/ExtensionIcon'
 import { PopupContent } from '../popup/PopupContent'
 import type { Website } from '../services/website'
 
 export function FloatingLauncher({ website }: { website: Website }) {
+  const [preparation,setPreparation]=useState<PreparationStatus>()
+  useEffect(()=>subscribePreparation(setPreparation),[])
+  const preparationLabel=preparation?{preparing:'ავტომობილის მონაცემები მუშავდება...',ready:'მონაცემები მზად არის',updating:'მონაცემების განახლება მიმდინარეობს...',error:'მონაცემები ვერ მომზადდა'}[preparation]:undefined
   const [open, setOpen] = useState(false)
   const launcher = useRef<HTMLButtonElement>(null)
   const panel = useRef<HTMLElement>(null)
@@ -33,7 +38,7 @@ export function FloatingLauncher({ website }: { website: Website }) {
   }, [open, close])
 
   return (
-    <div lang="ka" className="dock">
+    <div lang="ka" className="dock" data-preparation-state={preparation}>
       {open && (
         <section className="panel" id="auto-importer-panel" ref={panel} role="dialog" aria-modal="false"
           aria-labelledby="auto-importer-title">
@@ -42,6 +47,7 @@ export function FloatingLauncher({ website }: { website: Website }) {
           <PopupContent detection={{ status: 'ready', website }} />
         </section>
       )}
+      {!open && preparationLabel && <span className="preparation-status" role="status">{preparationLabel}</span>}
       <button className="launcher" type="button" ref={launcher}
         aria-label={open ? 'Auto Importer-ის პანელის დახურვა' : 'Auto Importer-ის პანელის გახსნა'}
         title="Auto Importer · GLOBAL AUTO TRANSPORTER" aria-expanded={open}

@@ -44,8 +44,8 @@ export interface NormalizedVehicle {
   raw: Record<string, string | number | boolean | string[]>
   warnings: string[]
 }
-export type FieldFailureCode='missing'|'unavailable'|'dependency'|'unresolved'|'verification'|'protected'|'privacy'|'manual'
-export interface FieldResult { persisted?:boolean; key?:string;retryable?:boolean;code?:FieldFailureCode; field: string; status: 'filled' | 'unfilled'; reason: string; optionId?: string; optionLabel?: string; match?: 'exact' | 'equivalent' | 'custom' }
+export type FieldFailureCode='missing'|'unavailable'|'dependency'|'unresolved'|'verification'|'protected'|'privacy'|'manual'|'unverified'
+export interface FieldResult { evidence?:'react-value'|'myauto-option'|'myauto-choice'; resetAfter?:string; omissions?:string[];reviewRequired?:boolean; persisted?:boolean; key?:string;retryable?:boolean;code?:FieldFailureCode; field: string; status: 'filled' | 'unfilled' | 'unverified'; reason: string; optionId?: string; optionLabel?: string; match?: 'exact' | 'equivalent' | 'custom' }
 
 export const transferStageLabels = {
   reading: 'მონაცემების დამუშავება',
@@ -58,6 +58,13 @@ export const transferStageLabels = {
   review: 'მზადაა გადასამოწმებლად',
 } as const
 export type TransferStage = keyof typeof transferStageLabels
+export interface PreparedFormField {
+  field:string;label:string;value?:string;selector?:string;dropdownKey?:string
+  mode:'text'|'choice'|'dropdown'|'manual';verifySelector?:string;reason?:string
+  optionValue?:{exactText?:boolean;candidates:string[];equivalents?:string[];engineCc?:number;engineUnit?:'liters'}
+}
+export type PreparationStatus='preparing'|'ready'|'updating'|'error'
+export interface PreparationSummary {id:string;extractedAt:number;durationMs:number;normalizationMs:number;cacheHit:boolean}
 export interface TransferRecord {
   id: string
   sourceTabId: number
@@ -72,6 +79,8 @@ export interface TransferRecord {
   photos: { total: number; prepared: number; uploaded: number; failed: number }
   fields: FieldResult[]
   errors: string[]
+  preparedFields?:PreparedFormField[]
+  preparation?:PreparationSummary
   formTotal?:number
   currentField?:string
   activity?:'discovery'|'matching'|'selection'
@@ -79,6 +88,6 @@ export interface TransferRecord {
 }
 export interface PhotoMetadata { index: number; size: number; name: string; mime: string; sha256: string }
 
-export const timingStages = ['sourceExtraction','destinationReadiness','firstField','normalization','dropdownDiscovery','matching','dropdownSelection','fieldVerification','formFilling','photoDownload','photoUpload','finalValidation','total'] as const
+export const timingStages = ['prefetch','prefetchNormalization','sourceExtraction','destinationReadiness','firstField','firstFieldAfterReady','photoComplete','normalization','dropdownDiscovery','matching','dropdownSelection','fieldVerification','formFilling','textPopulation','dropdownBatch','photoDownload','photoUpload','finalValidation','total'] as const
 export type TimingStage = typeof timingStages[number]
 export type TransferTimings = Partial<Record<TimingStage, number>>

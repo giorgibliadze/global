@@ -1,0 +1,74 @@
+{
+  "status": "Baseline only; no adapter changes. Real MyAuto mileage/manufacturer debugging blocked: Chrome JavaScript from Apple Events disabled.",
+  "method": "Existing unpacked MV3 harness, two sanitized vehicle fixtures, warm prefetch, 15 photos per vehicle, 120 ms intercepted image response latency, three download workers. Sites/options/upload acknowledgments simulated. No simultaneous browser tests during timing run. No before/after speedup claim.",
+  "runs": [
+    {
+      "version": "current-architecture",
+      "vehicle": "A",
+      "totalMs": 3340.6540109999996,
+      "clickToFormReadyMs": 311,
+      "clickToPhotosMs": 2380,
+      "firstDomFieldMs": 353,
+      "firstMileageMs": 486,
+      "preparation": {
+        "cacheHit": true,
+        "durationMs": 95,
+        "normalizationMs": 48.29999999701977
+      },
+      "stages": {
+        "destinationReadiness": 292,
+        "dropdownDiscovery": 859.6000000089407,
+        "dropdownSelection": 356.7999999821186,
+        "fieldVerification": 527.9999999701977,
+        "finalValidation": 619.1000000089407,
+        "firstField": 83,
+        "firstFieldAfterReady": 81.80000001192093,
+        "formFilling": 2329.5,
+        "matching": 0.6000000238418579,
+        "normalization": 0.10000000894069672,
+        "photoComplete": 2361,
+        "photoDownload": 904.0999999940395,
+        "photoUpload": 1122.8999999910593,
+        "prefetch": 95,
+        "prefetchNormalization": 48.29999999701977,
+        "sourceExtraction": 2.199999988079071,
+        "total": 2993.6000000089407
+      },
+      "readyToFirstVisibleMs": 42
+    },
+    {
+      "version": "current-architecture",
+      "vehicle": "B",
+      "totalMs": 3187.0920589999987,
+      "clickToFormReadyMs": 263,
+      "clickToPhotosMs": 2187,
+      "firstDomFieldMs": 300,
+      "firstMileageMs": 421,
+      "preparation": {
+        "cacheHit": true,
+        "durationMs": 40,
+        "normalizationMs": 10.299999997019768
+      },
+      "stages": {
+        "destinationReadiness": 238,
+        "dropdownDiscovery": 830.8000000119209,
+        "dropdownSelection": 360.8999999910593,
+        "fieldVerification": 529.9999999850988,
+        "finalValidation": 606,
+        "firstField": 76.29999999701977,
+        "firstFieldAfterReady": 75.1000000089407,
+        "formFilling": 2185.2000000029802,
+        "matching": 0.29999999701976776,
+        "normalization": 0.09999999403953552,
+        "photoComplete": 2162,
+        "photoDownload": 780.3999999910593,
+        "photoUpload": 1105.7999999970198,
+        "prefetch": 40,
+        "prefetchNormalization": 10.299999997019768,
+        "sourceExtraction": 2.2999999970197678,
+        "total": 2832.7999999970198
+      },
+      "readyToFirstVisibleMs": 37
+    }
+  ]
+}

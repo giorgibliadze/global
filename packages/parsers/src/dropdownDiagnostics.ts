@@ -4,7 +4,7 @@ export interface DropdownDiagnostic {
   discoveryMs?:number;selectionMs?:number;matchingMs?:number;verificationMs?:number
   field:string;selector:string;controlType:'custom'|'combobox'|'native'|'unavailable'
   opened:boolean;optionCount:number;expected:string[];matched:boolean;verified:boolean
-  outcome:'inspected'|'selected'|'unavailable'|'protected'|'ambiguous'|'not-discovered'|'not-matched'|'not-verified'|'interaction-error'
+  outcome:'inspected'|'selected'|'unavailable'|'protected'|'ambiguous'|'not-discovered'|'not-matched'|'not-verified'|'interaction-error'|'unverified'
 }
 export function safeExpected(values:string[]):string[] {
   return values.slice(0,8).map(value=>{

@@ -18,3 +18,5 @@ button:focus-visible { outline: 3px solid #93C5FD; outline-offset: 3px; }
 @keyframes appear { from { opacity: 0; } to { opacity: 1; } }
 @media (max-width: 480px) { .panel .popup { padding: 16px; } .panel .brand-logo { padding-inline: 0; } .close-button { top: 24px; right: 24px; } }
 @media (prefers-reduced-motion: reduce) { .launcher { transition: none; } .launcher::before { animation: none; opacity: .3; } .panel { animation: none; } }
+
+.preparation-status{position:fixed;right:16px;top:160px;width:max-content;max-width:min(240px,calc(100vw - 32px));padding:5px 9px;border:1px solid #E2E8F0;border-radius:10px;background:#FFFFFF;color:#475569;box-shadow:0 2px 8px #0F172A0D;font:11px/1.5 sans-serif;pointer-events:none}

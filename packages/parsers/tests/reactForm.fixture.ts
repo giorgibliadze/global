@@ -2,7 +2,7 @@
 import { createElement, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createRoot } from 'react-dom/client'
-interface Configuration {model:string;make?:string;year?:string;resetAfterUpload?:boolean;rejectField?:string;pointerOnly?:boolean;failFuel?:boolean}
+interface Configuration {batchedValidation?:boolean;model:string;make?:string;year?:string;resetAfterUpload?:boolean;rejectField?:string;pointerOnly?:boolean;failFuel?:boolean}
 interface Selection {label:string;id:string}
 declare global {
   interface Window {
@@ -33,17 +33,19 @@ function Form() {
   })
   function text(key:string,name:string,textarea=false) {
     return createElement(textarea?'textarea':'input',{
+      maxLength:textarea?4000:undefined,
       key,name,value:drafts[key] ?? values[key] ?? '',type:textarea?undefined:'text',
       'data-testid':key==='description'?'description-textarea':undefined,
       onChange:(event:{currentTarget:HTMLInputElement|HTMLTextAreaElement})=>{
         const value=event.currentTarget.value
         // Mileage deliberately commits only on blur, like a form/mask draft adapter.
-        if(key==='mileage' || key===config.rejectField)setDrafts(previous=>({...previous,[key]:value}))
+        if((config.batchedValidation && key!=='vin') || key==='mileage' || key===config.rejectField)setDrafts(previous=>({...previous,[key]:value}))
         else setValues(previous=>({...previous,[key]:value}))
       },
       onBlur:(event:{currentTarget:HTMLInputElement|HTMLTextAreaElement})=>{
         const value=event.currentTarget.value
-        if(key==='mileage' && key!==config.rejectField)setValues(previous=>({...previous,[key]:value}))
+        if(config.batchedValidation && key!=='vin')queueMicrotask(()=>setValues({...values,[key]:value}))
+        else if(key==='mileage' && key!==config.rejectField)setValues(previous=>({...previous,[key]:value}))
         setDrafts(previous=>{const copy={...previous};delete copy[key];return copy});setRenders(previous=>previous+1)
       },
     })

@@ -7,7 +7,7 @@ export function waitForDomReady(doc:Document,ready:()=>boolean,signal:AbortSigna
     const check=()=>{try{signal.throwIfAborted();if(ready()){clean();resolve()}}catch(error){clean();reject(error)}}
     if(signal.aborted){reject(signal.reason);return}
     const observer=new doc.defaultView!.MutationObserver(check)
-    observer.observe(doc.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['disabled','aria-disabled','aria-busy','hidden','data-testid','name']})
+    observer.observe(doc.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['disabled','aria-disabled','aria-busy','hidden','data-testid','name','class','style']})
     signal.addEventListener('abort',aborted,{once:true})
     const timer=setTimeout(()=>{clean();reject(new Error('MyAuto-ს საჭირო ველი დროულად ვერ ჩაიტვირთა.'))},timeoutMs)
     check()
