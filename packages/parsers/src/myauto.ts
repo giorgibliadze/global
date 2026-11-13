@@ -1,3 +1,4 @@
+import {enableNegotiablePrice,negotiableSelected,negotiableSelector} from './negotiablePrice'
 import {isMyautoControllerForm} from './myautoContract'
 import {fillStagedMyauto,readStagedFields} from './stagedMyauto'
 import {commitTurn} from './inputInteraction'
@@ -55,7 +56,6 @@ export function myautoFields(v: NormalizedVehicle): FormField[] {
     { field: 'vin', label: 'VIN', mode: 'text', selector: 'input[name="primaryFeatures.vinCode"]', value: v.vin },
     { field: 'trim', label: 'კომპლექტაცია', mode: 'text', selector: 'input[name="primaryFeatures.customModel"]', value: v.trim ?? undefined },
     { field: 'mileageKm', label: 'გარბენი', mode: 'text', selector: 'input[name="primaryFeatures.mileage"]', value: v.mileageKm === undefined ? undefined : String(Math.round(v.mileageKm)) },
-    { field: 'description', label: 'აღწერა', mode: 'text', selector: testid('description-textarea'), value: vehicleDescription(v) },
   ]
   for (const [field, label, key, value] of [
     ['make', 'მწარმოებელი', 'manufacturer', v.make], ['model', 'მოდელი', 'model', myautoModelName(v)],
@@ -80,18 +80,25 @@ export function myautoFields(v: NormalizedVehicle): FormField[] {
   choice('exteriorColor', 'ძარის ფერი', 'vehicleColorId', v.exteriorColor, { white: 1, black: 16, silver: 12, gray: 13, grey: 13, red: 8, blue: 14, yellow: 4, green: 5, orange: 9, gold: 6, purple: 19, pink: 18, beige: 2, burgundy: 11, brown: 7 })
   choice('interiorColor', 'სალონის ფერი', 'saloonColorId', v.interiorColor, { black: 16, white: 1, gray: 13, grey: 13, brown: 7, beige: 2, red: 8, blue: 3, yellow: 4, orange: 9, burgundy: 11, gold: 6 })
   choice('interiorMaterial', 'სალონის მასალა', 'saloonMaterialId', v.interiorMaterial, { leather: 1, cloth: 2 })
-  fields.push({ field: 'price', label: 'ფასი', mode: 'manual', value: v.price ? `${v.price.amount} ${v.price.currency}` : undefined, reason: 'აუქციონის ფასი გასაყიდ ფასად ავტომატურად არ გადაიტანება.' })
-  fields.push({ field: 'condition', label: 'მდგომარეობა', mode: 'manual', value: v.condition, reason: 'მდგომარეობის შესაბამისი ველი დადასტურებული არ არის; იხილეთ აღწერა.' })
+  fields.push(negotiableField())
+  fields.push({ field: 'condition', label: 'მდგომარეობა', mode: 'manual', value: v.condition, reason: 'ხელით შესავსები' })
   
   return fields
 }
 
+const negotiableField=():FormField=>({field:'price',label:'ფასი',mode:'toggle',selector:negotiableSelector,value:'true'})
+// Apply policy even to payloads prepared by an older extension version.
+export function applyAutofillPolicy(fields:FormField[]):FormField[]{
+  return [...fields.filter(field=>!['description','price'].includes(field.field)),negotiableField()]
+}
+
 export interface FillOptions { planned?:FormField[];recoveringFields?:string[];onlyFields?:string[];previousResults?:FieldResult[];onField?:(label:string)=>void;onFieldStage?:(stage:'discovery'|'matching'|'selection')=>void; onTiming?: (stage:TimingStage,ms:number)=>void; allowAutofillCorrection?: boolean; dropdownTimeoutMs?: number; signal?: AbortSignal; beforeField?: () => void; onResult?: (results: FieldResult[]) => void | Promise<void> }
 export async function fillMyautoForm(doc: Document, vehicle: NormalizedVehicle, options: FillOptions = {}): Promise<FieldResult[]> {
-  if(isMyautoControllerForm(doc))return fillStagedMyauto(doc,vehicle,options.planned ?? myautoFields(vehicle),options)
-  const results: FieldResult[] = (options.previousResults ?? []).map(result=>({...result}))
+  const safePlan=applyAutofillPolicy(options.planned ?? myautoFields(vehicle))
+  if(isMyautoControllerForm(doc))return fillStagedMyauto(doc,vehicle,safePlan,options)
+  const results: FieldResult[] = (options.previousResults ?? []).filter(result=>result.key!=='description' && result.field!=='აღწერა').map(result=>({...result}))
   const normalizationStarted=performance.now()
-  const planned = options.planned ?? myautoFields(vehicle)
+  const planned = safePlan
   options.onTiming?.('normalization',performance.now()-normalizationStarted)
   for(let i=results.length-1;i>=0;i--)if(options.onlyFields?.includes(results[i].key ?? planned.find(field=>field.label===results[i].field)?.field ?? ''))results.splice(i,1)
   const verify=async(predicate:()=>boolean)=>{const started=performance.now();try{return await settleField(doc,predicate,options.signal)}finally{options.onTiming?.('fieldVerification',performance.now()-started)}}
@@ -123,6 +130,7 @@ export async function fillMyautoForm(doc: Document, vehicle: NormalizedVehicle, 
     const dropdownFailure=(reason:string)=>diagnostic?.outcome==='unverified'?results.push({key:field.field,field:field.label,status:'unverified',persisted:false,code:'unverified',retryable:false,reason}):fail(reason,diagnostic?.outcome==='protected'?'protected':diagnostic && ['unavailable','not-discovered','interaction-error'].includes(diagnostic.outcome)?'unavailable':diagnostic?.outcome==='not-verified'?'verification':'unresolved')
     const resultStart=results.length
     try {
+    if(field.mode==='toggle'){results.push(await enableNegotiablePrice(doc,options.signal));continue}
     if (field.value === undefined || field.value === '') { fail('წყაროში მონაცემი არ არის ან შესაბამისობა დაუდასტურებელია.','missing'); continue }
     if (field.mode === 'dropdown') {
       if (field.field === 'model' && !results.some(r => r.field === 'მწარმოებელი' && r.status === 'filled')) { fail('ჯერ საჭიროა მწარმოებლის დადასტურებული არჩევანი.','dependency',results.some(result=>result.field==='მწარმოებელი' && result.retryable)); continue }
@@ -171,7 +179,6 @@ export async function fillMyautoForm(doc: Document, vehicle: NormalizedVehicle, 
     if(field.field==='description'){const fitted=fitDescription(field.value,element.maxLength,vehicle.vin);field.value=fitted.text;omissions=fitted.omissions;reviewRequired=fitted.criticalOmitted;if(!field.value){fail('სრული დასახელება აღწერის ლიმიტში ვერ ეტევა. სრული მონაცემები შენარჩუნებულია.','manual');continue}}
     if (element.maxLength > 0 && field.value.length > element.maxLength) { fail('ტექსტი აღემატება ფორმის დაშვებულ სიგრძეს. მონაცემები არ შემოკლებულა; ორიგინალი შენარჩუნებულია.'); continue }
     if (element.disabled || element.readOnly) { fail('ველი მიუწვდომელია.','unavailable'); continue }
-    if (field.field === 'description' && !(await enforceDescriptionPrivacy(doc,vehicle.vin))) { fail('აღწერიდან საიდენტიფიკაციო მონაცემის მოცილება ვერ დადასტურდა.'); continue }
     if (element.value && element.value !== field.value && !options.recoveringFields?.includes(field.field)) { fail('არსებული მნიშვნელობა არ გადაგვიწერია.','protected'); continue }
     if(userEdited.has(field.field) && doc.querySelector<HTMLInputElement|HTMLTextAreaElement>(field.selector!)?.value!==field.value){fail('მომხმარებლის შეცვლილი ველი ავტომატურად არ გადაგვიწერია.','protected');continue}
     const persisted=await writeControlledInput(doc,()=>doc.querySelector<HTMLInputElement|HTMLTextAreaElement>(field.selector!),field.value,options.signal,()=>!userEdited.has(field.field),options.recoveringFields?.includes(field.field))
@@ -217,22 +224,19 @@ export async function fillMyautoForm(doc: Document, vehicle: NormalizedVehicle, 
 
   }
   } finally {for(const type of editEvents)doc.removeEventListener(type,protectUserEdit,true)}
-  if (!(await enforceDescriptionPrivacy(doc,vehicle.vin))) {
-    const index=results.findIndex(result=>result.field==='აღწერა')
-    const result:FieldResult={field:'აღწერა',status:'unfilled',reason:'ფორმა აღწერაში საიდენტიფიკაციო მონაცემს ხელახლა ამატებს. გამოქვეყნება დაუშვებელია მის მოცილებამდე.'}
-    if(index>=0)results[index]=result;else results.push(result)
-  }
   await options.onResult?.([...results])
   return results.map(result=>({...result,key:result.key ?? planned.find(field=>field.label===result.field)?.field}))
 }
 
 export function verifyMyautoFields(doc: Document, vehicle: NormalizedVehicle, results: FieldResult[],plan?:FormField[]): FieldResult[] {
-  const planned = plan ?? myautoFields(vehicle)
+  const planned = applyAutofillPolicy(plan ?? myautoFields(vehicle))
+  results=results.filter(result=>result.key!=='description' && result.field!=='აღწერა')
   if(isMyautoControllerForm(doc))return readStagedFields(doc,vehicle,results,planned)
   return results.map(result => {
     if (result.status !== 'filled') return result
     const field = planned.find(f => f.label === result.field)
     if (!field) return result
+    if(field.mode==='toggle')return negotiableSelected(doc)?{...result,status:'filled',persisted:true}: {...result,status:'unfilled',persisted:false,code:'verification',retryable:false,reason:'ხელით შესავსები'}
     let valid = false
     if(field.mode==='text'){const control=doc.querySelector<HTMLInputElement|HTMLTextAreaElement>(field.selector!);const expected=field.field==='description' && field.value!==undefined?fitDescription(field.value,control?.maxLength ?? -1,vehicle.vin).text:field.value;valid=control?.value===expected}
     if (field.mode === 'choice') valid = doc.querySelector<HTMLInputElement>(field.verifySelector!)?.value === field.value
@@ -250,31 +254,15 @@ export function verifyMyautoFields(doc: Document, vehicle: NormalizedVehicle, re
   })
 }
 
-export async function enforceDescriptionPrivacy(doc:Document,vin:string):Promise<boolean> {
-  for(let attempt=0;attempt<3;attempt++) {
-    const input=doc.querySelector<HTMLTextAreaElement>('[data-testid="description-textarea"]')
-    if(!input)return true
-    const clean=sanitizeDescription(input.value,vin)
-    if(clean===input.value)return true
-    if(input.disabled || input.readOnly)return false
-    const view=doc.defaultView!
-    const prototype=input.tagName==='TEXTAREA'?view.HTMLTextAreaElement.prototype:view.HTMLInputElement.prototype
-    Object.getOwnPropertyDescriptor(prototype,'value')!.set!.call(input,clean)
-    input.dispatchEvent(new view.Event('input',{bubbles:true}));input.dispatchEvent(new view.Event('change',{bubbles:true}))
-    await settleField(doc,()=>sanitizeDescription(input.value,vin)===input.value)
-  }
-  const value=doc.querySelector<HTMLTextAreaElement>('[data-testid="description-textarea"]')?.value ?? ''
-  return sanitizeDescription(value,vin)===value
-}
-
 export { settleField }
 
 export async function verifyMyautoPersistence(doc:Document,vehicle:NormalizedVehicle,results:FieldResult[],planned=myautoFields(vehicle),signal?:AbortSignal,only?:string[]):Promise<FieldResult[]> {
+  planned=applyAutofillPolicy(planned);results=results.filter(result=>result.key!=='description' && result.field!=='აღწერა')
   if(isMyautoControllerForm(doc)){await commitTurn(doc,signal);return readStagedFields(doc,vehicle,results,planned,only)}
   const checked=verifyMyautoFields(doc,vehicle,results,planned)
   for(let index=0;index<checked.length;index++){
     const result=checked[index]
-    if(result.status!=='filled')continue
+    if(result.status!=='filled' || result.evidence==='negotiable')continue
     const field=planned.find(item=>item.label===result.field)
     if(!field)continue
     const resolve=()=>field.mode==='dropdown'?result.match==='custom'?editableModelInput(doc)?.element:nativeDropdown(doc,field.dropdownKey!) ?? interactive(doc,field.dropdownKey!):field.selector?doc.querySelector<HTMLElement>(field.selector):undefined

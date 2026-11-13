@@ -1,5 +1,5 @@
 import { parseManheim24 } from '../src/manheim24'
-import { fillMyautoForm, vehicleDescription, verifyMyautoFields, enforceDescriptionPrivacy } from '../src/myauto'
+import { fillMyautoForm, vehicleDescription, verifyMyautoFields } from '../src/myauto'
 import { editableModelInput } from '../src/modelField'
 import { sanitizeDescription } from '../src/vinPrivacy'
 
@@ -36,7 +36,9 @@ export async function runModelPrivacyTests(manheim:string,myauto:string,check:(v
   check(verifyMyautoFields(doc,noisy,result).find(r=>r.field==='მოდელი')?.status==='filled','editable full model verified in Model field rather than description or body')
   const textarea=doc.querySelector<HTMLTextAreaElement>('[data-testid="description-textarea"]')!
   textarea.value=`${textarea.value}\nVIN: ${vin}`
-  check(await enforceDescriptionPrivacy(doc,vin) && !textarea.value.includes(vin),'final form boundary also removes later site-generated VIN text')
+  const untouched=textarea.value
+  await fillMyautoForm(doc,noisy,{onlyFields:['description']})
+  check(textarea.value===untouched,'description remains entirely user-owned, including on retries')
 
   reset()
   const select=doc.createElement('select');select.name='primaryFeatures.model'
@@ -53,6 +55,6 @@ export async function runModelPrivacyTests(manheim:string,myauto:string,check:(v
   const missingVin=await fillMyautoForm(doc,noisy,{dropdownTimeoutMs:20})
   check(missingVin.find(r=>r.field==='VIN')?.status==='unfilled' && writable.value==='M5 Touring Wagon','missing VIN field reported internally without moving VIN into Model')
   check([...doc.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('input,textarea')].every(input=>!input.value.toUpperCase().includes(vin)),'missing dedicated VIN field cannot leak VIN into any fallback text control')
-  check(doc.querySelector<HTMLTextAreaElement>('[data-testid="description-textarea"]')!.value.includes('ახალი საბურავები'),'missing VIN field still permits a readable sanitized description')
+  check(doc.querySelector<HTMLTextAreaElement>('[data-testid="description-textarea"]')!.value==='','missing VIN field does not cause description generation or fallback')
   frame.remove()
 }

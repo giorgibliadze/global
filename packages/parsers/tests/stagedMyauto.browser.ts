@@ -11,7 +11,7 @@ export async function runStagedTests(manheim:string,html:string,check:(value:unk
   const tab=doc.createElement('button');tab.type='button';tab.dataset.testid='description-locale-tab-ka';tab.setAttribute('aria-pressed','true');doc.body.append(tab)
   for(const input of doc.querySelectorAll<HTMLInputElement>('[data-testid^="single-select-input-"]'))input.className='opacity-0 pointer-events-none'
   const model=doc.querySelector<HTMLElement>('[data-testid="single-select-primaryFeatures.model"]')!;model.style.pointerEvents='none'
-  const nodes=[...doc.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('input[name],[data-testid="description-textarea"]')]
+  const nodes=[...doc.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('input[name]:not([type="checkbox"]),[data-testid="description-textarea"]')]
   for(const input of nodes){input.addEventListener('input',()=>{textInputs++;input.defaultValue=input.value});input.addEventListener('change',()=>changes++);input.addEventListener('focus',()=>focuses++)}
   for(const [key,label] of Object.entries(labels)){
     const owner=doc.querySelector<HTMLElement>(`[data-testid="single-select-primaryFeatures.${key}"]`)!,trigger=owner.querySelector<HTMLElement>('[data-testid^="single-select-trigger-"]')!
@@ -36,11 +36,19 @@ export async function runStagedTests(manheim:string,html:string,check:(value:unk
     const form=doc.querySelector('form')!;form.style.visibility='hidden'
     check(!textInteractive(doc),'staged: present but loading/invisible text controls are not interactive')
     form.style.visibility='visible';check(textInteractive(doc),'staged: actual loading visibility transition enables text plan')
+    const description=doc.querySelector<HTMLTextAreaElement>('[data-testid="description-textarea"]')!
+    description.value='მომხმარებლის აღწერა';description.defaultValue=description.value
+    let descriptionEvents=0;description.addEventListener('input',()=>descriptionEvents++)
+    const price=doc.querySelector<HTMLInputElement>('[name="sale.price"]')!;price.value='25000'
+    const negotiable=doc.querySelector<HTMLInputElement>('[name="sale.isNegotiablePrice"]')!
+    let clicks=0;negotiable.addEventListener('click',()=>clicks++)
     const planned=myautoFields(vehicle)
+    // A stale prepared payload must not bypass the new no-description/no-price policy.
+    planned.push({field:'description',label:'აღწერა',mode:'text',selector:'[data-testid="description-textarea"]',value:'ძველი აღწერა'})
     const filled=await fillMyautoForm(doc,vehicle,{planned,dropdownTimeoutMs:100})
     const checked=await verifyMyautoPersistence(doc,vehicle,filled,planned)
-    check(checked.filter(field=>field.status==='filled'&&field.persisted).length===16,'staged: all 16 supported fields commit; only manual price/condition remain')
-    check(textInputs===4 && changes===0 && focuses===0,'staged: independent native writes use one input event each; no per-field focus/blur/change probing')
+    check(checked.filter(field=>field.status==='filled'&&field.persisted).length===16,'staged: all 16 supported fields commit; description skipped and condition manual')
+    check(textInputs===3 && changes===0 && focuses===0,'staged: independent native writes use one input event each; no per-field focus/blur/change probing')
     check(maxMenus===1 && Object.values(counts).every(count=>count===1),'staged: dropdowns are serialized and inspected once')
     check(doc.querySelector<HTMLInputElement>('[data-testid="single-select-input-primaryFeatures.manufacturer"]')!.value==='','staged: manufacturer succeeds without fabricating a tracking-input ID')
     const mileage=doc.querySelector<HTMLInputElement>('[name="primaryFeatures.mileage"]')!;mileage.value='';mileage.defaultValue=''
@@ -52,7 +60,15 @@ export async function runStagedTests(manheim:string,html:string,check:(value:unk
     mileage.value='999';mileage.defaultValue='999'
     const manual=await fillMyautoForm(doc,vehicle,{planned,onlyFields:['mileageKm'],previousResults:repaired})
     check(manual.find(field=>field.key==='mileageKm')?.code==='protected' && mileage.value==='999','staged: later manual edits remain untouched')
-    const description=doc.querySelector<HTMLTextAreaElement>('[data-testid="description-textarea"]')!
-    check(description.value.length<=4000 && !description.value.includes(vehicle.vin),'staged: destination limit and VIN-only-dedicated-field rules remain')
+    check(description.value==='მომხმარებლის აღწერა' && descriptionEvents===0 && !checked.some(field=>field.key==='description'),'staged: stale prepared descriptions, verification and retries never touch the textarea')
+    check(negotiable.checked && clicks===1 && price.value==='25000','staged: negotiable enabled once; auction price never written and manual price preserved when site does not clear it')
+    const again=await fillMyautoForm(doc,vehicle,{onlyFields:['price']})
+    check(negotiable.checked && clicks===1 && again[0].persisted,'staged: already enabled negotiable is not toggled off')
+    negotiable.checked=false
+    const lostPrice=await verifyMyautoPersistence(doc,vehicle,checked,planned)
+    check(lostPrice.some(field=>field.key==='price'&&!field.persisted),'staged: final verification detects negotiable reset')
+    negotiable.remove()
+    const missing=await fillMyautoForm(doc,vehicle,{onlyFields:['price','description']})
+    check(missing.length===1 && missing[0].code==='manual' && !missing[0].retryable && price.value==='25000','staged: unavailable negotiable is manual without blocking or price fallback')
   }finally{frame.remove()}
 }

@@ -39,18 +39,20 @@ function Description(){
   return h('div',null,h('button',{type:'button','data-testid':'description-locale-tab-ka','aria-pressed':'true'},'ქართული'),h('textarea',{ref:field.ref,value:values.ka,maxLength:4000,'data-testid':'description-textarea',onBlur:field.onBlur,onChange:(event:{currentTarget:HTMLTextAreaElement})=>field.onChange({...values,ka:event.currentTarget.value.slice(0,4000)})}))
 }
 function Form(){
-  const methods=useForm({defaultValues:{primaryFeatures:{vinCode:'',mileage:'',customModel:'',manufacturer:null,model:null,description:{ka:'',en:'',ru:''}}}})
-  const values=useWatch({control:methods.control}) as {primaryFeatures:Record<string,unknown>}
+  const methods=useForm({defaultValues:{sale:{isNegotiablePrice:false,price:''},primaryFeatures:{vinCode:'',mileage:'',customModel:'',manufacturer:null,model:null,description:{ka:'',en:'',ru:''}}}})
+  const values=useWatch({control:methods.control}) as {primaryFeatures:Record<string,unknown>;sale?:{isNegotiablePrice?:boolean}}
+  useEffect(()=>{if(values.sale?.isNegotiablePrice)methods.setValue('sale.price','')},[values.sale?.isNegotiablePrice,methods])
   const [ready,setReady]=useState(false),[modelReady,setModelReady]=useState(false),[renders,setRenders]=useState(0),[photos,setPhotos]=useState<string[]>([]),[uploads,setUploads]=useState(0),[published,setPublished]=useState(0),[reset,setReset]=useState(false)
   const manufacturer=(values.primaryFeatures.manufacturer as {id?:string}|null)?.id
   useEffect(()=>{const timer=setTimeout(()=>setReady(true),500);return()=>clearTimeout(timer)},[])
   useEffect(()=>{methods.setValue('primaryFeatures.model',null);const timer=setTimeout(()=>setModelReady(!!manufacturer),40);return()=>clearTimeout(timer)},[manufacturer,methods])
   useEffect(()=>{
     const current=methods.getValues().primaryFeatures as Record<string,unknown>
-    window.fixtureState={values:{transmission:String(current.gearTypeId??''),drivetrain:String(current.driveTypeId??''),exteriorColor:String(current.vehicleColorId??''),interiorColor:String(current.saloonColorId??''),interiorMaterial:String(current.saloonMaterialId??''),vin:String(current.vinCode??''),trim:String(current.customModel??''),mileage:String(current.mileage??''),description:(current.description as Record<string,string>).ka},selected:Object.fromEntries(Object.keys(ids).map(key=>[key,current[key]?{id:(current[key] as {id:string}).id,label:(current[key] as {title:string}).title}:undefined])),photos:photos.length,uploads,published,renders}
+    window.fixtureState={values:{negotiable:String((methods.getValues().sale as {isNegotiablePrice:boolean}).isNegotiablePrice),transmission:String(current.gearTypeId??''),drivetrain:String(current.driveTypeId??''),exteriorColor:String(current.vehicleColorId??''),interiorColor:String(current.saloonColorId??''),interiorMaterial:String(current.saloonMaterialId??''),vin:String(current.vinCode??''),trim:String(current.customModel??''),mileage:String(current.mileage??''),description:(current.description as Record<string,string>).ka},selected:Object.fromEntries(Object.keys(ids).map(key=>[key,current[key]?{id:(current[key] as {id:string}).id,label:(current[key] as {title:string}).title}:undefined])),photos:photos.length,uploads,published,renders}
     window.fixtureForceRender=()=>setRenders(value=>value+1)
   })
   return h(FormProvider,{...methods},h('form',{onSubmit:(event:{preventDefault:()=>void})=>{event.preventDefault();setPublished(value=>value+1)},style:ready?{}:{visibility:'hidden',pointerEvents:'none'}},
+    h('label',{'data-testid':'toggle-checkbox-label-sale.isNegotiablePrice'},h('input',{type:'checkbox',defaultChecked:false,...methods.register('sale.isNegotiablePrice')}),'ფასი შეთანხმებით'),h(Text,{name:'sale.price'}),
     h(Text,{name:'primaryFeatures.vinCode'}),h(Text,{name:'primaryFeatures.mileage'}),h(Text,{name:'primaryFeatures.customModel'}),h(Description),
     ...Object.keys(labels).map(name=>h(Select,{key:name,name,disabled:name==='model'&&!modelReady})),
     h('span',{'data-testid':'single-select-value-primaryFeatures.mileageType'},'კმ'),

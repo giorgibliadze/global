@@ -1,6 +1,6 @@
 import { waitForDomReady } from '../services/domReady'
 import { pipelineLog, timingLog } from '../services/diagnostics'
-import { isMyautoControllerForm,textInteractive,fillMyautoForm, verifyMyautoFields, verifyMyautoPersistence, enforceDescriptionPrivacy, myautoFields } from '@auto-importer/parsers/myauto'
+import { isMyautoControllerForm,textInteractive,fillMyautoForm, verifyMyautoFields, verifyMyautoPersistence, applyAutofillPolicy, myautoFields } from '@auto-importer/parsers/myauto'
 import type { FieldResult, TransferRecord, TransferStage, TimingStage } from '@auto-importer/shared'
 import { request } from '../services/extensionApi'
 import { prepareFiles } from '../photos/client'
@@ -75,7 +75,7 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
     assertFreshMyauto(doc)
     await phase('preparing')
     await phase('matching')
-    planned=await measure('normalization',async()=>structuredClone(transfer.preparedFields ?? myautoFields(transfer.vehicle)))
+    planned=await measure('normalization',async()=>applyAutofillPolicy(structuredClone(transfer.preparedFields ?? myautoFields(transfer.vehicle))))
     await phase('filling')
     current.formTotal=planned.length
     let firstField=false
@@ -119,7 +119,6 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
     if(pipelines[0].status==='rejected')results=verifyMyautoFields(doc,transfer.vehicle,current.fields)
     await phase('verifying')
     guard()
-    if (!(await enforceDescriptionPrivacy(doc,transfer.vehicle.vin))) throw new Error('აღწერაში საიდენტიფიკაციო მონაცემი ხელახლა გამოჩნდა. შეამოწმეთ ფორმა გამოქვეყნებამდე.')
     const beforeFinal=results
     results = await measure('finalValidation',()=>verifyMyautoPersistence(doc, transfer.vehicle, results,planned,controller.signal))
     const lost=results.filter(field=>field.status==='unfilled' && field.code==='verification' && (field.resetAfter || beforeFinal.some(previous=>previous.field===field.field && previous.status==='filled'))).map(field=>field.key!).filter(Boolean)
@@ -170,14 +169,13 @@ export async function retryMyautoFields(doc:Document,previous:TransferRecord,onU
   current.timings={...current.timings}
   try {
     guard();onUpdate(structuredClone(current))
-    const planned=structuredClone(current.preparedFields ?? myautoFields(current.vehicle))
+    const planned=applyAutofillPolicy(structuredClone(current.preparedFields ?? myautoFields(current.vehicle)))
     const keys=current.fields.filter(field=>field.status==='unfilled' && field.retryable).map(field=>field.key ?? planned.find(item=>item.label===field.field)?.field).filter((key):key is string=>!!key)
     results=await fillMyautoForm(doc,current.vehicle,{planned,dropdownTimeoutMs:options.dropdownTimeoutMs,onlyFields:keys,previousResults:current.fields,signal:controller.signal,beforeField:guard,
       onFieldStage:activity=>{current.activity=activity;onUpdate(structuredClone(current))},
       onTiming:(stage,ms)=>{current.timings![stage]=(current.timings![stage] ?? 0)+ms;timingLog(current.id,stage,ms)},
       onResult:fields=>{current.fields=fields;onUpdate(structuredClone(current))}})
     guard()
-    if(!await enforceDescriptionPrivacy(doc,current.vehicle.vin))throw new Error('აღწერიდან საიდენტიფიკაციო მონაცემი ვერ მოიშორა.')
     results=await verifyMyautoPersistence(doc,current.vehicle,results,planned,controller.signal)
   }catch(error){errors.push(error instanceof Error && /[\u10A0-\u10FF]/.test(error.message)?error.message:'ველების ხელახალი შევსება ვერ შესრულდა.')}
   current.activity=undefined

@@ -1,3 +1,4 @@
+import {applyAutofillPolicy} from '@auto-importer/parsers/myauto'
 import { PreparedVehicles } from './preparation'
 import type { PreparedVehicle } from './preparation'
 import { MODEL_TRIM_WARNING } from '@auto-importer/parsers'
@@ -171,6 +172,7 @@ export class TransferManager {
       const sourceExtraction=performance.now()-extractionStarted
       if (selectedIdentity(reviewed.vehicle) !== selectedIdentity(fresh)) throw new Error('არჩეული ავტომობილი ან მისი მონაცემები შეიცვალა. ხელახლა გადაამოწმეთ ორიგინალი და ქართული მონაცემები.')
       const vehicle = structuredClone(reviewed.vehicle)
+      delete vehicle.description; delete vehicle.raw.description
       if((vehicle.trim ?? null)!==(fresh.trim ?? null)) {
         vehicle.trim=null;vehicle.original.trim=null;delete vehicle.raw.trim
         if(!vehicle.warnings.includes(MODEL_TRIM_WARNING))vehicle.warnings.push(MODEL_TRIM_WARNING)
@@ -188,7 +190,7 @@ export class TransferManager {
       const entries = await this.api.storage.session.get(null)
       if (Object.entries(entries).filter(([k,v]) => k.startsWith('job:') && (v as TransferRecord).status === 'running').length >= 4) throw new Error('ერთდროულად მაქსიმუმ ოთხი გადატანაა შესაძლებელი. დაელოდეთ მიმდინარე ოპერაციებს.')
       const record: TransferRecord = {
-        preparedFields:prepared?.fields,preparation:prepared?.summary,
+        preparedFields:prepared?applyAutofillPolicy(prepared.fields):undefined,preparation:prepared?.summary,
         timings:{sourceExtraction,...(prepared?{prefetch:prepared.summary.durationMs,prefetchNormalization:prepared.summary.normalizationMs}:{})}, id: reviewed.reviewId, sourceTabId: tab.id!, vehicle,
         createdAt: Date.now(), updatedAt: Date.now(), stage: 'preparing', status: 'running', claimed: false,
         photos: { total: vehicle.images.length, prepared: 0, uploaded: 0, failed: 0 }, fields: [], errors: [],
@@ -319,7 +321,7 @@ export class TransferManager {
 function isFieldResult(value: unknown): value is FieldResult {
   if (!value || typeof value !== 'object') return false
   const f = value as FieldResult
-  return (f.evidence===undefined || ['react-value','myauto-option','myauto-choice'].includes(f.evidence)) && (f.resetAfter===undefined || (typeof f.resetAfter==='string' && /^[a-zA-Z]{1,30}$/.test(f.resetAfter))) && (f.reviewRequired===undefined || typeof f.reviewRequired==='boolean') && (f.omissions===undefined || (Array.isArray(f.omissions) && f.omissions.length<=10 && f.omissions.every(item=>typeof item==='string' && item.length<=500))) && (f.persisted===undefined || typeof f.persisted==='boolean') && (f.retryable===undefined || typeof f.retryable==='boolean') && (f.key===undefined || (typeof f.key==='string' && /^[a-zA-Z]{1,30}$/.test(f.key))) && (f.code===undefined || ['missing','unavailable','dependency','unresolved','verification','protected','privacy','manual','unverified'].includes(f.code)) && (f.optionId === undefined || (typeof f.optionId === 'string' && f.optionId.length<=200)) && (f.optionLabel === undefined || (typeof f.optionLabel === 'string' && f.optionLabel.length<=500)) && (f.match === undefined || ['exact','equivalent','custom'].includes(f.match)) && typeof f.field === 'string' && f.field.length <= 120 && ['filled','unfilled','unverified'].includes(f.status) && typeof f.reason === 'string' && f.reason.length <= 500
+  return (f.evidence===undefined || ['react-value','myauto-option','myauto-choice','negotiable'].includes(f.evidence)) && (f.resetAfter===undefined || (typeof f.resetAfter==='string' && /^[a-zA-Z]{1,30}$/.test(f.resetAfter))) && (f.reviewRequired===undefined || typeof f.reviewRequired==='boolean') && (f.omissions===undefined || (Array.isArray(f.omissions) && f.omissions.length<=10 && f.omissions.every(item=>typeof item==='string' && item.length<=500))) && (f.persisted===undefined || typeof f.persisted==='boolean') && (f.retryable===undefined || typeof f.retryable==='boolean') && (f.key===undefined || (typeof f.key==='string' && /^[a-zA-Z]{1,30}$/.test(f.key))) && (f.code===undefined || ['missing','unavailable','dependency','unresolved','verification','protected','privacy','manual','unverified'].includes(f.code)) && (f.optionId === undefined || (typeof f.optionId === 'string' && f.optionId.length<=200)) && (f.optionLabel === undefined || (typeof f.optionLabel === 'string' && f.optionLabel.length<=500)) && (f.match === undefined || ['exact','equivalent','custom'].includes(f.match)) && typeof f.field === 'string' && f.field.length <= 120 && ['filled','unfilled','unverified'].includes(f.status) && typeof f.reason === 'string' && f.reason.length <= 500
 }
 
 function validTimings(value:unknown): value is TransferTimings {

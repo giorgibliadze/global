@@ -114,7 +114,7 @@ export async function runReceiverTests(manheim:string, myauto:string, check:(val
         check(filledBeforePhotos,`receiver ${name}: slow photo download cannot prevent vehicle fields being filled`)
         check(result.fields.some(f=>f.field==='მოდელი' && f.status==='filled') && result.fields.some(f=>f.field==='გარბენი' && f.status==='filled'),`receiver ${name}: supported exact model and mileage fields populated and verified`)
         const description=doc.querySelector<HTMLTextAreaElement>('[data-testid="description-textarea"]')!.value
-        check(!description.includes(job.vehicle.vin) && description.includes(job.vehicle.model!) && description.includes('სერვისის ჩანაწერები'),`receiver ${name}: VIN sanitization stays in description and preserves readable vehicle details`)
+        check(description==='',`receiver ${name}: description remains untouched while VIN stays in its dedicated field`)
         check(result.photos.uploaded===1 && result.fields.some(f=>f.field==='VIN' && f.status==='unfilled'),`receiver ${name}: missing/rejected VIN reported individually without blocking automatic photos`)
         completed.push(result)
       } finally {unblock();frame.remove()}

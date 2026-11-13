@@ -45,7 +45,7 @@ export interface NormalizedVehicle {
   warnings: string[]
 }
 export type FieldFailureCode='missing'|'unavailable'|'dependency'|'unresolved'|'verification'|'protected'|'privacy'|'manual'|'unverified'
-export interface FieldResult { evidence?:'react-value'|'myauto-option'|'myauto-choice'; resetAfter?:string; omissions?:string[];reviewRequired?:boolean; persisted?:boolean; key?:string;retryable?:boolean;code?:FieldFailureCode; field: string; status: 'filled' | 'unfilled' | 'unverified'; reason: string; optionId?: string; optionLabel?: string; match?: 'exact' | 'equivalent' | 'custom' }
+export interface FieldResult { evidence?:'react-value'|'myauto-option'|'myauto-choice'|'negotiable'; resetAfter?:string; omissions?:string[];reviewRequired?:boolean; persisted?:boolean; key?:string;retryable?:boolean;code?:FieldFailureCode; field: string; status: 'filled' | 'unfilled' | 'unverified'; reason: string; optionId?: string; optionLabel?: string; match?: 'exact' | 'equivalent' | 'custom' }
 
 export const transferStageLabels = {
   reading: 'მონაცემების დამუშავება',
@@ -60,7 +60,7 @@ export const transferStageLabels = {
 export type TransferStage = keyof typeof transferStageLabels
 export interface PreparedFormField {
   field:string;label:string;value?:string;selector?:string;dropdownKey?:string
-  mode:'text'|'choice'|'dropdown'|'manual';verifySelector?:string;reason?:string
+  mode:'text'|'choice'|'dropdown'|'manual'|'toggle';verifySelector?:string;reason?:string
   optionValue?:{exactText?:boolean;candidates:string[];equivalents?:string[];engineCc?:number;engineUnit?:'liters'}
 }
 export type PreparationStatus='preparing'|'ready'|'updating'|'error'

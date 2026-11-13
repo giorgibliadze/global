@@ -1,5 +1,5 @@
 import { fitDescription } from '../src/descriptionFit'
-import { myautoModelName,fillMyautoForm,verifyMyautoFields,vehicleDescription } from '../src/myauto'
+import { myautoModelName,fillMyautoForm,vehicleDescription } from '../src/myauto'
 import { parseManheim24 } from '../src/manheim24'
 import { selectDropdown } from '../src/dropdowns'
 
@@ -26,10 +26,10 @@ export async function runFormLifecycleTests(manheim:string,myauto:string,check:(
     const textarea=doc.querySelector<HTMLTextAreaElement>('[data-testid="description-textarea"]')!;textarea.maxLength=4000
     const described={...vehicle,equipment:Array.from({length:300},(_,n)=>`Original package ${n}`)}
     const result=await fillMyautoForm(doc,described,{onlyFields:['description'],dropdownTimeoutMs:30})
-    check(result[0].status==='filled' && !!result[0].omissions?.length && textarea.value.length<=4000 && verifyMyautoFields(doc,described,result)[0].status==='filled','lifecycle: live textarea limit is fitted before writing; fresh verification agrees with concise description')
+    check(result.length===0 && textarea.value==='', 'lifecycle: intentionally skipped description has no result, verification or failure')
     textarea.value='მომხმარებლის აღწერა'
     const manual=await fillMyautoForm(doc,described,{onlyFields:['description']})
-    check(manual[0].code==='protected' && textarea.value==='მომხმარებლის აღწერა','lifecycle: manual description edits are never overwritten by fitting or retry')
+    check(manual.length===0 && textarea.value==='მომხმარებლის აღწერა','lifecycle: manual description is untouched even on explicit description retry')
 
     const owner=doc.querySelector<HTMLElement>('[data-testid="single-select-primaryFeatures.manufacturer"]')!,trigger=owner.querySelector<HTMLElement>('[data-testid^="single-select-trigger-"]')!
     let wrongId=false
@@ -61,7 +61,7 @@ export async function runFormLifecycleTests(manheim:string,myauto:string,check:(
     const filled=await fillMyautoForm(doc,vehicle,{onlyFields:['vin','trim','mileageKm','description','make','model'],dropdownTimeoutMs:100})
     check(filled.some(field=>field.key==='model' && field.optionLabel==='Super Duty F-350' && field.persisted),'lifecycle: Ford selects its verified source Model option rather than title/cab/bed/trim text')
     const reset=filled.filter(field=>field.resetAfter==='make').map(field=>field.key!)
-    check(['trim','mileageKm','description'].every(key=>reset.includes(key)),'lifecycle: dependency operation reports exactly which earlier text fields reset')
+    check(['trim','mileageKm'].every(key=>reset.includes(key)) && !reset.includes('description'),'lifecycle: dependency operation reports exactly which earlier text fields reset')
     const repaired=await fillMyautoForm(doc,vehicle,{onlyFields:reset,recoveringFields:reset,previousResults:filled,dropdownTimeoutMs:100})
     check(reset.every(key=>repaired.some(field=>field.key===key && field.persisted)) && doc.querySelector<HTMLSelectElement>('select[name="primaryFeatures.model"]')!.value==='id-model','lifecycle: targeted text repair after stable dependencies preserves Model without restarting the form')
 

@@ -47,8 +47,7 @@ export async function runPrefetchTests(html:string,check:(value:unknown,label:st
     check((await source.resolve()).preparationId===a.preparationId && preparations===count,'prefetch: warm source cache reuses unique preparation without normalization')
     const transfer=await manager.begin(sender)
     check(transfer.preparation?.cacheHit && !!transfer.preparedFields?.length && tabs===1,'prefetch: click reuses background prepared fields and opens one destination')
-    const description=transfer.preparedFields!.find(field=>field.field==='description')!.value!
-    check(!description.includes(transfer.vehicle.vin) && description.includes('M5 Touring Wagon'),'prefetch: prepared Georgian description excludes VIN and preserves full model')
+    check(!transfer.preparedFields!.some(field=>field.field==='description') && !transfer.vehicle.description && !transfer.vehicle.raw.description,'prefetch: no generated or source auction description is transferred')
     check((await manager.begin(sender)).id===transfer.id && tabs===1,'prefetch: repeated prepared clicks still deduplicate transfers')
     const recoveredMemory:Record<string,unknown>={}
     const restartedApi:ExtensionApi={...api,tabs:{...api.tabs,create:async()=>({id:999})},storage:{session:{get:async key=>structuredClone(key===null?recoveredMemory:{[key]:recoveredMemory[key]}),set:async entries=>{Object.assign(recoveredMemory,structuredClone(entries))},remove:async key=>{delete recoveredMemory[key]}}}}

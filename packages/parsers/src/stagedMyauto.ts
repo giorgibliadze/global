@@ -1,3 +1,4 @@
+import {enableNegotiablePrice,negotiableSelected} from './negotiablePrice'
 import {TextInputAdapter} from './TextInputAdapter'
 import {DropdownAdapter} from './DropdownAdapter'
 import {commitTurn} from './inputInteraction'
@@ -18,6 +19,7 @@ export function readStagedFields(doc:Document,vehicle:NormalizedVehicle,results:
       const expected=field.field==='description'?fitDescription(field.value??'',input?.maxLength??-1,vehicle.vin).text:field.value
       valid=!!input && input.value===expected && input.defaultValue===expected && input.getAttribute('aria-invalid')!=='true'
     }else if(result.evidence==='myauto-option')valid=selectedOption(doc,field.dropdownKey!,result)
+    else if(result.evidence==='negotiable')valid=negotiableSelected(doc)
     else if(result.evidence==='myauto-choice')valid=selectedChoice(doc.querySelector(field.selector!))
     return valid?{...result,status:'filled',persisted:true,code:undefined,reason:'შევსებულია და შენარჩუნებულია'}:(result.persisted || result.resetAfter)?{...result,resetAfter:result.resetAfter??'stagedCommit',status:'unfilled',persisted:false,code:'verification',retryable:true,reason:'შენახული მნიშვნელობა შეიცვალა; საჭიროა მხოლოდ ამ ველის გადამოწმება.'}:{...result,status:'unverified',persisted:false,code:'unverified',retryable:false,reason:'კონტროლერის შენახული მნიშვნელობა ვერ გადამოწმდა.'}
   })
@@ -26,7 +28,7 @@ export function readStagedFields(doc:Document,vehicle:NormalizedVehicle,results:
 export async function fillStagedMyauto(doc:Document,vehicle:NormalizedVehicle,plan:FormField[],options:FillOptions):Promise<FieldResult[]>{
   const selected=plan.filter(field=>!options.onlyFields || options.onlyFields.includes(field.field))
   const keys=new Set(selected.map(field=>field.field))
-  const results=(options.previousResults??[]).filter(result=>!keys.has(result.key??plan.find(field=>field.label===result.field)?.field??'')).map(result=>({...result}))
+  const results=(options.previousResults??[]).filter(result=>result.key!=='description' && result.field!=='აღწერა').filter(result=>!keys.has(result.key??plan.find(field=>field.label===result.field)?.field??'')).map(result=>({...result}))
   const text=new TextInputAdapter(doc,selected.filter(field=>field.mode==='text')),dropdown=new DropdownAdapter(doc)
   const edited=new Set<string>()
   const edit=(event:Event)=>{
@@ -85,6 +87,7 @@ export async function fillStagedMyauto(doc:Document,vehicle:NormalizedVehicle,pl
       const field=selected.find(item=>item.field===result.key)!
       if(selectedChoice(doc.querySelector(field.selector!)))Object.assign(result,{status:'filled',persisted:true,code:undefined,reason:'შევსებულია და შენარჩუნებულია'})
     }
+    if(selected.some(field=>field.mode==='toggle'))results.push(await enableNegotiablePrice(doc,options.signal))
     for(const field of selected.filter(item=>item.mode==='manual'))results.push({key:field.field,field:field.label,status:'unfilled',code:'manual',reason:field.reason??'საჭიროა ხელით გადამოწმება.'})
     await notify();return results
   }finally{doc.removeEventListener('input',edit,true);doc.removeEventListener('change',edit,true);doc.removeEventListener('keydown',edit,true)}

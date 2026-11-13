@@ -7,7 +7,7 @@ export function isMyautoControllerForm(doc:Document):boolean {
   return !!doc.querySelector('[data-testid="single-select-input-primaryFeatures.manufacturer"].opacity-0') && !!doc.querySelector('[data-testid="description-locale-tab-ka"]')
 }
 export function textInteractive(doc:Document):boolean {
-  const controls=[...doc.querySelectorAll<HTMLElement>('input[name="primaryFeatures.mileage"],[data-testid="description-textarea"]')]
+  const controls=[...doc.querySelectorAll<HTMLElement>('input[name="primaryFeatures.mileage"]')]
   return controls.length>0 && controls.every(shown)
 }
 export function selectedOption(doc:Document,key:string,result:FieldResult):boolean {

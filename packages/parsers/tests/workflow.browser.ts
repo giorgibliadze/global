@@ -60,7 +60,7 @@ try {
   const map = myautoFields(v)
   check(map.find(f => f.field === 'make')?.mode === 'dropdown' && map.find(f => f.field === 'model')?.mode === 'dropdown', 'dependent dropdowns deferred without invented options')
   check(map.find(f => f.field === 'transmission')?.selector?.includes('gearTypeId-2') && map.find(f => f.field === 'drivetrain')?.selector?.includes('driveTypeId-3'), 'confirmed MyAuto choice IDs')
-  check(map.find(f => f.field === 'price')?.mode === 'manual' && !map.find(f => f.field === 'images'), 'auction price not assumed; photos handled by dedicated adapter')
+  check(map.find(f => f.field === 'price')?.mode === 'toggle' && !map.find(f => f.field === 'images'), 'auction price not assumed; photos handled by dedicated adapter')
   const frame = document.createElement('iframe'); document.body.append(frame)
   const formDoc = frame.contentDocument!; formDoc.open(); formDoc.write(myauto); formDoc.close()
   const mileage = formDoc.querySelector<HTMLInputElement>('[name="primaryFeatures.mileage"]')!
