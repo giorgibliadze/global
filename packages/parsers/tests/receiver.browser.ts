@@ -103,7 +103,7 @@ export async function runReceiverTests(manheim:string, myauto:string, check:(val
         const filledWhileDownloading=new Promise<void>(resolve=>{filled=resolve})
         const running=runMyautoTransfer(doc,claimed,progress=>{if(progress.fields.some(field=>field.key==='mileageKm' && field.persisted))filled()},{pageUrl:()=>sender.tab!.url!,dropdownTimeoutMs:20,uploadTimeoutMs:800})
         await started
-        check(!doc.querySelector<HTMLSelectElement>('select[name="primaryFeatures.model"]')!.value,`receiver ${name}: photo download begins before dependent dropdowns finish`)
+        check(!!doc.querySelector<HTMLSelectElement>('select[name="primaryFeatures.model"]')!.value,`receiver ${name}: automatic form operations finish before photo downloads start`)
         let duplicateRejected=false
         try{await runMyautoTransfer(doc,claimed,()=>{},{pageUrl:()=>sender.tab!.url!})}catch{duplicateRejected=true}
         check(duplicateRejected,`receiver ${name}: one active pipeline owner per destination form`)

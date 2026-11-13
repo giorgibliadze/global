@@ -21,8 +21,11 @@ export function TransferProgress({ record }: { record: TransferRecord }) {
     <p>შევსება ვერ გადამოწმდა: {unverified}</p>
     <p>ხელით გადასამოწმებელი შესაბამისობები: {unresolved}</p>
     <p>გასული დრო: {elapsed.toLocaleString('ka-GE',{maximumFractionDigits:1})} წმ</p>
-    <p>ჩამოტვირთული ფოტოები: {record.photos.prepared} / {record.photos.total}</p>
-    <p>ფოტოები: {record.photos.uploaded}/{record.photos.total}</p>
+    {record.textComplete && <p>ტექსტური მონაცემები შევსებულია</p>}
+    <p>აღმოჩენილი ფოტოები: {record.photos.total}</p>
+    <p>ფოტოების მომზადება: {record.photos.prepared} / {record.photos.total}</p>
+    <p>ატვირთვისთვის გადაცემული: {record.photos.submitted ?? 0}</p>
+    <p>{record.photos.total>0 && record.photos.uploaded===record.photos.total?'ფოტოების ატვირთვა დასრულებულია':'ფოტოების ატვირთვა'}: {record.photos.uploaded}/{record.photos.total}</p>
     {record.status === 'error' && <p className="missing">გადატანა სრულად ვერ დადასტურდა. გადაამოწმეთ დარჩენილი ველები და შეცდომები MyAuto-ს ჩანართში.</p>}
     {record.vehicle.warnings.map((warning,index)=><p className="missing" key={`warning-${index}`}>{warning}</p>)}
     {record.errors.map((error, index) => <p className="missing" key={index}>{error}</p>)}

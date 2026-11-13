@@ -76,6 +76,19 @@ export function inspectManheim24Selection(doc:Document):{key:string;root:Element
   const {root,title,vin,data,identity}=selectedManheim24(doc)
   return {root,key:JSON.stringify([string(data.id),vin,title,identity.original.manufacturer,identity.original.fullModelName])}
 }
+function selectedPhotos(root:Element,data:Record<string,unknown>):string[]{
+  const gallery=[...root.querySelectorAll('#fyusion-prism-viewer img[src]')].filter(img=>!img.classList.contains('svfy_thumb')).map(img=>img.getAttribute('src'))
+  const records=Array.isArray(data.images)?data.images:[]
+  const urls=records.map(value=>value && typeof value==='object'?(value as Record<string,unknown>).largeUrl:undefined)
+  // mainImage.largeUrl is independently present in the supplied StockWaveInfo.
+  const main=data.mainImage && typeof data.mainImage==='object'?(data.mainImage as Record<string,unknown>).largeUrl:undefined
+  return deduplicatePhotos([...gallery,...urls,main],Infinity)
+}
+export function inspectManheim24Photos(doc:Document){
+  const {root,data,vin}=selectedManheim24(doc)
+  const images=selectedPhotos(root,data)
+  return {vin,listingId:string(data.id),images:images.slice(0,15),availableImageCount:images.length}
+}
 export function parseManheim24(doc: Document): NormalizedVehicle {
   const {root,title,vin,data,identity}=selectedManheim24(doc)
   const warnings: string[] = [...identity.warnings]
@@ -113,9 +126,6 @@ export function parseManheim24(doc: Document): NormalizedVehicle {
   if (identity.shortDescription) raw.structuredShortDescription = identity.shortDescription
   if (Array.isArray(data.models)) raw.models = data.models.filter((s): s is string => typeof s === 'string' && s.length <= 500)
   if (identity.original.trim) raw.trim = identity.original.trim
-  const gallery = [...root.querySelectorAll('#fyusion-prism-viewer img[src]')].filter(img => !img.classList.contains('svfy_thumb')).map(img => img.getAttribute('src'))
-  const imageRecords = Array.isArray(data.images) ? data.images : []
-  const urls = imageRecords.map(v => v && typeof v === 'object' ? (v as Record<string, unknown>).largeUrl : undefined)
   const sellerTitle = text(root, 'seller-provided-title')
   if (sellerTitle) raw.sellerTitle = sellerTitle
   warnings.push('კომპლექტაცია და მდგომარეობა გადაამოწმეთ ორიგინალ განცხადებასთან; მდგომარეობის შეფასება დაზიანების არქონას არ ადასტურებს.')
@@ -133,7 +143,7 @@ export function parseManheim24(doc: Document): NormalizedVehicle {
   if (description) raw.description = description
   if (optionalEquipmentSummary) raw.optionalEquipmentSummary = optionalEquipmentSummary
   for (const [key, value] of Object.entries({ ...damage, ...auction })) if (value !== undefined) raw[key] = value
-  const allImages = deduplicatePhotos([...gallery, ...urls], Infinity)
+  const allImages = selectedPhotos(root,data)
   const vehicle: NormalizedVehicle = {
     source: 'Manheim24', original: identity.original, listingId: string(data.id), title, vin,
     make: identity.original.manufacturer, model: identity.original.model, fullModelName:identity.original.fullModelName,baseModel:identity.original.baseModel,bodyStyle:string(data.bodyStyle),year,

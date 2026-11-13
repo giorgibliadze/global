@@ -1,3 +1,4 @@
+import {deduplicatePhotos} from '@auto-importer/parsers'
 import {applyAutofillPolicy} from '@auto-importer/parsers/myauto'
 import { PreparedVehicles } from './preparation'
 import type { PreparedVehicle } from './preparation'
@@ -256,6 +257,21 @@ export class TransferManager {
       if(!latest.fields.some(field=>field.status==='unfilled' && field.retryable))throw new Error('დროებითი შეცდომით შეუვსებელი ველები არ არის. მოუგვარებელი შესაბამისობები ხელით გადაამოწმეთ.')
       latest.status='running';latest.stage='filling';await this.save(latest);return latest
     })
+    if(message.type==='PHOTO_REFRESH')return this.lock(`job:${record.id}`,async()=>{
+      const latest=await this.read(record.id)
+      if(latest.status!=='running')throw new Error('ეს გადატანა აღარ მუშავდება.')
+      if(latest.photos.total || latest.photos.prepared || latest.photos.uploaded)return latest.photos
+      let response:{ok?:boolean;error?:string;value?:{vin:string;listingId?:string;images:string[];availableImageCount:number}}
+      try{response=await this.api.tabs.sendMessage(latest.sourceTabId,{type:'MANHEIM_PHOTOS',expected:{vin:latest.vehicle.vin,listingId:latest.vehicle.listingId}}) as typeof response}
+      catch{throw new Error('ფოტოების წყაროსთან დაკავშირება ვერ მოხერხდა. Manheim24-ის დეტალური გვერდი გახსნილი დატოვეთ.')}
+      if(!response?.ok || !response.value)throw new Error(response?.error ?? 'წყაროს ფოტოგალერეა ვერ წაიკითხა.')
+      const value=response.value
+      if(value.vin!==latest.vehicle.vin || latest.vehicle.listingId && value.listingId!==latest.vehicle.listingId)throw new Error('ფოტოების ავტომობილი არ ემთხვევა გადატანის ავტომობილს.')
+      const images=deduplicatePhotos(Array.isArray(value.images)?value.images:[])
+      if(!images.length)throw new Error('არჩეული ავტომობილის გალერეაში ფოტოები ვერ მოიძებნა.')
+      latest.vehicle.images=images;latest.vehicle.availableImageCount=images.length;latest.photos.total=images.length
+      await this.save(latest);return latest.photos
+    })
     if (message.type === 'PHOTO_PREPARE') {
       return this.lock(`photo:${record.id}:${String(message.index)}`, async () => {
         const fresh = await this.read(record.id)
@@ -296,6 +312,8 @@ export class TransferManager {
       const order = ['preparing','matching','filling','uploading','verifying']
       if (order.includes(latest.stage) && order.indexOf(message.stage as string) < order.indexOf(latest.stage)) throw new Error('გადატანის ეტაპი უკან ვერ დაბრუნდება.')
       if(message.formTotal!==undefined){if(!Number.isInteger(message.formTotal) || (message.formTotal as number)<0 || (message.formTotal as number)>80)throw new Error('ველების რაოდენობა არასწორია.');latest.formTotal=message.formTotal as number}
+      if(message.stage==='uploading')latest.textComplete=true
+      if(message.submitted!==undefined){if(!Number.isInteger(message.submitted)||(message.submitted as number)<0||(message.submitted as number)>latest.photos.prepared)throw new Error('ატვირთვისთვის გადაცემული ფოტოების რაოდენობა არასწორია.');latest.photos.submitted=message.submitted as number}
       if(message.uploaded!==undefined){if(!Number.isInteger(message.uploaded) || (message.uploaded as number)<latest.photos.uploaded || (message.uploaded as number)>latest.photos.prepared)throw new Error('ფოტოების პროგრესი არასწორია.');latest.photos.uploaded=message.uploaded as number}
       if(message.fields!==undefined){if(!Array.isArray(message.fields) || message.fields.length>80 || !message.fields.every(isFieldResult))throw new Error('ველების პროგრესის ფორმატი არასწორია.');latest.fields=message.fields}
       if(message.currentField!==undefined){if(typeof message.currentField!=='string' || message.currentField.length>120)throw new Error('ველის პროგრესის ფორმატი არასწორია.');latest.currentField=message.currentField || undefined}

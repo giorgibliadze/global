@@ -13,6 +13,7 @@ const sourceA=await readFile(join(root,'packages/parsers/tests/fixtures/manheim2
 const sourceB=sourceA.replaceAll('1HGCM82633A004352','2HGCM82633A004352').replaceAll('1HGCM82633 A004352','2HGCM82633 A004352').replaceAll('M5 Touring Wagon','M3 Touring').replaceAll('&quot;M5&quot;','&quot;M3&quot;').replaceAll('"M5"','"M3"').replaceAll('/fixture/','/fixture-b/')
 const form=await readFile(join(root,'packages/parsers/tests/fixtures/myauto.html'),'utf8')
 const png='iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAAAA+UlEQVR4nO3RQQ0AIAzAwJlBGfIxgYw9ekkFNLk592mxWT+IBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtPnAWxWXIaEEjAAAAAElFTkSuQmCC'
+const lazyPhotosTest=process.env.AUTO_LAZY_PHOTOS_TEST==='1'
 const prefetchTest=process.env.AUTO_PREFETCH_TEST==='1'
 const reactTest=process.env.AUTO_REACT_TEST==='1'
 const rhfTest=reactTest && !!process.env.AUTO_RHF_MODULE
@@ -89,7 +90,8 @@ try {
       const url=new URL(request.url),main=resourceType==='Document'
       if(message.sessionId===workerSession && !main)photoRequests++
       if(benchmark && message.sessionId===workerSession && !main)await new Promise(resolve=>setTimeout(resolve,120))
-      const html=url.hostname==='home.manheim24.com'?source:url.hostname==='myauto.ge'?destination():null
+      const lazyScript=`<script>(()=>{const node=document.querySelector('.StockWaveInfo'),gallery=document.querySelector('#fyusion-prism-viewer'),data=JSON.parse(node.textContent);const saved={images:data.images,mainImage:data.mainImage,html:gallery.innerHTML};data.images=[];delete data.mainImage;node.textContent=JSON.stringify(data);gallery.innerHTML='';window.fixtureRestorePhotos=()=>{const current=JSON.parse(node.textContent);current.images=saved.images;if(saved.mainImage)current.mainImage=saved.mainImage;node.textContent=JSON.stringify(current);gallery.innerHTML=saved.html}})()</script>`
+      const html=url.hostname==='home.manheim24.com'?source+(lazyPhotosTest?lazyScript:''):url.hostname==='myauto.ge'?destination():null
       await command('Fetch.fulfillRequest',{requestId,responseCode:main&&!html?404:200,responseHeaders:[{name:'Content-Type',value:main?'text/html; charset=utf-8':'image/png'}],body:main?Buffer.from(html ?? '').toString('base64'):png},message.sessionId)
     })().catch(()=>failures.push('Fixture request interception failed'))
     if(message.method==='Target.attachedToTarget')void (async()=>{
@@ -175,9 +177,10 @@ try {
     const benchmarkStarted=performance.now(),benchmarkEpoch=Date.now()
     await evaluate(sourceSession,`${shadow}.querySelector('.import-button').click();${shadow}.querySelector('.import-button').click()`)
     assert.ok(await evaluate(sourceSession,`!${shadow}.querySelector('.vehicle-review,.review-actions,[aria-modal="true"]')`),'No confirmation UI required')
-    let job,inspected=false
+    let job,inspected=false,photosRestored=false
     await wait(async()=>{
       job=await evaluate(workerSession,`(async()=>{const entries=await chrome.storage.session.get(null);const records=Object.entries(entries).filter(([key])=>key.startsWith('job:')).map(([,value])=>value);const job=records.find(record=>record.vehicle.model===${JSON.stringify(model)});return job?{id:job.id,createdAt:job.createdAt,destinationTabId:job.destinationTabId,stage:job.stage,status:job.status,uploaded:job.photos.uploaded,total:job.photos.total,timings:job.timings,fields:job.fields,errors:job.errors,preparation:job.preparation}:null})()`)
+      if(lazyPhotosTest && !photosRestored && job?.stage==='uploading' && job.total===0){await evaluate(sourceSession,'window.fixtureRestorePhotos()');photosRestored=true}
       if(reactTest && !inspected && job?.status==='running' && job.fields.some(field=>field.key==='mileageKm' && field.persisted) && job.uploaded<job.total){
         const target=(await command('Target.getTargets')).targetInfos.find(target=>target.type==='page'&&target.url==='https://myauto.ge/ka/add'&&!jobs.some(previous=>previous.targetId===target.targetId))
         const session=target&&sessions.get(target.targetId)
@@ -192,6 +195,7 @@ try {
       assert.ok(notice==='' || notice==='მონაცემების გადატანა დაიწყო','First-click start has no transfer error')
       return job?.status!=='running' && !!job?.destinationTabId
     },'destination receiver completion '+name)
+    if(lazyPhotosTest && name==='A')assert.ok(photosRestored && job.total===15,'Initially empty cached gallery refreshed for the same vehicle after form autofill')
     if(prefetchTest)assert.ok(job.preparation?.cacheHit && job.preparation.extractedAt<=benchmarkEpoch,'Transfer reuses text prepared before the click')
     if(rhfTest && job.fields.filter(field=>field.status==='filled'&&field.persisted).length!==(retryTest?15:16))console.error('Field outcomes',job.fields.map(({key,status,code,reason})=>({key,status,code,reason})))
     if(rhfTest)assert.equal(job.fields.filter(field=>field.status==='filled'&&field.persisted).length,retryTest?15:16,'Supported fields persist; the deliberate fuel failure and manual fields stay isolated')

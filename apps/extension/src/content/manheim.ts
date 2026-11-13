@@ -1,3 +1,4 @@
+import {resolveSelectedPhotos} from './photos'
 import { VehiclePreparation } from './preparation'
 import type { PreparationStatus } from '@auto-importer/shared'
 import { pipelineLog } from '../services/diagnostics'
@@ -15,6 +16,11 @@ export function registerManheimParser(doc: Document = document) {
   if(doc.defaultView && doc.location.protocol==='https:'){preparation?.dispose();preparation=new VehiclePreparation(doc,api)}
   api.runtime.onMessage.addListener((message, sender, reply) => {
     if(sender.id!==api.runtime.id)return
+    if(operation(message)==='MANHEIM_PHOTOS'){
+      const expected=(message as {expected?:{vin:string;listingId?:string}}).expected
+      if(!expected || !/^[A-HJ-NPR-Z0-9]{17}$/.test(expected.vin)){reply({ok:false,error:'ავტომობილის ფოტოების იდენტიფიკატორი არასწორია.'});return}
+      void resolveSelectedPhotos(doc,expected).then(value=>reply({ok:true,value}),error=>reply({ok:false,error:error instanceof Error?error.message:'ფოტოები ვერ წაიკითხა.'}));return true
+    }
     if(operation(message)==='MANHEIM_VERIFY'){reply({ok:true,verified:preparation?.verify((message as {preparationId?:unknown}).preparationId) ?? false});return}
     if(operation(message)==='MANHEIM_RESOLVE' && preparation){
       void preparation.resolve().then(value=>reply({ok:true,...value}),()=>reply({ok:false,error:'მონაცემები ვერ მომზადდა. დაელოდეთ ავტომობილის დეტალების ჩატვირთვას.'}));return true

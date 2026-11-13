@@ -76,7 +76,8 @@ export interface TransferRecord {
   stage: TransferStage
   status: 'running' | 'review' | 'error'
   claimed: boolean
-  photos: { total: number; prepared: number; uploaded: number; failed: number }
+  textComplete?:boolean
+  photos: { total: number; prepared: number; uploaded: number; failed: number; submitted?:number }
   fields: FieldResult[]
   errors: string[]
   preparedFields?:PreparedFormField[]

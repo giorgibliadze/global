@@ -1,3 +1,4 @@
+import {uploadNamedGallery} from './galleryUpload'
 export interface UploadResult { verified: number; errors: string[] }
 export const photoContainerSelector = '[data-testid="photo-video-container"]'
 export const photoInputSelector = '[data-testid="photo-video-dropzone"] input[type="file"]'
@@ -26,7 +27,7 @@ export function assertFreshMyauto(doc: Document) {
   const container = doc.querySelector(photoContainerSelector)
   if (container && ((photoCount(container) ?? 0) > 0 || remotePreviews(container).length > 0)) throw new Error('ფორმაში ფოტოები უკვე არის. ავტომობილების ფოტოები არ შეირევა.')
 }
-async function uploadAttempt(doc: Document, files: File[], progress: (confirmed: number) => void, options: { timeoutMs?: number; signal?: AbortSignal; guard?: () => void } = {}): Promise<UploadResult> {
+async function uploadAttempt(doc: Document, files: File[], progress: (confirmed: number) => void, options: { timeoutMs?: number; signal?: AbortSignal; guard?: () => void;onSubmitted?:(count:number)=>void } = {}): Promise<UploadResult> {
   if (!files.length) return { verified: 0, errors: ['არცერთი ფოტო არ მომზადდა. ატვირთვა არ დაწყებულა.'] }
   if (files.length > 15) return { verified: 0, errors: ['ფოტოების რაოდენობა აღემატება 15-ს.'] }
   const container = doc.querySelector(photoContainerSelector)
@@ -44,10 +45,11 @@ async function uploadAttempt(doc: Document, files: File[], progress: (confirmed:
     input.files = transfer.files
     input.dispatchEvent(new doc.defaultView.Event('input', { bubbles: true }))
     input.dispatchEvent(new doc.defaultView.Event('change', { bubbles: true }))
+    options.onSubmitted?.(files.length)
   } catch { return { verified: 0, errors: ['ბრაუზერმა ფაილების მინიჭება არ დაუშვა. ატვირთვა არ დადასტურებულა.'] } }
   await new Promise(resolve => setTimeout(resolve, 50))
   const start = Date.now()
-  let stableSince = 0
+  let stableSince = 0,confirmed=0
   while (Date.now() - start < (options.timeoutMs ?? 45000)) {
     options.signal?.throwIfAborted(); options.guard?.()
     const current = doc.querySelector(photoContainerSelector)
@@ -56,6 +58,7 @@ async function uploadAttempt(doc: Document, files: File[], progress: (confirmed:
     if (explicitError) return { verified: 0, errors: ['MyAuto-ს ატვირთვის კომპონენტმა შეცდომა აჩვენა. ავტომატური ხელახალი მინიჭება არ შესრულდა შესაძლო დუბლირების გამო.'] }
     const previews = new Set(remotePreviews(current).filter(img => !initial.has(img.currentSrc || img.src)).map(img => img.currentSrc || img.src))
     const count = photoCount(current)
+    confirmed=Math.min(files.length,previews.size,count??0);progress(confirmed)
     const busy = !!current.querySelector('[aria-busy="true"], [role="progressbar"], progress')
     if (previews.size === files.length && count === files.length && !busy) {
       stableSince ||= Date.now()
@@ -67,10 +70,11 @@ async function uploadAttempt(doc: Document, files: File[], progress: (confirmed:
     // An immediate blob preview is not evidence of server upload completion.
     await new Promise(resolve => setTimeout(resolve, 100))
   }
-  return { verified: 0, errors: ['ფაილები გადაეცა ამრჩევს, მაგრამ MyAuto-ს რაოდენობითა და ჩატვირთული სერვერული პრევიუებით ატვირთვა ვერ დადასტურდა. საჭიროა ატვირთული გალერეის DOM-ის ცოცხალი შემოწმება; მხოლოდ ლოკალური პრევიუ წარმატებად არ ჩაითვალა.'] }
+  return { verified: confirmed, errors: ['ფაილები გადაეცა ამრჩევს, მაგრამ MyAuto-ს რაოდენობითა და ჩატვირთული სერვერული პრევიუებით ატვირთვა ვერ დადასტურდა. საჭიროა ატვირთული გალერეის DOM-ის ცოცხალი შემოწმება; მხოლოდ ლოკალური პრევიუ წარმატებად არ ჩაითვალა.'] }
 }
 
-export async function uploadPhotos(doc: Document, files: File[], progress: (confirmed: number) => void, options: { timeoutMs?: number; signal?: AbortSignal; guard?: () => void } = {}): Promise<UploadResult> {
+export async function uploadPhotos(doc: Document, files: File[], progress: (confirmed: number) => void, options: { timeoutMs?: number; signal?: AbortSignal; guard?: () => void;onSubmitted?:(count:number)=>void } = {}): Promise<UploadResult> {
+  if(files.length && files.length<=15 && /ფოტო\s*\d+\s*\/\s*15/.test(doc.querySelector('[data-testid="photo-video-label"]')?.textContent??''))return uploadNamedGallery(doc,files,progress,options)
   let last: UploadResult = { verified: 0, errors: [] }
   for (let attempt = 0; attempt < 2; attempt++) {
     last = await uploadAttempt(doc, files, progress, options)

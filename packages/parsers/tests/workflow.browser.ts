@@ -1,3 +1,4 @@
+import {runPhotoRegressionTests} from './photoRegression.browser'
 import {runStagedTests} from './stagedMyauto.browser'
 import { runFormLifecycleTests } from './formLifecycle.browser'
 import { runPrefetchTests } from './prefetch.browser'
@@ -89,6 +90,7 @@ try {
   check(unverifiedResults.filter(r => r.status === 'filled').length === 4, 'unverified custom choices are not reported as filled')
   unverifiedFrame.remove()
 
+  await runPhotoRegressionTests(manheim,check)
   await runStagedTests(manheim,myauto,check)
   await runFormLifecycleTests(manheim,myauto,check)
   await runPrefetchTests(manheim,check)

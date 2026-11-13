@@ -95,28 +95,32 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
     }
     const photoPipeline=async()=>{
       pipelineLog(transfer.id,'uploading','started')
-      const prepared=await measure('photoDownload',()=>prepareFiles(transfer.id,transfer.photos.total,(ready,failed)=>{
+      if(!current.photos.total){current.photos=await request<TransferRecord['photos']>({type:'PHOTO_REFRESH',id:transfer.id});update()}
+      const prepared=await measure('photoDownload',()=>prepareFiles(transfer.id,current.photos.total,(ready,failed)=>{
         guard();current.photos.prepared=ready;current.photos.failed=failed;update()
       },controller.signal))
       errors.push(...prepared.errors)
-      // Only one batch is supported by the confirmed uploader. Do not append a
-      // second FileList to a nonempty gallery or compete with another upload.
+      // The adapter owns one upload operation. Only source-confirmed failed
+      // gallery IDs may be resubmitted; successful photos are never cleared.
       await waitForDomReady(doc,()=>{guard();return !!doc.querySelector('[data-testid="photo-video-dropzone"] input[type="file"]:not(:disabled)')},controller.signal,options.uploadTimeoutMs ?? 25000)
-      const upload=await measure('photoUpload',()=>uploadPhotos(doc,prepared.files,count=>{guard();current.photos.uploaded=count;update()},{timeoutMs:options.uploadTimeoutMs,signal:controller.signal,guard}))
+      const upload=await measure('photoUpload',()=>uploadPhotos(doc,prepared.files,count=>{guard();current.photos.uploaded=count;update()},{timeoutMs:options.uploadTimeoutMs,signal:controller.signal,guard,onSubmitted:count=>{current.photos.submitted=count;update()}}))
       uploaded=upload.verified;errors.push(...upload.errors)
       if(uploaded)addTiming('photoComplete',Math.max(0,Date.now()-transfer.createdAt))
-      await request({type:'TRANSFER_PROGRESS',id:transfer.id,stage:'filling',uploaded})
+      await request({type:'TRANSFER_PROGRESS',id:transfer.id,stage:'uploading',uploaded,submitted:current.photos.submitted})
       pipelineLog(transfer.id,'uploading',upload.errors.length || prepared.errors.length?'partial':'completed')
     }
-    // allSettled keeps a noncritical photo or field failure from cancelling the
-    // other pipeline; identity/navigation failures abort their shared signal.
-    const pipelines=await Promise.allSettled([formPipeline(),photoPipeline()])
-    for(const [index,outcome] of pipelines.entries())if(outcome.status==='rejected'){
-      errors.push(index===0?'ფორმის შევსება ვერ შესრულდა.':'ფოტოების ატვირთვა ვერ შესრულდა.')
-      if(outcome.reason instanceof Error && /[\u10A0-\u10FF]/.test(outcome.reason.message))errors.push(outcome.reason.message)
-      pipelineLog(transfer.id,index===0?'filling':'uploading','failed')
+    // Only schedule photos after the existing automatic form operations settle.
+    // Missing/unresolved fields are results, not a requirement for a valid listing.
+    try{await formPipeline()}catch(error){
+      guard();results=verifyMyautoFields(doc,transfer.vehicle,current.fields)
+      errors.push('ფორმის შევსება ვერ შესრულდა.')
+      if(error instanceof Error && /[\u10A0-\u10FF]/.test(error.message))errors.push(error.message)
     }
-    if(pipelines[0].status==='rejected')results=verifyMyautoFields(doc,transfer.vehicle,current.fields)
+    current.textComplete=true;await phase('uploading')
+    try{await photoPipeline()}catch(error){
+      guard();errors.push(error instanceof Error && /[\u10A0-\u10FF]/.test(error.message)?error.message:'ფოტოების ატვირთვა ვერ შესრულდა.')
+      pipelineLog(transfer.id,'uploading','failed')
+    }
     await phase('verifying')
     guard()
     const beforeFinal=results
