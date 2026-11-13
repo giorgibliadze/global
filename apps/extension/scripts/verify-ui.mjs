@@ -124,6 +124,7 @@ function fixture(popup, supported, state = 'ready') {
             check(!!shadow.querySelector('.vehicle-review'), 'Original and Georgian details displayed before transfer')
             check(window.fixtureStarts === 0 && window.fixtureDestinations === 0, 'Review cannot open or fill destination')
             check(shadow.querySelector('.vehicle-review').textContent.includes('ორიგინალი:') && shadow.querySelector('.vehicle-review').textContent.includes('ქართული:'), 'Both original and localized columns rendered')
+            check(!!shadow.querySelector('.review-actions [role=\"status\"]') && getComputedStyle(shadow.querySelector('.review-actions')).position === 'sticky', 'Confirmation has explicit Georgian handoff status and stays visible while reviewing')
             shadow.querySelectorAll('.vehicle-review button')[1].click(); await wait()
             check(!shadow.querySelector('.vehicle-review') && window.fixtureDestinations === 0, 'Review cancellation has no destination side effects')
             shadow.querySelector('.import-button').click(); await wait()

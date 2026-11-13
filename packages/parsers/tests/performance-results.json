@@ -1,0 +1,272 @@
+{
+  "date": "2026-11-12",
+  "method": "Three sequential runs per version; primary comparison uses vehicle A, the same sanitized BMW M5 Touring Wagon fixture. Vehicle B independently verifies isolation. Real unpacked Chrome MV3 extension; isolated profiles; external DNS blocked; 120 ms controlled response delay per worker image fetch; 128px fixture PNG; synthetic MyAuto options and gallery acknowledgments. Not a live authenticated benchmark.",
+  "measurement": "Node performance.now from clicking confirmation to reading saved final verified state; polling resolution approximately 100ms. Stage timings use browser performance.now; sourceExtraction includes source DOM parsing, unit conversions and IPC. Substage timers overlap and must not be summed. Baseline fieldVerification only covered dropdown settling; optimized adds text/choice verification, so that substage is not directly comparable. Receiver total excludes initial tab creation.",
+  "samples": [
+    {
+      "run": 1,
+      "version": "baseline",
+      "vehicle": "A",
+      "totalMs": 6007.7183540000005,
+      "stages": {
+        "dropdownDiscovery": 855.8999999910593,
+        "dropdownSelection": 542.0999999791384,
+        "fieldVerification": 542.0999999791384,
+        "finalValidation": 11.5,
+        "formFilling": 2374.6000000089407,
+        "matching": 0.5,
+        "normalization": 27,
+        "photoDownload": 2197,
+        "photoUpload": 1078.7999999970198,
+        "sourceExtraction": 4.700000002980232,
+        "total": 5697.9000000059605
+      }
+    },
+    {
+      "run": 1,
+      "version": "baseline",
+      "vehicle": "B",
+      "totalMs": 5985.606293000001,
+      "stages": {
+        "dropdownDiscovery": 854.8000000119209,
+        "dropdownSelection": 542.1999999880791,
+        "fieldVerification": 542.1999999880791,
+        "finalValidation": 10.200000002980232,
+        "formFilling": 2365,
+        "matching": 0.5,
+        "normalization": 26.5,
+        "photoDownload": 2139.7000000029802,
+        "photoUpload": 1076.3999999910593,
+        "sourceExtraction": 5.200000002980232,
+        "total": 5624.199999988079
+      }
+    },
+    {
+      "run": 2,
+      "version": "baseline",
+      "vehicle": "A",
+      "totalMs": 5976.042749,
+      "stages": {
+        "dropdownDiscovery": 854.6999999880791,
+        "dropdownSelection": 545.2000000029802,
+        "fieldVerification": 545.2000000029802,
+        "finalValidation": 10.700000002980232,
+        "formFilling": 2364.2999999970198,
+        "matching": 0.4999999850988388,
+        "normalization": 25.599999994039536,
+        "photoDownload": 2132.7000000029802,
+        "photoUpload": 1080.5,
+        "sourceExtraction": 5,
+        "total": 5621.79999999702
+      }
+    },
+    {
+      "run": 2,
+      "version": "baseline",
+      "vehicle": "B",
+      "totalMs": 5989.164984,
+      "stages": {
+        "dropdownDiscovery": 862.6999999880791,
+        "dropdownSelection": 552.3999999910593,
+        "fieldVerification": 552.3999999910593,
+        "finalValidation": 10,
+        "formFilling": 2383.8999999910593,
+        "matching": 0.4000000059604645,
+        "normalization": 25.599999994039536,
+        "photoDownload": 2188.2999999970198,
+        "photoUpload": 1081.2999999970198,
+        "sourceExtraction": 4.100000008940697,
+        "total": 5696.600000008941
+      }
+    },
+    {
+      "run": 3,
+      "version": "baseline",
+      "vehicle": "A",
+      "totalMs": 5870.26864,
+      "stages": {
+        "dropdownDiscovery": 858.5999999940395,
+        "dropdownSelection": 544.7000000029802,
+        "fieldVerification": 544.7000000029802,
+        "finalValidation": 8.299999997019768,
+        "formFilling": 2359,
+        "matching": 0.30000001192092896,
+        "normalization": 25.5,
+        "photoDownload": 2103.0999999940395,
+        "photoUpload": 1078.699999988079,
+        "sourceExtraction": 5.700000002980232,
+        "total": 5576.600000008941
+      }
+    },
+    {
+      "run": 3,
+      "version": "baseline",
+      "vehicle": "B",
+      "totalMs": 5891.831839999999,
+      "stages": {
+        "dropdownDiscovery": 841.3999999761581,
+        "dropdownSelection": 550.1000000089407,
+        "fieldVerification": 550.1000000089407,
+        "finalValidation": 10.900000005960464,
+        "formFilling": 2358.2999999970198,
+        "matching": 0.3999999910593033,
+        "normalization": 26.799999997019768,
+        "photoDownload": 2160.0999999940395,
+        "photoUpload": 1078.7000000029802,
+        "sourceExtraction": 6.200000002980232,
+        "total": 5636.899999991059
+      }
+    },
+    {
+      "run": 1,
+      "version": "optimized",
+      "vehicle": "A",
+      "totalMs": 4082.6112500000004,
+      "stages": {
+        "dropdownDiscovery": 881.9999999850988,
+        "dropdownSelection": 374.10000002384186,
+        "fieldVerification": 694.3000000417233,
+        "finalValidation": 0.4000000059604645,
+        "formFilling": 1617.0999999940395,
+        "matching": 0.3999999910593033,
+        "normalization": 14.099999994039536,
+        "photoDownload": 753.4000000059605,
+        "photoUpload": 1081.3999999910593,
+        "sourceExtraction": 4.799999997019768,
+        "total": 3727.4000000059605
+      }
+    },
+    {
+      "run": 1,
+      "version": "optimized",
+      "vehicle": "B",
+      "totalMs": 3861.543479000001,
+      "stages": {
+        "dropdownDiscovery": 879.3000000119209,
+        "dropdownSelection": 375.6000000089407,
+        "fieldVerification": 685.8000000119209,
+        "finalValidation": 0.3999999910593033,
+        "formFilling": 1599.7000000029802,
+        "matching": 0.5,
+        "normalization": 14.400000005960464,
+        "photoDownload": 735.4000000059605,
+        "photoUpload": 1079.0999999940395,
+        "sourceExtraction": 5.0999999940395355,
+        "total": 3497.9000000059605
+      }
+    },
+    {
+      "run": 2,
+      "version": "optimized",
+      "vehicle": "A",
+      "totalMs": 3835.506939,
+      "stages": {
+        "dropdownDiscovery": 869.1999999731779,
+        "dropdownSelection": 367.2000000476837,
+        "fieldVerification": 687.7000000178814,
+        "finalValidation": 0.5999999940395355,
+        "formFilling": 1594.5,
+        "matching": 0.20000000298023224,
+        "normalization": 15,
+        "photoDownload": 749.3999999910593,
+        "photoUpload": 1077.7000000029802,
+        "sourceExtraction": 5.299999997019768,
+        "total": 3508.5999999940395
+      }
+    },
+    {
+      "run": 2,
+      "version": "optimized",
+      "vehicle": "B",
+      "totalMs": 3848.3357650000007,
+      "stages": {
+        "dropdownDiscovery": 867,
+        "dropdownSelection": 370.79999999701977,
+        "fieldVerification": 685.7000000029802,
+        "finalValidation": 0.5,
+        "formFilling": 1592.7000000029802,
+        "matching": 0.4999999850988388,
+        "normalization": 16.299999997019768,
+        "photoDownload": 738.9000000059605,
+        "photoUpload": 1085.300000011921,
+        "sourceExtraction": 7.299999997019768,
+        "total": 3507.2999999970198
+      }
+    },
+    {
+      "run": 3,
+      "version": "optimized",
+      "vehicle": "A",
+      "totalMs": 3854.201736,
+      "stages": {
+        "dropdownDiscovery": 860.4999999850988,
+        "dropdownSelection": 365.79999999701977,
+        "fieldVerification": 675.9000000059605,
+        "finalValidation": 0.4000000059604645,
+        "formFilling": 1570.2999999970198,
+        "matching": 0.7999999970197678,
+        "normalization": 14.799999997019768,
+        "photoDownload": 758,
+        "photoUpload": 1075,
+        "sourceExtraction": 6.299999997019768,
+        "total": 3509
+      }
+    },
+    {
+      "run": 3,
+      "version": "optimized",
+      "vehicle": "B",
+      "totalMs": 3832.5720380000002,
+      "stages": {
+        "dropdownDiscovery": 880.1999999880791,
+        "dropdownSelection": 370.10000002384186,
+        "fieldVerification": 687.900000050664,
+        "finalValidation": 0.5,
+        "formFilling": 1606.5,
+        "matching": 0.30000002682209015,
+        "normalization": 16.5,
+        "photoDownload": 751.0999999940395,
+        "photoUpload": 1082.3999999910593,
+        "sourceExtraction": 3.9000000059604645,
+        "total": 3532.800000011921
+      }
+    }
+  ],
+  "primaryMedian": {
+    "baseline": {
+      "totalMs": 5976.042749,
+      "stages": {
+        "dropdownDiscovery": 855.8999999910593,
+        "dropdownSelection": 544.7000000029802,
+        "fieldVerification": 544.7000000029802,
+        "finalValidation": 10.700000002980232,
+        "formFilling": 2364.2999999970198,
+        "matching": 0.4999999850988388,
+        "normalization": 25.599999994039536,
+        "photoDownload": 2132.7000000029802,
+        "photoUpload": 1078.7999999970198,
+        "sourceExtraction": 5,
+        "total": 5621.79999999702
+      },
+      "photoTransferMs": 3213.2000000029802
+    },
+    "optimized": {
+      "totalMs": 3854.201736,
+      "stages": {
+        "dropdownDiscovery": 869.1999999731779,
+        "dropdownSelection": 367.2000000476837,
+        "fieldVerification": 687.7000000178814,
+        "finalValidation": 0.4000000059604645,
+        "formFilling": 1594.5,
+        "matching": 0.3999999910593033,
+        "normalization": 14.799999997019768,
+        "photoDownload": 753.4000000059605,
+        "photoUpload": 1077.7000000029802,
+        "sourceExtraction": 5.299999997019768,
+        "total": 3509
+      },
+      "photoTransferMs": 1833
+    }
+  },
+  "elapsedTimeReductionPercent": 35.50578705875319
+}

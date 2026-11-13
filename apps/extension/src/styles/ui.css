@@ -20,3 +20,6 @@
 .vehicle-review ul { padding-left: 16px; }
 .vehicle-review li { margin: 8px 0; }
 .vehicle-review .import-button { margin-top: 10px; }
+
+.vehicle-review .review-actions { position: sticky; top: 0; z-index: 2; background: #FFFFFF; padding: 10px 0; border-bottom: 1px solid #E2E8F0; }
+.vehicle-review .review-actions p { margin: 0; }

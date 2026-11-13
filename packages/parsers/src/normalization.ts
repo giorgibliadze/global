@@ -47,8 +47,8 @@ export function reviewDetails(v: NormalizedVehicle): ReviewDetail[] {
   const rows: ReviewDetail[] = [
     {key:'vin',label:'VIN',original:v.vin,georgian:v.vin,resolved:!!v.vin},
     {key:'make',label:'მწარმოებელი',original:v.make,georgian:v.make,resolved:!!v.make},
-    {key:'model',label:'მოდელი',original:v.model,georgian:v.model,resolved:!!v.model},
-    {key:'trim',label:'კომპლექტაცია',original:v.trim,georgian:v.trim,resolved:!!v.trim},
+    {key:'model',label:'მოდელი',original:v.fullModelName ?? v.model,georgian:v.fullModelName ?? v.model,resolved:!!(v.fullModelName ?? v.model)},
+    {key:'trim',label:'კომპლექტაცია',original:v.trim ?? undefined,georgian:v.trim ?? undefined,resolved:!!v.trim},
     {key:'year',label:'წელი',original:v.year === undefined ? undefined : String(v.year),georgian:v.year === undefined ? undefined : String(v.year),resolved:v.year !== undefined},
     {key:'mileage',label:'გარბენი',original:String(v.raw.mileageDisplay || `${v.raw.odometer ?? ''} ${v.raw.odometerUnits ?? ''}`).trim() || undefined,georgian:v.mileageKm === undefined ? undefined : `${v.mileageKm.toLocaleString('ka-GE',{maximumFractionDigits:6})} კმ`,resolved:v.mileageKm !== undefined},
     {key:'engine',label:'ძრავის მოცულობა',original:typeof v.raw.engineDisplacement === 'string' ? v.raw.engineDisplacement : undefined,georgian:v.engineCc === undefined ? undefined : `${v.engineCc} სმ³`,resolved:v.engineCc !== undefined},

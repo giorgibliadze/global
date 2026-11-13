@@ -1,8 +1,12 @@
 import type { PhotoMetadata } from '@auto-importer/shared'
 import { request } from '../services/extensionApi'
 export async function prepareFiles(id: string, total: number, progress: (ready: number, failed: number) => void, signal?: AbortSignal): Promise<{ files: File[]; errors: string[] }> {
+  if(!Number.isInteger(total) || total<0 || total>15)throw new Error('ფოტოების რაოდენობა არასწორია.')
   const files: File[] = [], errors: string[] = []
-  for (let index = 0; index < total; index++) {
+  let next=0,ready=0,failed=0
+  async function worker(){
+  while(next<total){
+    const index=next++
     signal?.throwIfAborted()
     try {
       const metadata = await request<PhotoMetadata>({ type: 'PHOTO_PREPARE', id, index })
@@ -19,12 +23,13 @@ export async function prepareFiles(id: string, total: number, progress: (ready: 
       }
       const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(b => b.toString(16).padStart(2,'0')).join('')
       if (hash !== metadata.sha256) throw new Error('ფოტოს მთლიანობის შემოწმება ვერ გაიარა.')
-      files.push(new File([bytes], metadata.name, { type: metadata.mime }))
+      files[index]=new File([bytes], metadata.name, { type: metadata.mime });ready++
     } catch (error) {
       signal?.throwIfAborted()
-      errors.push(`ფოტო ${index + 1}: ${error instanceof Error ? error.message : 'ჩამოტვირთვა ვერ მოხერხდა.'}`)
+      errors[index]=`ფოტო ${index + 1}: ${error instanceof Error ? error.message : 'ჩამოტვირთვა ვერ მოხერხდა.'}`;failed++
     }
-    progress(files.length, errors.length)
-  }
-  return { files, errors }
+    progress(ready,failed)
+  }}
+  await Promise.all(Array.from({length:Math.min(3,total)},()=>worker()))
+  return { files:files.filter(Boolean), errors:errors.filter(Boolean) }
 }

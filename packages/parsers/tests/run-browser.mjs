@@ -10,8 +10,8 @@ const root = fileURLToPath(new URL('../../../', import.meta.url))
 const server = createServer(async (req, res) => {
   try {
     const path = new URL(req.url, 'http://localhost').pathname
-    if (path === '/') { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.end('<!doctype html><meta charset="utf-8"><pre></pre><script>addEventListener("error",e=>{document.body.dataset.result="FAIL";document.querySelector("pre").textContent=e.message||"Module load failed"});addEventListener("unhandledrejection",e=>{document.body.dataset.result="FAIL";document.querySelector("pre").textContent=String(e.reason)})</script><script type="importmap">{"imports":{"@auto-importer/parsers":"/packages/parsers/src/manheim24","@auto-importer/parsers/validation":"/packages/parsers/src/validation","@auto-importer/parsers/normalization":"/packages/parsers/src/normalization","@auto-importer/shared":"/packages/shared/src/index"}}</script><script type="module" src="/packages/parsers/tests/workflow.browser.ts"></script>'); return }
-    if (!['/packages/parsers/', '/apps/extension/src/background/', '/apps/extension/src/services/extensionApi', '/apps/extension/src/photos/', '/packages/shared/'].some(prefix => path.startsWith(prefix))) throw new Error('Not a fixture')
+    if (path === '/') { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.end('<!doctype html><meta charset="utf-8"><pre></pre><script>addEventListener("error",e=>{document.body.dataset.result="FAIL";document.querySelector("pre").textContent=e.message||"Module load failed"});addEventListener("unhandledrejection",e=>{document.body.dataset.result="FAIL";document.querySelector("pre").textContent=String(e.reason)})</script><script type="importmap">{"imports":{"@auto-importer/parsers":"/packages/parsers/src/manheim24","@auto-importer/parsers/myauto":"/packages/parsers/src/myauto","@auto-importer/parsers/validation":"/packages/parsers/src/validation","@auto-importer/parsers/normalization":"/packages/parsers/src/normalization","@auto-importer/shared":"/packages/shared/src/index"}}</script><script type="module" src="/packages/parsers/tests/workflow.browser.ts"></script>'); return }
+    if (!['/packages/parsers/', '/apps/extension/src/background/', '/apps/extension/src/myauto/', '/apps/extension/src/content/manheim', '/apps/extension/src/services/extensionApi', '/apps/extension/src/services/diagnostics', '/apps/extension/src/photos/', '/packages/shared/'].some(prefix => path.startsWith(prefix))) throw new Error('Not a fixture')
     const file = resolve(root, '.' + path + (['.ts','.html'].includes(extname(path)) ? '' : '.ts'))
     if (!file.startsWith(root)) throw new Error('Invalid path')
     let text = await readFile(file, 'utf8')
@@ -51,7 +51,7 @@ try {
   const {targetId}=await command('Target.createTarget',{url:`http://localhost:${server.address().port}/`})
   const {sessionId}=await command('Target.attachToTarget',{targetId,flatten:true})
   let status,report='No test report'
-  for(let attempt=0;attempt<400;attempt++) {
+  for(let attempt=0;attempt<800;attempt++) {
     const result=await command('Runtime.evaluate',{expression:'JSON.stringify({status:document.body?.dataset.result,report:document.querySelector("pre")?.textContent})',returnByValue:true},sessionId)
     const state=JSON.parse(result.result.value ?? '{}')
     status=state.status; report=state.report ?? report

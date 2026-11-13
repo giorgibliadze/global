@@ -4,17 +4,35 @@ This implementation uses the authenticated HTML supplied by the user as DOM evid
 
 **Implementation is not live verification.** Local Chrome fixtures verify the parser, adapters, photo bytes, retries, IndexedDB cleanup, and transfer isolation. No connected authenticated browser/document session was available. The public MyAuto JavaScript URL referenced by the snapshot returned HTTP 403; it was not bypassed. Closed-dropdown and empty-uploader markup do not establish every live interaction. The adapter reports unverified fields/uploads instead of pretending a complete live transfer succeeded.
 
+## Actual Model field and VIN privacy correction
+
+The complete original model must populate the actual **Model** control: BMW / **M5 Touring Wagon** remains BMW / **M5 Touring Wagon**, never M5 or 5 Series. No suffix is moved to trim, body or description as a substitute for a successful model mapping. A source-derived body field and a descriptive mention of the full model may still exist independently; neither counts as filling Model.
+
+`modelField.ts` adds runtime capability checks:
+
+- A visible writable text input/textarea named `primaryFeatures.model` is filled with the full original model through native setters and input/change/blur events, then rechecked. The known model tracker is only eligible when it actually exposes a visible, explicitly labeled Model textbox. Hidden inputs, search inputs, read-only controls, select search boxes and unverified comboboxes are not treated as custom-model support.
+- A real native `select[name="primaryFeatures.model"]`, if present, selects only the exact full text and uses its actual option value. Native manufacturer selects are likewise supported.
+- The existing custom dropdown adapter now uses strict full-text Model matches, not case-folded/similar model-name matches. Its actual accepted ID is verified separately from source identity.
+- Application-generated defaults may be corrected only on an initially empty, explicitly new transfer form. Existing/user-edited values remain protected. Unknown custom-control semantics stay unresolved rather than accepting a search query as a model.
+- `primaryFeatures.customModel` is still the confirmed **trim** field. Its name does not establish custom Model support. If no exact option or supported writable Model control exists, the Model result is unfilled; description/trim/body are not a fallback success.
+
+The old description explicitly inserted `VIN: ...`. That template line is removed. `vinPrivacy.ts` now sanitizes the completed generated description, including all dynamic notes, equipment, copied specifications, optional packages and source text. It removes the selected VIN, other VIN-shaped tokens and the English/Georgian VIN labels. Detection uses a normalized shadow with original-character offsets: mixed case, spaces/dashes, zero-width characters, numeric HTML entities, percent encoding and compatibility/full-width forms can be removed without normalizing unrelated model names or option wording. The ordinary 8+9 displayed VIN layout and other labeled layouts are covered. Remaining non-VIN lines are retained readably; the sanitizer is idempotent.
+
+The adapter sanitizes immediately before insertion, enforces privacy again after filling, and checks again before final verification (after photo work). Site-generated description text containing a VIN is cleaned too; a site that continually reinserts identification data yields an explicit unverified/error result, not success. The dedicated `input[name="primaryFeatures.vinCode"]` remains the only VIN destination. If unavailable, that field is reported unfilled internally; form readiness no longer requires inventing another VIN destination. Other text/model fields reject VIN-bearing values. VIN extraction, validation, source review and internal transfer identity are unchanged. No VIN is ever deliberately substituted into another field or the listing description.
+
+All Georgian technical dictionaries, original manufacturer/model extraction, numeric conversions and photo download/upload modules remain unchanged by this correction. The live source snapshot still contains only the closed custom model control, so native/custom variants are tested as explicit local capability fixtures, not claimed to have been observed on live MyAuto. No authenticated browser session was available for live verification.
+
 ## Accuracy fix: root cause and exact behavior
 
 The old parser read `models[0]` (the broad catalog label `M5`) and ignored the selected record's `designatedDescriptionEnrichment.manheimStandardDescription.shortDescription` (`2026 BMW M5 Touring Wagon`). This lost the full marketed model name passed to MyAuto. The example's seller trim is `Base`, and body is separately `Wagon`; neither is a substitute for the full model. The old description printed raw English technical values. Dropdown matching also put exact labels and equivalents at the same priority, and final verification did not retain the accepted option ID.
 
-`identity.ts` now reads only the selected visible detail container and VIN-matched structured record. Manufacturer/model/trim remain original strings, not translations. It preserves both full model `M5 Touring Wagon` and catalog `M5`. The full designation is obtained from the observed structured short-description field by removing only the exact independently verified year/manufacturer prefix; this is not arbitrary title tokenization. The visible title must agree. Explicit trim tokens are not appended to a model as though they were model words. The VIN-matched structured full designation is authoritative over a broader catalog family, including a catalog family named 5 Series; that family is preserved only as catalog metadata and never substituted for M5 Touring Wagon. Explicit full model fields likewise are not shortened. Conflicting VIN/make/model/trim/year evidence blocks transfer. Missing manufacturer/model or placeholder values block transfer; no hardcoded fallback or title-only guessed identity exists. Hidden vehicle roots/fields and ambiguous visible duplicates are rejected/ignored as appropriate. The sanitized fixture now includes the real enrichment shape with a synthetic VIN.
+`identity.ts` now reads only the selected visible detail container and VIN-matched structured record. Manufacturer/model/trim remain original strings, not translations. It preserves both full model `M5 Touring Wagon` and catalog `M5`. The full designation is obtained from the observed structured short-description field by removing only the exact independently verified year/manufacturer prefix; this is not arbitrary title tokenization. The visible title must agree. Explicit trim tokens are not appended to a model as though they were model words. The VIN-matched structured full designation is authoritative over a broader catalog family, including a catalog family named 5 Series; that family is preserved only as catalog metadata and never substituted for M5 Touring Wagon. Explicit full model fields likewise are not shortened. Unsafe VIN/manufacturer/selected-title evidence still blocks transfer. Optional trim ambiguity no longer blocks: fullModelName is retained and trim becomes null when it cannot be independently verified; see MODEL_DESIGNATION.md. Missing manufacturer/model or placeholder values block transfer; no hardcoded fallback or title-only guessed identity exists. Hidden vehicle roots/fields and ambiguous visible duplicates are rejected/ignored as appropriate. The sanitized fixture now includes the real enrichment shape with a synthetic VIN.
 
 `normalization.ts` is the typed, shared exact-phrase dictionary for fuel, gearbox, drivetrain, colors, body, interior, condition, equipment, damage terms and auction notes. `reviewDetails` and `vehicleDescription` use the same terms. Examples: Plug-in Hybrid → დამუხტვადი ჰიბრიდი, Gray → ნაცრისფერი, AWD → სრული ამძრავი. Manufacturer/model/trim/VIN and official uncertain package names remain unchanged. Unknown wording is preserved and explicitly unresolved; there is no word-by-word replacement or invented translation. Original details and units stay in `raw` and `original`, not overwritten with MyAuto IDs.
 
 MyAuto dropdowns rank exact source matches first, then explicit verified equivalents for technical categories. Model families/prefixes are not equivalents: `M5` and `5 Series` cannot replace `M5 Touring Wagon`. Actual accepted IDs are read back from the website's own tracking inputs and saved in `FieldResult.optionId`, along with the observed label and match kind. Both label and ID are checked again after dependent controls render. An exact model may replace a broad VIN-decoder selection only on an initially empty, explicitly new transfer form; existing listings and user-edited controls remain protected. That VIN-decoder behavior is covered by a local simulation, not asserted as a live observation of the user's failure.
 
-The saved MyAuto field named `primaryFeatures.customModel` is visibly labeled **კომპლექტაცია**. It is therefore retained for trim (`Base`), not guessed to be a custom-model fallback. No dedicated custom-model control is established by the supplied HTML. If the exact model/equivalent cannot be confirmed, model stays unresolved, the full name remains in the description, and no unrelated option is selected. The extension cannot guarantee that MyAuto's own VIN decoder will clear an unsupported broad default; an unresolved model must be reviewed manually and is never reported as success.
+The saved MyAuto field named `primaryFeatures.customModel` is visibly labeled **კომპლექტაცია**. It is therefore retained for trim (`Base`), not guessed to be a custom-model fallback. No dedicated custom-model control is established by the supplied HTML. If the exact model or an actually supported writable Model control cannot be confirmed, Model remains unresolved. Mentioning the model in the description is not counted as filling Model, and no unrelated option is selected. The extension cannot guarantee that MyAuto's own VIN decoder will clear an unsupported broad default; an unresolved model must be reviewed manually and is never reported as success.
 
 Numeric conversions still operate only on explicit odometer/displacement fields. A model `500L` or trim `4.4i Black Edition` never becomes a numeric specification. Engine options need explicit L/cc units. Georgian UI terms are not written as fabricated option IDs. Known source option IDs remain platform-specific mappings; all source names remain separately preserved.
 
@@ -113,21 +131,77 @@ node apps/extension/scripts/verify-ui.mjs
 
 Tests run a separate local Chrome profile with no authenticated accounts. The workflow runner uses local DevTools polling so real IndexedDB and asynchronous uploader tasks can settle; fixture fetches and uploader DOM/state transitions are simulated. It covers parsing, conversions/missing fields, equipment/damage provenance, image filtering, one-click UI, runtime validation, A/B IDs/tabs/documents, byte/name/hash separation, bounded chunks, retries/denials/size rejection, async dropdowns, populated-form protection, actual FileList assignment, remote-gallery/count verification, local-only preview rejection, upload retries and cleanup. Simulation is explicitly distinct from live MyAuto verification.
 
-## Modified files in the accuracy correction
+## Modified files in the Model-field/VIN correction
 
-- `packages/shared/src/index.ts`: immutable original identity and separate accepted-option metadata.
-- `packages/parsers/package.json`: normalization module export.
-- `packages/parsers/src/identity.ts` (new), `normalization.ts` (new).
-- `packages/parsers/src/manheim24.ts`, `myauto.ts`, `dropdowns.ts`, `validation.ts`.
-- `packages/parsers/tests/fixtures/manheim24.html`: sanitized real enrichment shape.
-- `packages/parsers/tests/identity.browser.ts` (new), `workflow.browser.ts`, `transfers.browser.ts`, `run-browser.mjs`.
+- `packages/parsers/src/modelField.ts` (new): supported writable/native Model and manufacturer controls.
+- `packages/parsers/src/vinPrivacy.ts` (new): description-only VIN detection/redaction.
+- `packages/parsers/src/myauto.ts`: actual Model integration, sanitized generation/insertion/final checks, missing VIN handling and result verification.
+- `packages/parsers/src/dropdowns.ts`: strict full-text Model matching.
+- `packages/parsers/tests/modelPrivacy.browser.ts` (new): model mapping and VIN privacy regressions.
+- `packages/parsers/tests/workflow.browser.ts`: includes the new regression suite.
+- `apps/extension/src/myauto/index.tsx`: final description privacy enforcement and form readiness when a dedicated VIN input is missing.
 - `packages/parsers/README.md`.
-- `apps/extension/src/background/index.ts`, `transfers.ts`: source-bound review and fresh snapshot verification.
-- `apps/extension/src/components/ImportAction.tsx`, `VehicleReview.tsx` (new).
-- `apps/extension/src/myauto/index.tsx`: allow correcting an application-generated default only on a confirmed fresh form.
-- `apps/extension/src/popup/PopupContent.tsx`, `apps/extension/src/styles/ui.css`: review copy/layout within the existing design.
-- `apps/extension/scripts/verify-ui.mjs`.
 
-Regression coverage includes the full BMW designation, explicit full-vs-catalog structured fields, hidden/stale fields, model/trim/body separation, typed Georgian terms, unknown package preservation, exact-before-equivalent options, no 5 Series/M5 substitution, independent accepted IDs, VIN-decoder default correction, review cancellation, post-review vehicle switching and existing photo transfer/isolation/retry tests.
+The build regenerates `apps/extension/dist`. No additional dependencies, Georgian dictionary changes, Admin files, logo/icon changes, launcher changes or photo transfer implementation changes were introduced.
 
-The build regenerates `apps/extension/dist`. No new dependencies, Admin files, icon/logo artwork, launcher-position/glow CSS or photo download/upload implementation modules are changed.
+Regression coverage includes full model text in an editable Model control, exact native/custom dropdown choices, no shortened model fallback, trim remaining Base, only the dedicated VIN field receiving the code, dynamic-note and encoded VIN removal, later site-generated VIN cleanup, readable descriptions and missing VIN controls. Existing identity, translation, unit conversion, stale-review and photo isolation/upload tests remain part of the suite.
+
+## Transfer regression investigation
+
+Compared the current working tree with Git revision `e7fa1bc` (`manheim24 starter implementation before fix`). The recent model/privacy edits do not change the source parser or vehicle validator. That revision is the available comparison point; it is not independently established as a working live deployment.
+
+Root cause reproduced with the **actual unpacked MV3 extension and real Chrome APIs**: `chrome.storage.session` reordered top-level and nested object keys. `vehicleSnapshot` compared raw `JSON.stringify()` output, so the persisted review differed from a fresh, unchanged source parse purely by insertion order. Confirmation was rejected before `tabs.create()`. The earlier in-memory storage mocks used `structuredClone`, retaining insertion order and hiding this defect. Snapshot serialization now sorts object keys recursively while preserving values and array order. Regressions also serialize/reorder nested storage data; real vehicle changes continue to require a new review.
+
+Additional confirmed fixture failures:
+
+- The MyAuto receiver awaited every photo download before filling any vehicle fields. A deliberately held photo response reproduced an entirely empty form. The receiver now fills the supported fields first, then prepares/uploads photos through the existing binary transport and uploader.
+- A rejected dedicated VIN field aborted photo upload. It now remains an individual unfilled field; a genuinely different nonempty VIN or changed destination still stops the transfer to protect vehicle isolation.
+- Source preview creation depended on optional photo-cache cleanup. A failing photo cache prevented extraction from running at all. Metadata validation remains required, while optional cache cleanup no longer gates source preview creation.
+
+The production receiver orchestration is shared with `tests/receiver.browser.ts`. This regression runs the actual source parser listener, JSON message serialization, review/validation, tab-bound claim, form filling, photo transport/upload verification and completion for independent vehicles A/B. It includes rejected/missing VIN controls, VINs in source descriptions, delayed photos, runtime-message retries and cache cleanup failure. Photo server completion uses simulated loaded remote previews plus the widget count; it is not proof of a real MyAuto upload.
+
+Development logs contain only an allowlisted transfer ID (or `pending` before identification), pipeline stage and event. No VINs, URLs, payloads, exception messages, cookies or tokens are logged. Source read failures report a Georgian error instead of a raw Chrome exception. Destination claim failures retry briefly and then display a Georgian connection error rather than disappearing silently.
+
+The user supplied a fully populated Ford Ranger preview and reported an error after confirmation. This located the reported stop between preview and opening. The real-Chrome fixture then reproduced the storage/snapshot comparison defect at precisely this boundary. The authenticated Ford transfer itself has not been tested. Confirmation controls now appear before the lengthy specification list in a sticky action area with explicit Georgian instructions and an opening status. No automatic confirmation or publication was added. Do not describe receiver/cache fixes as proof of the cause of the reported live incident.
+
+To verify in Chrome: reload the unpacked extension from `apps/extension/dist`, then refresh existing auction and MyAuto tabs so invalidated old content-script contexts are replaced. Select one Manheim24 vehicle, click **MyAuto-ზე გადატანა**, inspect the original/full model preview, and confirm. Verify the dedicated VIN field (if supported), VIN-free description, exact Model field and photo widget completion. Repeat with a different vehicle in a fresh destination. Leave publication manual. If no preview appears, capture only the Georgian error and `[Auto Importer]` structured stage entries from the source console and extension service worker; do not copy page scripts, session data or vehicle identifiers.
+
+### Validation and files for this regression fix
+
+Passed:
+
+- `npm run typecheck -w @auto-importer/parsers`
+- Extension TypeScript project checks (also run by the production build).
+- `npm run lint -w @auto-importer/extension`
+- `npx eslint --config apps/extension/eslint.config.js packages/parsers/src packages/parsers/tests/*.ts packages/shared/src`
+- `npm run test -w @auto-importer/parsers`
+- `npm run build:extension` (generated `apps/extension/dist/manifest.json`, popup, worker and content-script assets).
+- `node apps/extension/scripts/verify-ui.mjs` (19 built UI fixtures).
+- `node apps/extension/scripts/verify-transfer.mjs` (two full fixture transfers through the actual unpacked extension, real worker, storage and messaging). This runner blocks external DNS, intercepts web/image requests, uses native FileList assignment and actually loaded fixture preview images. MyAuto options and upload acknowledgments are controlled test fixtures, not verified live server behavior.
+
+Files changed for this regression investigation/fix:
+
+- `apps/extension/src/background/transfers.ts`
+- `apps/extension/src/background/index.ts`
+- `apps/extension/src/content/manheim.ts`
+- `apps/extension/src/services/diagnostics.ts` (new)
+- `apps/extension/src/myauto/index.tsx`
+- `apps/extension/src/myauto/transfer.ts` (new; existing receiver orchestration extracted for testing)
+- `apps/extension/src/components/ImportAction.tsx`
+- `apps/extension/src/components/VehicleReview.tsx`
+- `apps/extension/src/styles/ui.css`
+- `packages/parsers/src/myauto.ts` (VIN privacy scoped to description)
+- `packages/parsers/tests/receiver.browser.ts` (new)
+- `packages/parsers/tests/workflow.browser.ts`
+- `packages/parsers/tests/run-browser.mjs`
+- `apps/extension/scripts/verify-transfer.mjs` (new)
+- `apps/extension/scripts/verify-ui.mjs`
+- `packages/parsers/README.md`
+
+Pre-existing uncommitted exact-model and description-privacy changes were retained. No Admin files, brand/icon assets, parser selectors or translation dictionaries were changed by this regression fix. Final publication remains manual.
+
+The subsequent custom-dropdown adapter update, confirmed DOM evidence, tests and outstanding live selectors are documented in [DROPDOWN_ADAPTER.md](DROPDOWN_ADAPTER.md).
+
+The subsequent discovery/cache, field-only retry and photo-concurrency work, raw before/after timings, changed files and live-verification limits are documented in [PERFORMANCE.md](PERFORMANCE.md).
+
+The latest full-model/optional-trim correction and regression evidence are documented in [MODEL_DESIGNATION.md](MODEL_DESIGNATION.md). Optional trim metadata no longer blocks confirmation; canonical full model and selected vehicle identity remain protected.

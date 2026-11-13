@@ -41,7 +41,7 @@ export function ImportAction({ enabled, guidance, manheim24 = false }: { enabled
   }
   return <div className="import-action">
     <button className="import-button" type="button" disabled={!enabled || busy} onClick={() => void start()}>
-      {busy ? 'ავტომობილის მონაცემების წაკითხვა' : 'MyAuto-ზე გადატანა'} <span aria-hidden="true">↗</span>
+      {busy ? review ? 'MyAuto-ს გახსნა…' : 'ავტომობილის მონაცემების წაკითხვა' : 'MyAuto-ზე გადატანა'} <span aria-hidden="true">↗</span>
     </button>
     {guidance && <p className="guidance">{guidance}</p>}
     {review && <VehicleReview vehicle={review.vehicle} busy={busy} confirm={() => void confirm()} cancel={() => setReview(null)} />}

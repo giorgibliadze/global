@@ -3,6 +3,7 @@ interface StoredPhoto { key: string; transferId: string; createdAt: number; blob
 export interface PhotoStore {
   get(transferId: string, index: number): Promise<StoredPhoto | undefined>
   put(transferId: string, blob: Blob, metadata: PhotoMetadata): Promise<void>
+  count?(transferId:string):Promise<number>
   bytes(transferId: string): Promise<number>
   remove(transferId: string): Promise<void>
   prune(validIds: Set<string>, snapshotAt?: number): Promise<void>
@@ -31,12 +32,14 @@ export class IndexedPhotoStore implements PhotoStore {
   async put(id: string, blob: Blob, metadata: PhotoMetadata) {
     await this.run('readwrite', store => store.put({ key: `${id}:${metadata.index}`, transferId: id, createdAt: Date.now(), blob, metadata } satisfies StoredPhoto))
   }
-  private all() { return this.run<StoredPhoto[]>('readonly', store => store.getAll()) }
-  async bytes(id: string) { return (await this.all()).filter(p => p.transferId === id).reduce((sum, p) => sum + p.blob.size, 0) }
+  private range(id:string){return IDBKeyRange.bound(id+':',id+':\uffff')}
+  private all(id?:string) { return this.run<StoredPhoto[]>('readonly', store => store.getAll(id?this.range(id):undefined)) }
+  count(id:string){return this.run('readonly',store=>store.count(this.range(id)))}
+  async bytes(id: string) { return (await this.all(id)).reduce((sum, p) => sum + p.blob.size, 0) }
   async remove(id: string) {
-    for (const photo of (await this.all()).filter(p => p.transferId === id)) await this.run('readwrite', store => store.delete(photo.key))
+    await this.run('readwrite',store=>{const request=store.getAll(this.range(id));request.onsuccess=()=>{for(const photo of request.result)store.delete(photo.key)};return request})
   }
   async prune(validIds: Set<string>, snapshotAt = Date.now()) {
-    for (const photo of await this.all()) if ((!validIds.has(photo.transferId) && photo.createdAt < snapshotAt) || Date.now() - photo.createdAt > 30 * 60 * 1000) await this.run('readwrite', store => store.delete(photo.key))
+    await this.run('readwrite',store=>{const request=store.getAll();request.onsuccess=()=>{for(const photo of request.result as StoredPhoto[])if((!validIds.has(photo.transferId) && photo.createdAt<snapshotAt) || Date.now()-photo.createdAt>30*60*1000)store.delete(photo.key)};return request})
   }
 }

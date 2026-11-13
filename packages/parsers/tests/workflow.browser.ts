@@ -1,3 +1,8 @@
+import { runModelDesignationTests } from './modelDesignation.browser'
+import { runOptimizationTests } from './optimization.browser'
+import { runDropdownTests } from './dropdowns.browser'
+import { runReceiverTests } from './receiver.browser'
+import { runModelPrivacyTests } from './modelPrivacy.browser'
 import { runIdentityTests } from './identity.browser'
 import { runTransferTests } from './transfers.browser'
 import { parseManheim24, milesToKm, engineToCc, deduplicatePhotos } from '../src/manheim24'
@@ -80,8 +85,13 @@ try {
   check(unverifiedResults.filter(r => r.status === 'filled').length === 4, 'unverified custom choices are not reported as filled')
   unverifiedFrame.remove()
 
+  await runModelPrivacyTests(manheim,myauto,check)
   await runIdentityTests(manheim,myauto,check)
   await runTransferTests(manheim, myauto, check)
+  await runDropdownTests(manheim,myauto,check)
+  await runOptimizationTests(manheim,myauto,check)
+  await runModelDesignationTests(manheim,myauto,check)
+  await runReceiverTests(manheim,myauto,check)
   document.body.dataset.result = 'PASS'
   document.querySelector('pre')!.textContent = outcomes.join('\n')
 } catch (error) {

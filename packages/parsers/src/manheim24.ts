@@ -68,7 +68,7 @@ export function parseManheim24(doc: Document): NormalizedVehicle {
     } catch { /* Fall back to the confirmed detail attributes, never other page scripts. */ }
   }
   const identity = extractOriginalIdentity(data,title,vin)
-  const warnings: string[] = []
+  const warnings: string[] = [...identity.warnings]
   const raw: Record<string, string | number | boolean | string[]> = { title, vin }
   // Explicit allowlist: never copy account/contact data, script state, cookies, or tokens.
   for (const key of ['make', 'year', 'sourceTrim', 'odometer', 'odometerUnits', 'engineDisplacement', 'engineType', 'engineFuelType', 'transmission', 'driveTrain', 'exteriorColor', 'interiorColor', 'interiorType', 'bodyStyle', 'conditionType', 'conditionGrade', 'buyNowPrice', 'currency']) {
@@ -97,7 +97,9 @@ export function parseManheim24(doc: Document): NormalizedVehicle {
   const cylinders = engineType.match(/\b(\d+)\s*cyl(?:inder)?s?\b/i)
   const year = identity.year
   raw.model = identity.original.model
-  raw.catalogModel = identity.original.catalogModel
+  if(identity.original.catalogModel)raw.catalogModel = identity.original.catalogModel
+  raw.fullModelName=identity.original.model
+  if(identity.original.baseModel)raw.baseModel=identity.original.baseModel
   if (identity.shortDescription) raw.structuredShortDescription = identity.shortDescription
   if (Array.isArray(data.models)) raw.models = data.models.filter((s): s is string => typeof s === 'string' && s.length <= 500)
   if (identity.original.trim) raw.trim = identity.original.trim
@@ -124,7 +126,7 @@ export function parseManheim24(doc: Document): NormalizedVehicle {
   const allImages = deduplicatePhotos([...gallery, ...urls], Infinity)
   const vehicle: NormalizedVehicle = {
     source: 'Manheim24', original: identity.original, listingId: string(data.id), title, vin,
-    make: identity.original.manufacturer, model: identity.original.model, year,
+    make: identity.original.manufacturer, model: identity.original.model, fullModelName:identity.original.fullModelName,baseModel:identity.original.baseModel,bodyStyle:string(data.bodyStyle),year,
     trim: identity.original.trim, mileageKm,
     engineCc: engineToCc(displacement), cylinders: cylinders ? Number(cylinders[1]) : undefined,
     fuel: string(data.engineFuelType) ?? (text(root, 'card-view-engine-fuel-type') || undefined),
@@ -139,3 +141,5 @@ export function parseManheim24(doc: Document): NormalizedVehicle {
   }
   return vehicle
 }
+
+export { MODEL_TRIM_WARNING } from './identity'

@@ -1,3 +1,7 @@
+import { MODEL_TRIM_WARNING } from '@auto-importer/parsers'
+import { pipelineLog } from '../services/diagnostics'
+import { timingStages } from '@auto-importer/shared'
+import type { TransferTimings } from '@auto-importer/shared'
 import { assertNormalizedVehicle } from '@auto-importer/parsers/validation'
 import type { FieldResult, NormalizedVehicle, TransferRecord, TransferStage } from '@auto-importer/shared'
 import { downloadPhoto, PHOTO_CHUNK_BYTES, MAX_TRANSFER_BYTES, base64Bytes } from '../photos/download'
@@ -12,10 +16,21 @@ export function isManheimSource(url?: string) {
 export function isMyautoDestination(url?: string) {
   try { const u = new URL(url!); return u.protocol === 'https:' && (u.hostname === 'myauto.ge' || u.hostname.endsWith('.myauto.ge')) && /^\/ka\/add\/?$/.test(u.pathname) } catch { return false }
 }
-export const vehicleSnapshot = (v: NormalizedVehicle) => JSON.stringify({...v, images:undefined,raw:undefined,warnings:undefined,availableImageCount:undefined})
+// Chrome storage may reorder object keys. Compare data, not insertion order; array order
+// remains significant and every reviewed specification/identity value stays unchanged.
+export const vehicleSnapshot = (v: NormalizedVehicle) => JSON.stringify(
+  {...v, images:undefined,raw:undefined,warnings:undefined,availableImageCount:undefined},
+  (_key, value: unknown) => value && typeof value === 'object' && !Array.isArray(value)
+    ? Object.fromEntries(Object.entries(value).sort(([a],[b]) => a < b ? -1 : a > b ? 1 : 0)) : value,
+)
+// Confirmation binds the selected vehicle, not optional decoding metadata. Keep the
+// reviewed details frozen if those change; never switch VIN/make/full model/listing.
+const selectedIdentity=(vehicle:NormalizedVehicle)=>JSON.stringify([vehicle.source,vehicle.listingId,vehicle.vin,vehicle.make,vehicle.fullModelName ?? vehicle.model])
 interface VehicleReview { reviewId: string; sourceTabId: number; vehicle: NormalizedVehicle; createdAt: number }
 const REVIEW_TTL = 5 * 60 * 1000
 export class TransferManager {
+  private activeDownloads=0
+  private downloadQueue:Array<()=>void>=[]
   private locks = new Map<string, Promise<unknown>>()
   private api: ExtensionApi
   private photos: PhotoStore
@@ -26,6 +41,11 @@ export class TransferManager {
     const next = previous.catch(() => {}).then(fn)
     this.locks.set(key, next)
     try { return await next } finally { if (this.locks.get(key) === next) this.locks.delete(key) }
+  }
+  private async limitedDownload<T>(fn:()=>Promise<T>):Promise<T> {
+    if(this.activeDownloads>=3)await new Promise<void>(resolve=>this.downloadQueue.push(resolve))
+    else this.activeDownloads++
+    try{return await fn()}finally{const next=this.downloadQueue.shift();if(next)next();else this.activeDownloads--}
   }
   private async read(id: unknown): Promise<TransferRecord> {
     if (!uuid(id)) throw new Error('გადატანის ნომერი არასწორია.')
@@ -41,12 +61,12 @@ export class TransferManager {
     await this.api.storage.session.set({ [`job:${record.id}`]: record })
   }
   private async remove(record: TransferRecord) {
-    await this.photos.remove(record.id)
+    try { await this.photos.remove(record.id) } catch { pipelineLog(record.id,'cleanup','failed') }
     await this.api.storage.session.remove(`job:${record.id}`)
     if ((await this.api.storage.session.get(`active:${record.sourceTabId}`))[`active:${record.sourceTabId}`] === record.id) await this.api.storage.session.remove(`active:${record.sourceTabId}`)
     if (record.destinationTabId !== undefined) await this.api.storage.session.remove(`destination:${record.destinationTabId}`)
   }
-  async prune() {
+  async prune(cleanPhotos = true) {
     const snapshotAt = Date.now()
     const entries = await this.api.storage.session.get(null)
     const valid = new Set<string>()
@@ -58,7 +78,9 @@ export class TransferManager {
       if (Date.now() - record.createdAt > TRANSFER_TTL) await this.lock(`job:${record.id}`, () => this.remove(record))
       else valid.add(record.id)
     }
-    await this.photos.prune(valid, snapshotAt)
+    if (cleanPhotos) {
+      try { await this.photos.prune(valid, snapshotAt) } catch { pipelineLog(undefined,'cleanup','failed') }
+    }
     return valid.size
   }
   async tabClosed(tabId: number) {
@@ -73,14 +95,29 @@ export class TransferManager {
   private destination(record: TransferRecord, sender: Sender) {
     if (!isMyautoDestination(sender.tab?.url) || sender.tab?.id !== record.destinationTabId || !record.claimed || (record.documentId && record.documentId !== sender.documentId)) throw new Error('გადატანა ამ ჩანართს ან დოკუმენტს არ ეკუთვნის.')
   }
+  private async extract(tabId: number, id: string): Promise<NormalizedVehicle> {
+    let stage: 'extracting' | 'validating' = 'extracting'
+    pipelineLog(id,stage,'started')
+    try {
+      const response = await this.api.tabs.sendMessage(tabId,{type:'MANHEIM_PARSE', transferId:id}) as {ok?:boolean;vehicle?:NormalizedVehicle;error?:string} | undefined
+      if (!response?.ok || !response.vehicle) throw new Error(response?.error ?? 'მონაცემები ვერ წაიკითხა. გახსენით არჩეული ავტომობილის დეტალები და ხელახლა სცადეთ.')
+      stage = 'validating'; pipelineLog(id,stage,'started')
+      assertNormalizedVehicle(response.vehicle)
+      pipelineLog(id,stage,'completed')
+      return response.vehicle
+    } catch (error) {
+      pipelineLog(id,stage,'failed')
+      if (error instanceof Error && /[\u10A0-\u10FF]/.test(error.message)) throw error
+      throw new Error('მონაცემები ვერ წაიკითხა. გადატვირთეთ Manheim24-ის გვერდი გაფართოების განახლების შემდეგ და ხელახლა სცადეთ.',{cause:error})
+    }
+  }
   async review(sender: Sender): Promise<VehicleReview> {
     const tab = sender.tab ?? (await this.api.tabs.query({active:true,currentWindow:true}))[0]
     if (tab?.id === undefined || !isManheimSource(tab.url)) throw new Error('გახსენით ავტომობილის დეტალები Manheim24-ზე.')
-    await this.prune()
-    const response = await this.api.tabs.sendMessage(tab.id,{type:'MANHEIM_PARSE'}) as {ok:boolean;vehicle?:NormalizedVehicle;error?:string}
-    if (!response.ok || !response.vehicle) throw new Error(response.error ?? 'ავტომობილის ამოცნობა ვერ მოხერხდა.')
-    assertNormalizedVehicle(response.vehicle)
-    const review: VehicleReview = {reviewId:crypto.randomUUID(),sourceTabId:tab.id,vehicle:structuredClone(response.vehicle),createdAt:Date.now()}
+    await this.prune(false)
+    const reviewId = crypto.randomUUID()
+    const vehicle = await this.extract(tab.id,reviewId)
+    const review: VehicleReview = {reviewId,sourceTabId:tab.id,vehicle:structuredClone(vehicle),createdAt:Date.now()}
     const old = Object.entries(await this.api.storage.session.get(null)).filter(([k]) => k.startsWith('review:')).sort((a,b) => (a[1] as VehicleReview).createdAt-(b[1] as VehicleReview).createdAt)
     for (const [key] of old.slice(0,Math.max(0,old.length-19))) await this.api.storage.session.remove(key)
     await this.api.storage.session.set({[`review:${review.reviewId}`]:review})
@@ -90,15 +127,21 @@ export class TransferManager {
     const tab = sender.tab ?? (await this.api.tabs.query({ active: true, currentWindow: true }))[0]
     if (tab?.id === undefined || !isManheimSource(tab.url)) throw new Error('გახსენით ავტომობილის დეტალები Manheim24-ზე.')
     return this.lock(`source:${tab.id}`, async () => {
-      await this.prune()
+      await this.prune(false)
       if (!uuid(reviewId)) throw new Error('ჯერ გადაამოწმეთ ორიგინალი და ქართული მონაცემები.')
       const reviewed = (await this.api.storage.session.get(`review:${reviewId}`))[`review:${reviewId}`] as VehicleReview | undefined
       if (!reviewed || reviewed.sourceTabId !== tab.id || Date.now()-reviewed.createdAt > REVIEW_TTL) throw new Error('წინასწარი შემოწმება მოძველდა ან სხვა ჩანართს ეკუთვნის. ხელახლა გადაამოწმეთ მონაცემები.')
-      const response = await this.api.tabs.sendMessage(tab.id!, { type: 'MANHEIM_PARSE' }) as { ok: boolean; vehicle?: NormalizedVehicle; error?: string }
-      if (!response.ok || !response.vehicle) throw new Error(response.error ?? 'ავტომობილის ამოცნობა ვერ მოხერხდა.')
-      assertNormalizedVehicle(response.vehicle)
-      if (vehicleSnapshot(reviewed.vehicle) !== vehicleSnapshot(response.vehicle)) throw new Error('არჩეული ავტომობილი ან მისი მონაცემები შეიცვალა. ხელახლა გადაამოწმეთ ორიგინალი და ქართული მონაცემები.')
+      const extractionStarted=performance.now()
+      const fresh = await this.extract(tab.id!,reviewId)
+      const sourceExtraction=performance.now()-extractionStarted
+      if (selectedIdentity(reviewed.vehicle) !== selectedIdentity(fresh)) throw new Error('არჩეული ავტომობილი ან მისი მონაცემები შეიცვალა. ხელახლა გადაამოწმეთ ორიგინალი და ქართული მონაცემები.')
       const vehicle = structuredClone(reviewed.vehicle)
+      if((vehicle.trim ?? null)!==(fresh.trim ?? null)) {
+        vehicle.trim=null;vehicle.original.trim=null;delete vehicle.raw.trim
+        if(!vehicle.warnings.includes(MODEL_TRIM_WARNING))vehicle.warnings.push(MODEL_TRIM_WARNING)
+      }
+      if(vehicleSnapshot(reviewed.vehicle)!==vehicleSnapshot(fresh) && !vehicle.warnings.includes(MODEL_TRIM_WARNING))vehicle.warnings.push('წყაროს დამატებითი მონაცემები შეიცვალა. გადადის თქვენ მიერ გადამოწმებული ინფორმაცია; გადაამოწმეთ შესაბამისი ველები.')
+      vehicle.images=[...new Set(vehicle.images)]
       await this.api.storage.session.remove(`review:${reviewId}`)
       const active = (await this.api.storage.session.get(`active:${tab.id}`))[`active:${tab.id}`]
       if (uuid(active)) {
@@ -110,22 +153,27 @@ export class TransferManager {
       const entries = await this.api.storage.session.get(null)
       if (Object.entries(entries).filter(([k,v]) => k.startsWith('job:') && (v as TransferRecord).status === 'running').length >= 4) throw new Error('ერთდროულად მაქსიმუმ ოთხი გადატანაა შესაძლებელი. დაელოდეთ მიმდინარე ოპერაციებს.')
       const record: TransferRecord = {
-        id: crypto.randomUUID(), sourceTabId: tab.id!, vehicle,
+        timings:{sourceExtraction}, id: reviewed.reviewId, sourceTabId: tab.id!, vehicle,
         createdAt: Date.now(), updatedAt: Date.now(), stage: 'preparing', status: 'running', claimed: false,
         photos: { total: vehicle.images.length, prepared: 0, uploaded: 0, failed: 0 }, fields: [], errors: [],
       }
+      pipelineLog(record.id,'storing','started')
       await this.save(record)
+      pipelineLog(record.id,'storing','completed')
       await this.api.storage.session.set({ [`active:${tab.id}`]: record.id })
       try {
         record.stage = 'opening'; await this.save(record)
+        pipelineLog(record.id,'opening','started')
         const target: Tab = await this.api.tabs.create({ url: 'https://myauto.ge/ka/add' })
         if (target.id === undefined) throw new Error('MyAuto-ს გახსნა ვერ მოხერხდა.')
         record.destinationTabId = target.id
         await this.save(record)
         await this.api.storage.session.set({ [`destination:${target.id}`]: record.id })
         await this.api.alarms?.create('auto-importer-cleanup', { delayInMinutes: 30 })
+        pipelineLog(record.id,'opening','completed')
         return record
       } catch {
+        pipelineLog(record.id,'opening','failed')
         record.status = 'error'; record.errors = ['MyAuto-ს ახალი ჩანართის გახსნა ვერ დასრულდა.']; await this.save(record)
         throw new Error(record.errors[0])
       }
@@ -141,6 +189,7 @@ export class TransferManager {
         if (!id) return null
         const record = await this.read(id)
         if (record.destinationTabId !== sender.tab!.id || record.claimed) return null
+        pipelineLog(record.id,'claiming','completed')
         record.claimed = true; record.documentId = sender.documentId; record.stage = 'preparing'
         await this.save(record)
         return record
@@ -152,15 +201,24 @@ export class TransferManager {
       return record
     }
     this.destination(record, sender)
+    if(message.type==='TRANSFER_RETRY_FIELDS')return this.lock(`job:${record.id}`,async()=>{
+      const latest=await this.read(record.id)
+      if(latest.status==='running')throw new Error('გადატანა უკვე მიმდინარეობს.')
+      if(!latest.fields.some(field=>field.status==='unfilled' && field.retryable))throw new Error('დროებითი შეცდომით შეუვსებელი ველები არ არის. მოუგვარებელი შესაბამისობები ხელით გადაამოწმეთ.')
+      latest.status='running';latest.stage='filling';await this.save(latest);return latest
+    })
     if (message.type === 'PHOTO_PREPARE') {
-      return this.lock(`job:${record.id}`, async () => {
+      return this.lock(`photo:${record.id}:${String(message.index)}`, async () => {
         const fresh = await this.read(record.id)
         if (fresh.status !== 'running') throw new Error('ეს გადატანა აღარ მუშავდება.')
         const index = message.index
         if (!Number.isInteger(index) || (index as number) < 0 || (index as number) >= record.photos.total) throw new Error('ფოტოს ნომერი არასწორია.')
         const cached = await this.photos.get(record.id, index as number)
         if (cached) return cached.metadata
-        const prepared = await this.download(record.vehicle.images[index as number], index as number)
+        const prepared = await this.limitedDownload(async()=>{const current=await this.read(record.id);if(current.status!=='running')throw new Error('ეს გადატანა აღარ მუშავდება.');return this.download(current.vehicle.images[index as number], index as number)})
+        return this.lock(`job:${record.id}`,async()=>{
+        const writable=await this.read(record.id)
+        if(writable.status!=='running')throw new Error('ეს გადატანა აღარ მუშავდება.')
         if ((await this.photos.bytes(record.id)) + prepared.blob.size > MAX_TRANSFER_BYTES) throw new Error('ფოტოების საერთო ზომა აღემატება 15 ფაილისთვის დაშვებულ საერთო ზომას. ფაილები არ შეკუმშულა ან შეცვლილა.')
         // Recheck after network/IDB work; an expired or closed destination cannot leave an orphan cache.
         await this.read(record.id)
@@ -169,9 +227,10 @@ export class TransferManager {
         let latest: TransferRecord
         try { latest = await this.read(record.id) }
         catch (error) { await this.photos.remove(record.id); throw error }
-        latest.photos.prepared = (await Promise.all(record.vehicle.images.map((_, i) => this.photos.get(record.id, i)))).filter(Boolean).length
+        latest.photos.prepared = this.photos.count ? await this.photos.count(record.id) : (await Promise.all(record.vehicle.images.map((_, i) => this.photos.get(record.id, i)))).filter(Boolean).length
         await this.save(latest)
         return prepared.metadata
+        })
       })
     }
     if (message.type === 'PHOTO_CHUNK') {
@@ -183,9 +242,9 @@ export class TransferManager {
     }
     if (message.type === 'TRANSFER_PROGRESS') return this.lock(`job:${record.id}`, async () => {
       const latest = await this.read(record.id)
-      const allowed: TransferStage[] = ['preparing', 'filling', 'uploading', 'verifying']
+      const allowed: TransferStage[] = ['preparing', 'matching', 'filling', 'uploading', 'verifying']
       if (!allowed.includes(message.stage as TransferStage) || latest.status !== 'running') throw new Error('გადატანის ეტაპი არასწორია.')
-      const order = ['preparing','filling','uploading','verifying']
+      const order = ['preparing','matching','filling','uploading','verifying']
       if (order.includes(latest.stage) && order.indexOf(message.stage as string) < order.indexOf(latest.stage)) throw new Error('გადატანის ეტაპი უკან ვერ დაბრუნდება.')
       latest.stage = message.stage as TransferStage; await this.save(latest); return true
     })
@@ -196,6 +255,7 @@ export class TransferManager {
       const errors = message.errors
       if (!Array.isArray(fields) || fields.length > 80 || !fields.every(isFieldResult) || !Array.isArray(errors) || errors.length > 20 || !errors.every(v => typeof v === 'string' && v.length <= 500)) throw new Error('შედეგების ფორმატი არასწორია.')
       if (!Number.isInteger(message.uploaded) || (message.uploaded as number) < 0 || (message.uploaded as number) > latest.photos.prepared) throw new Error('ატვირთვის რაოდენობა არასწორია.')
+      if(message.timings!==undefined){if(!validTimings(message.timings))throw new Error('დროის გაზომვის ფორმატი არასწორია.');latest.timings=message.timings}
       latest.fields = fields; latest.errors = errors; latest.photos.uploaded = message.uploaded as number
       latest.photos.failed = latest.photos.total - latest.photos.uploaded
       latest.status = errors.length || fields.some(f => f.status === 'unfilled') || latest.photos.failed > 0 ? 'error' : 'review'
@@ -208,5 +268,9 @@ export class TransferManager {
 function isFieldResult(value: unknown): value is FieldResult {
   if (!value || typeof value !== 'object') return false
   const f = value as FieldResult
-  return (f.optionId === undefined || (typeof f.optionId === 'string' && f.optionId.length<=200)) && (f.optionLabel === undefined || (typeof f.optionLabel === 'string' && f.optionLabel.length<=500)) && (f.match === undefined || ['exact','equivalent','custom'].includes(f.match)) && typeof f.field === 'string' && f.field.length <= 120 && ['filled','unfilled'].includes(f.status) && typeof f.reason === 'string' && f.reason.length <= 500
+  return (f.retryable===undefined || typeof f.retryable==='boolean') && (f.key===undefined || (typeof f.key==='string' && /^[a-zA-Z]{1,30}$/.test(f.key))) && (f.code===undefined || ['missing','unavailable','dependency','unresolved','verification','protected','privacy','manual'].includes(f.code)) && (f.optionId === undefined || (typeof f.optionId === 'string' && f.optionId.length<=200)) && (f.optionLabel === undefined || (typeof f.optionLabel === 'string' && f.optionLabel.length<=500)) && (f.match === undefined || ['exact','equivalent','custom'].includes(f.match)) && typeof f.field === 'string' && f.field.length <= 120 && ['filled','unfilled'].includes(f.status) && typeof f.reason === 'string' && f.reason.length <= 500
+}
+
+function validTimings(value:unknown): value is TransferTimings {
+  return !!value && typeof value==='object' && !Array.isArray(value) && Object.entries(value).every(([key,ms])=>timingStages.includes(key as typeof timingStages[number]) && typeof ms==='number' && Number.isFinite(ms) && ms>=0 && ms<=TRANSFER_TTL*4)
 }
