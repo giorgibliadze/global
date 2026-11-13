@@ -1,4 +1,5 @@
-import { dropdownKeys, settleField, waitForDropdownChange } from './dropdownDom'
+import { writeControlledInput } from './inputInteraction'
+import { dropdownKeys, waitForDropdownChange } from './dropdownDom'
 import { reportDropdown, safeExpected } from './dropdownDiagnostics'
 import type { DropdownDiagnostic } from './dropdownDiagnostics'
 import { optionRank } from './dropdowns'
@@ -28,12 +29,9 @@ export async function fillEditableModel(doc: Document, model: string, allowRepla
   const input=control.element
   if (input.value && input.value!==model && !allowReplace) return 'მოდელის არსებული მნიშვნელობა არ გადაგვიწერია.'
   if (input.maxLength>0 && model.length>input.maxLength) return 'სრული მოდელი ველის სიგრძეში არ ეტევა. მოდელი არ შემოკლებულა.'
-  const view=doc.defaultView!
-  const prototype=input.tagName==='TEXTAREA'?view.HTMLTextAreaElement.prototype:view.HTMLInputElement.prototype
-  Object.getOwnPropertyDescriptor(prototype,'value')!.set!.call(input,model)
-  input.dispatchEvent(new view.Event('input',{bubbles:true}));input.dispatchEvent(new view.Event('change',{bubbles:true}));input.dispatchEvent(new view.FocusEvent('blur',{bubbles:true}));input.dispatchEvent(new view.FocusEvent('focusout',{bubbles:true}))
-  const confirmed=await settleField(doc,()=>{const current=editableModelInput(doc)?.element;return current?.value===model && current.getAttribute('aria-invalid')!=='true'})
-  return confirmed ? undefined : 'ფორმამ სრული მოდელის სახელი არ შეინარჩუნა ან მნიშვნელობა არ მიიღო.'
+  const confirmed=await writeControlledInput(doc,()=>editableModelInput(doc)?.element,model,undefined,()=>true,allowReplace)
+  return confirmed ? undefined : 'მნიშვნელობა ვერ შენარჩუნდა'
+
 }
 export function nativeDropdown(doc: Document,key:string): HTMLSelectElement | undefined {
   const controls=[...doc.querySelectorAll<HTMLSelectElement>(`select[name="primaryFeatures.${key}"]`)].filter(input=>visible(input))
@@ -67,6 +65,7 @@ export async function selectNativeDropdown(doc:Document,key:string,source:string
         const option=matches[0],selection:DropdownSelection={optionId:option.value,optionLabel:option.text.trim(),match:best===0?'exact':'equivalent'}
         if(select.value===option.value)return finish('selected',undefined,selection)
         if(select.value && !allowReplace)return finish('protected','არსებული ჩამოსაშლელი არჩევანი არ გადაგვიწერია.')
+        select.focus({preventScroll:true})
         Object.getOwnPropertyDescriptor(doc.defaultView!.HTMLSelectElement.prototype,'value')!.set!.call(select,option.value)
         select.dispatchEvent(new doc.defaultView!.Event('input',{bubbles:true}));select.dispatchEvent(new doc.defaultView!.Event('change',{bubbles:true}))
         chosen=selection

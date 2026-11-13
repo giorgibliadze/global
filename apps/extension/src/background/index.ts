@@ -6,7 +6,7 @@ import { TransferManager } from './transfers'
 const api = extensionApi()
 const transfers = new TransferManager(api, new IndexedPhotoStore())
 void transfers.prune().catch(() => { pipelineLog(undefined,'cleanup','failed') })
-const types = new Set(['TRANSFER_RETRY_FIELDS','TRANSFER_REVIEW','TRANSFER_START','TRANSFER_CLAIM','TRANSFER_STATUS','TRANSFER_PROGRESS','TRANSFER_FINISH','PHOTO_PREPARE','PHOTO_CHUNK'])
+const types = new Set(['TRANSFER_BEGIN','TRANSFER_RETRY_FIELDS','TRANSFER_REVIEW','TRANSFER_START','TRANSFER_CLAIM','TRANSFER_STATUS','TRANSFER_PROGRESS','TRANSFER_FINISH','PHOTO_PREPARE','PHOTO_CHUNK'])
 api.runtime.onMessage.addListener((message, sender, reply) => {
   if (sender.id !== api.runtime.id || !types.has(operation(message) ?? '')) return
   void transfers.handle(message as Record<string, unknown>, sender).then(

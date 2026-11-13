@@ -29,6 +29,7 @@ const selectedIdentity=(vehicle:NormalizedVehicle)=>JSON.stringify([vehicle.sour
 interface VehicleReview { reviewId: string; sourceTabId: number; vehicle: NormalizedVehicle; createdAt: number }
 const REVIEW_TTL = 5 * 60 * 1000
 export class TransferManager {
+  private beginnings=new Map<string,Promise<TransferRecord>>()
   private activeDownloads=0
   private downloadQueue:Array<()=>void>=[]
   private locks = new Map<string, Promise<unknown>>()
@@ -123,6 +124,18 @@ export class TransferManager {
     await this.api.storage.session.set({[`review:${review.reviewId}`]:review})
     return review
   }
+  async begin(sender:Sender):Promise<TransferRecord> {
+    const tab=sender.tab ?? (await this.api.tabs.query({active:true,currentWindow:true}))[0]
+    if(tab?.id===undefined || !isManheimSource(tab.url))throw new Error('გახსენით ავტომობილის დეტალები Manheim24-ზე.')
+    const bound={...sender,tab}
+    const review=await this.review(bound)
+    const key=`${tab.id}:${selectedIdentity(review.vehicle)}`
+    const pending=this.beginnings.get(key)
+    if(pending){await this.api.storage.session.remove(`review:${review.reviewId}`);return pending}
+    const operation=this.start(bound,review.reviewId)
+    this.beginnings.set(key,operation)
+    try{return await operation}finally{if(this.beginnings.get(key)===operation)this.beginnings.delete(key)}
+  }
   async start(sender: Sender, reviewId?: unknown): Promise<TransferRecord> {
     const tab = sender.tab ?? (await this.api.tabs.query({ active: true, currentWindow: true }))[0]
     if (tab?.id === undefined || !isManheimSource(tab.url)) throw new Error('გახსენით ავტომობილის დეტალები Manheim24-ზე.')
@@ -147,7 +160,7 @@ export class TransferManager {
       if (uuid(active)) {
         try {
           const old = await this.read(active)
-          if (vehicleSnapshot(old.vehicle) === vehicleSnapshot(vehicle) && old.status === 'running') return old
+          if (vehicleSnapshot(old.vehicle) === vehicleSnapshot(vehicle) && (old.status === 'running' || Date.now()-old.updatedAt<3000)) return old
         } catch { /* Expired jobs do not prevent a fresh user-initiated transfer. */ }
       }
       const entries = await this.api.storage.session.get(null)
@@ -180,6 +193,7 @@ export class TransferManager {
     })
   }
   async handle(message: Record<string, unknown>, sender: Sender): Promise<unknown> {
+    if(message.type==='TRANSFER_BEGIN')return this.begin(sender)
     if (message.type === 'TRANSFER_REVIEW') return this.review(sender)
     if (message.type === 'TRANSFER_START') return this.start(sender,message.reviewId)
     if (message.type === 'TRANSFER_CLAIM') {
@@ -246,6 +260,10 @@ export class TransferManager {
       if (!allowed.includes(message.stage as TransferStage) || latest.status !== 'running') throw new Error('გადატანის ეტაპი არასწორია.')
       const order = ['preparing','matching','filling','uploading','verifying']
       if (order.includes(latest.stage) && order.indexOf(message.stage as string) < order.indexOf(latest.stage)) throw new Error('გადატანის ეტაპი უკან ვერ დაბრუნდება.')
+      if(message.formTotal!==undefined){if(!Number.isInteger(message.formTotal) || (message.formTotal as number)<0 || (message.formTotal as number)>80)throw new Error('ველების რაოდენობა არასწორია.');latest.formTotal=message.formTotal as number}
+      if(message.uploaded!==undefined){if(!Number.isInteger(message.uploaded) || (message.uploaded as number)<latest.photos.uploaded || (message.uploaded as number)>latest.photos.prepared)throw new Error('ფოტოების პროგრესი არასწორია.');latest.photos.uploaded=message.uploaded as number}
+      if(message.fields!==undefined){if(!Array.isArray(message.fields) || message.fields.length>80 || !message.fields.every(isFieldResult))throw new Error('ველების პროგრესის ფორმატი არასწორია.');latest.fields=message.fields}
+      if(message.currentField!==undefined){if(typeof message.currentField!=='string' || message.currentField.length>120)throw new Error('ველის პროგრესის ფორმატი არასწორია.');latest.currentField=message.currentField || undefined}
       latest.stage = message.stage as TransferStage; await this.save(latest); return true
     })
     if (message.type === 'TRANSFER_FINISH') return this.lock(`job:${record.id}`, async () => {
@@ -256,7 +274,7 @@ export class TransferManager {
       if (!Array.isArray(fields) || fields.length > 80 || !fields.every(isFieldResult) || !Array.isArray(errors) || errors.length > 20 || !errors.every(v => typeof v === 'string' && v.length <= 500)) throw new Error('შედეგების ფორმატი არასწორია.')
       if (!Number.isInteger(message.uploaded) || (message.uploaded as number) < 0 || (message.uploaded as number) > latest.photos.prepared) throw new Error('ატვირთვის რაოდენობა არასწორია.')
       if(message.timings!==undefined){if(!validTimings(message.timings))throw new Error('დროის გაზომვის ფორმატი არასწორია.');latest.timings=message.timings}
-      latest.fields = fields; latest.errors = errors; latest.photos.uploaded = message.uploaded as number
+      latest.currentField=undefined;latest.fields = fields; latest.errors = errors; latest.photos.uploaded = message.uploaded as number
       latest.photos.failed = latest.photos.total - latest.photos.uploaded
       latest.status = errors.length || fields.some(f => f.status === 'unfilled') || latest.photos.failed > 0 ? 'error' : 'review'
       latest.stage = latest.status === 'review' ? 'review' : 'verifying'
@@ -268,7 +286,7 @@ export class TransferManager {
 function isFieldResult(value: unknown): value is FieldResult {
   if (!value || typeof value !== 'object') return false
   const f = value as FieldResult
-  return (f.retryable===undefined || typeof f.retryable==='boolean') && (f.key===undefined || (typeof f.key==='string' && /^[a-zA-Z]{1,30}$/.test(f.key))) && (f.code===undefined || ['missing','unavailable','dependency','unresolved','verification','protected','privacy','manual'].includes(f.code)) && (f.optionId === undefined || (typeof f.optionId === 'string' && f.optionId.length<=200)) && (f.optionLabel === undefined || (typeof f.optionLabel === 'string' && f.optionLabel.length<=500)) && (f.match === undefined || ['exact','equivalent','custom'].includes(f.match)) && typeof f.field === 'string' && f.field.length <= 120 && ['filled','unfilled'].includes(f.status) && typeof f.reason === 'string' && f.reason.length <= 500
+  return (f.persisted===undefined || typeof f.persisted==='boolean') && (f.retryable===undefined || typeof f.retryable==='boolean') && (f.key===undefined || (typeof f.key==='string' && /^[a-zA-Z]{1,30}$/.test(f.key))) && (f.code===undefined || ['missing','unavailable','dependency','unresolved','verification','protected','privacy','manual'].includes(f.code)) && (f.optionId === undefined || (typeof f.optionId === 'string' && f.optionId.length<=200)) && (f.optionLabel === undefined || (typeof f.optionLabel === 'string' && f.optionLabel.length<=500)) && (f.match === undefined || ['exact','equivalent','custom'].includes(f.match)) && typeof f.field === 'string' && f.field.length <= 120 && ['filled','unfilled'].includes(f.status) && typeof f.reason === 'string' && f.reason.length <= 500
 }
 
 function validTimings(value:unknown): value is TransferTimings {

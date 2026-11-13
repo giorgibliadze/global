@@ -1,3 +1,4 @@
+import { activateOption } from './inputInteraction'
 import { readDropdownCache, writeDropdownCache, dropdownCacheKey, optionData } from './dropdownCache'
 import type { DiscoveredOption } from './dropdownCache'
 import { dropdownKeys, dropdownSelector, shown, interactive, enabled, discoverLists, availableOptions, visibleOptions, selectableOption, restoreScroll, searchInput, search, advance, waitForDropdownChange } from './dropdownDom'
@@ -5,7 +6,7 @@ import { reportDropdown, safeExpected } from './dropdownDiagnostics'
 import type { DropdownDiagnostic } from './dropdownDiagnostics'
 const normalize = (value: string) => value.replace(/\s+/g, ' ').trim().toLocaleLowerCase()
 export interface DropdownSelection { optionId: string; optionLabel: string; match: 'exact' | 'equivalent' }
-export interface DropdownValue { exactText?: boolean; allowReplaceSelection?: boolean; candidates: string[]; equivalents?: string[]; engineCc?: number; engineUnit?: 'liters'; onSelected?: (selection: DropdownSelection) => void; onDiagnostic?: (diagnostic: DropdownDiagnostic) => void; onPhase?:(stage:'discovery'|'matching'|'selection')=>void; inspectOnly?:boolean; onOptions?:(options:DiscoveredOption[],complete:boolean)=>void }
+export interface DropdownValue { exactText?: boolean; allowReplaceSelection?: boolean; candidates: string[]; equivalents?: string[]; engineCc?: number; engineUnit?: 'liters'; onSelected?: (selection: DropdownSelection) => void; onDiagnostic?: (diagnostic: DropdownDiagnostic) => void; onPhase?:(stage:'discovery'|'matching'|'selection')=>void; interaction?:'click'|'pointer';inspectOnly?:boolean; onOptions?:(options:DiscoveredOption[],complete:boolean)=>void }
 export function optionRank(label: string, value: DropdownValue): number {
   if (value.engineCc !== undefined) {
     const match = label.trim().match(/^(\d+(?:[.,]\d+)?)\s*(ლ|l|ლიტრი|სმ³|სმ3|cc|cm3|cm³)$/i)
@@ -73,7 +74,7 @@ export async function selectDropdown(doc: Document, key: string, value: Dropdown
     const selected=doc.querySelector(dropdownSelector(key,'value'))?.textContent?.trim()
     if(!value.inspectOnly && selected && !value.allowReplaceSelection)return finish('protected','არსებული ჩამოსაშლელი არჩევანი არ გადაგვიწერია.')
     trigger.focus({preventScroll:true})
-    if(trigger.getAttribute('aria-expanded')!=='true')trigger.click()
+    if(trigger.getAttribute('aria-expanded')!=='true')activateOption(trigger,value.interaction,signal)
     clicked=true
     let searchedInput:HTMLInputElement | undefined,queryIndex=0,lastScan='',unchangedSince=Date.now(),reopened=false
     while(Date.now()<deadline) {
@@ -85,6 +86,9 @@ export async function selectDropdown(doc: Document, key: string, value: Dropdown
       if(!value.inspectOnly && confirm()) {
         verifiedSince ??=Date.now()
         if(Date.now()-verifiedSince>=Math.min(32,timeoutMs/5))return finish('selected')
+        // Once the selected label/ID are present, only verify stability. Do not
+        // rediscover portals, rescan options or refocus search after selection.
+        await waitForDropdownChange(doc,deadline-Date.now(),signal);continue
       }else verifiedSince=undefined
       // The observed search input starts hidden; use it only after the site reveals it.
       const ownSearch=searchInput(doc,key,[owner])
@@ -102,7 +106,7 @@ export async function selectDropdown(doc: Document, key: string, value: Dropdown
       const matches=Number.isFinite(best)?options.filter(option=>optionRank(option.getAttribute('aria-label') ?? option.textContent ?? '',value)===best):[]
       matchingMs+=performance.now()-matchingStarted
       if(!value.inspectOnly && !chosen && matches.length>1)return finish('ambiguous','ერთზე მეტი შესაბამისი ვარიანტია. არჩევანი არ შესრულდა.')
-      if(!value.inspectOnly && !chosen && matches.length===1){diagnostic.matched=true;announce('selection');clickedAt=performance.now();matches[0].click();chosen=true;continue}
+      if(!value.inspectOnly && !chosen && matches.length===1){diagnostic.matched=true;announce('selection');clickedAt=performance.now();activateOption(matches[0],value.interaction,signal);chosen=true;continue}
       if(!chosen) {
         const input=searchInput(doc,key,scopes)
         const queries=value.inspectOnly?[]:[...new Set([...(cachedMatch?[cachedMatch.label]:[]),...value.candidates,...(value.equivalents ?? [])])]

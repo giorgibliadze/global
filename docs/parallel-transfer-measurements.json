@@ -1,0 +1,97 @@
+{
+  "method": "Two sanitized vehicle fixtures; same headless Chrome MV3 harness; 15 images per vehicle; 120 ms intercepted response latency per image; sequential scheduling control vs parallel build; runs not concurrent. Not an authenticated MyAuto benchmark.",
+  "runs": {
+    "sequential": [
+      {
+        "version": "sequential-control",
+        "vehicle": "A",
+        "totalMs": 5130.591041,
+        "firstDomFieldMs": 394,
+        "firstMileageMs": 2028,
+        "stages": {
+          "destinationReadiness": 299,
+          "dropdownDiscovery": 825.1999999731779,
+          "dropdownSelection": 359.6000000089407,
+          "fieldVerification": 531.3000000119209,
+          "finalValidation": 600.7000000029802,
+          "firstField": 95.79999999701977,
+          "formFilling": 2141,
+          "matching": 0.29999999701976776,
+          "normalization": 15.400000005960464,
+          "photoDownload": 790.0999999940395,
+          "photoUpload": 1080.2000000029802,
+          "sourceExtraction": 3.7000000029802322,
+          "total": 4683.5999999940395
+        }
+      },
+      {
+        "version": "sequential-control",
+        "vehicle": "B",
+        "totalMs": 5023.963226999999,
+        "firstDomFieldMs": 331,
+        "firstMileageMs": 1977,
+        "stages": {
+          "destinationReadiness": 242,
+          "dropdownDiscovery": 825.6000000089407,
+          "dropdownSelection": 359.5000000298023,
+          "fieldVerification": 531.1000000238419,
+          "finalValidation": 613.4000000059605,
+          "firstField": 90.09999999403954,
+          "formFilling": 2164.5,
+          "matching": 0.19999998807907104,
+          "normalization": 14.799999997019768,
+          "photoDownload": 750.5,
+          "photoUpload": 1077.9000000059605,
+          "sourceExtraction": 2.7000000029802322,
+          "total": 4672.399999991059
+        }
+      }
+    ],
+    "parallel": [
+      {
+        "version": "parallel",
+        "vehicle": "A",
+        "totalMs": 3060.299379,
+        "firstDomFieldMs": 325,
+        "firstMileageMs": 442,
+        "stages": {
+          "destinationReadiness": 253,
+          "dropdownDiscovery": 825.5,
+          "dropdownSelection": 355,
+          "fieldVerification": 521.5000000149012,
+          "finalValidation": 600.2000000029802,
+          "firstField": 89.69999998807907,
+          "formFilling": 2086.199999988079,
+          "matching": 0.5000000298023224,
+          "normalization": 15.700000002980232,
+          "photoDownload": 710.4000000059605,
+          "photoUpload": 1075.300000011921,
+          "sourceExtraction": 2.5,
+          "total": 2747.5999999940395
+        }
+      },
+      {
+        "version": "parallel",
+        "vehicle": "B",
+        "totalMs": 3243.700653,
+        "firstDomFieldMs": 354,
+        "firstMileageMs": 485,
+        "stages": {
+          "destinationReadiness": 245,
+          "dropdownDiscovery": 831.1000000238419,
+          "dropdownSelection": 359.7999999821186,
+          "fieldVerification": 530.2999999970198,
+          "finalValidation": 610.3999999910593,
+          "firstField": 89.70000000298023,
+          "formFilling": 2173.0999999940395,
+          "matching": 0.6000000089406967,
+          "normalization": 14.400000005960464,
+          "photoDownload": 774.6999999880791,
+          "photoUpload": 1102.0999999940395,
+          "sourceExtraction": 4.300000011920929,
+          "total": 2840.2999999970198
+        }
+      }
+    ]
+  }
+}

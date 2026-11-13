@@ -121,18 +121,11 @@ function fixture(popup, supported, state = 'ready') {
           check(companyLogo.complete && companyLogo.naturalWidth > 0, 'Popup company logo loads inside page')
           shadow.querySelector('.import-button').click(); await wait()
           if (location.hostname.endsWith('manheim24.com')) {
-            check(!!shadow.querySelector('.vehicle-review'), 'Original and Georgian details displayed before transfer')
-            check(window.fixtureStarts === 0 && window.fixtureDestinations === 0, 'Review cannot open or fill destination')
-            check(shadow.querySelector('.vehicle-review').textContent.includes('ორიგინალი:') && shadow.querySelector('.vehicle-review').textContent.includes('ქართული:'), 'Both original and localized columns rendered')
-            check(!!shadow.querySelector('.review-actions [role=\"status\"]') && getComputedStyle(shadow.querySelector('.review-actions')).position === 'sticky', 'Confirmation has explicit Georgian handoff status and stays visible while reviewing')
-            shadow.querySelectorAll('.vehicle-review button')[1].click(); await wait()
-            check(!shadow.querySelector('.vehicle-review') && window.fixtureDestinations === 0, 'Review cancellation has no destination side effects')
-            shadow.querySelector('.import-button').click(); await wait()
-            shadow.querySelector('.vehicle-review .import-button').click(); await wait()
-            check(!!shadow.querySelector('.transfer-progress') && window.fixtureStarts === 1 && window.fixtureDestinations === 1, 'Confirmed review starts transfer')
-            shadow.querySelector('.import-button').click(); await wait()
-            shadow.querySelector('.vehicle-review .import-button').click(); await wait()
-            check(window.fixtureDestinations === 1, 'Repeated reviewed active vehicle reuses destination')
+            check(!shadow.querySelector('.vehicle-review, .review-actions, [aria-modal="true"]'), 'No confirmation view is displayed')
+            check(shadow.querySelector('.notice').textContent==='მონაცემების გადატანა დაიწყო', 'Immediate Georgian start feedback')
+            check(!!shadow.querySelector('.transfer-progress') && window.fixtureStarts===1 && window.fixtureDestinations===1, 'First click starts the transfer')
+            shadow.querySelector('.import-button').click();shadow.querySelector('.import-button').click();await wait()
+            check(window.fixtureStarts===1 && window.fixtureDestinations===1, 'Repeated clicks cannot create duplicate transfers')
           } else {
             check(shadow.querySelector('.notice').textContent === 'ავტომობილის მონაცემების გადატანის ფუნქცია ამ პლატფორმისთვის მალე დაემატება.', 'Panel feedback')
           }
@@ -192,7 +185,7 @@ const server = createServer(async (req, res) => {
         const job={id:'fixture',sourceTabId:1,destinationTabId:2,createdAt:Date.now(),updatedAt:Date.now(),stage:'opening',status:'running',claimed:false,photos:{total:1,prepared:0,uploaded:0,failed:0},fields:[],errors:[],vehicle:{source:'Manheim24',title:'სატესტო ავტომობილი',make:'სატესტო მწარმოებელი',model:'სატესტო მოდელი',trim:'სატესტო ვერსია',original:{manufacturer:'სატესტო მწარმოებელი',model:'სატესტო მოდელი',catalogModel:'სატესტო მოდელი',trim:'სატესტო ვერსია',evidence:'structured-model'},vin:'1HGCM82633A004352',images:[],warnings:[],raw:{}}};
         window.chrome={runtime:{id:'fixture',getManifest:()=>({version:'1.0.0'}),onMessage:{addListener:()=>{}},sendMessage:async(message)=>{
           if(message.type==='TRANSFER_REVIEW')return{ok:true,value:{vehicle:job.vehicle,reviewId:'fixture-review'}};
-          if(message.type==='TRANSFER_START'){window.fixtureStarts++;window.fixtureDestinations=1;return{ok:true,value:job}};
+          if(message.type==='TRANSFER_BEGIN'){window.fixtureStarts++;window.fixtureDestinations=1;return{ok:true,value:job}};
           if(message.type==='TRANSFER_STATUS')return{ok:true,value:job};
         }}};
       </script>` : ''

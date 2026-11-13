@@ -1,3 +1,4 @@
+import { runPersistenceTests } from './persistence.browser'
 import { runModelDesignationTests } from './modelDesignation.browser'
 import { runOptimizationTests } from './optimization.browser'
 import { runDropdownTests } from './dropdowns.browser'
@@ -85,6 +86,7 @@ try {
   check(unverifiedResults.filter(r => r.status === 'filled').length === 4, 'unverified custom choices are not reported as filled')
   unverifiedFrame.remove()
 
+  await runPersistenceTests(check)
   await runModelPrivacyTests(manheim,myauto,check)
   await runIdentityTests(manheim,myauto,check)
   await runTransferTests(manheim, myauto, check)

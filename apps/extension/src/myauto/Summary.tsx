@@ -13,6 +13,6 @@ export function Summary({ record,onRetry }: { record: TransferRecord;onRetry?:(r
     <TransferProgress record={record} />
     {onRetry && record.status!=='running' && record.fields.some(field=>field.status==='unfilled' && field.retryable) && <button className="import-button" type="button" disabled={busy} onClick={()=>void retry()}>{busy?'მიმდინარეობს ხელახალი შევსება…':'შეუვსებელი ველების ხელახლა ცდა'}</button>}
     {error && <p role="alert">{error}</p>}
-    <ul>{record.fields.map((result, index) => <li key={index}><strong>{result.status === 'filled' ? '✓' : '⚠'} {result.field}</strong><p>{result.reason}</p></li>)}</ul>
+    <ul>{record.fields.map((result, index) => <li key={index}><strong>{result.status === 'filled' && result.persisted ? '✓' : '⚠'} {result.field}</strong><p>{result.status==='filled'?result.persisted?'შევსებულია და შენარჩუნებულია':'შევსება მიმდინარეობს':result.code==='verification'?'მნიშვნელობა ვერ შენარჩუნდა':result.code==='unresolved'?'შესაბამისი ვარიანტი ვერ მოიძებნა':result.reason}</p>{result.status==='unfilled' && (result.code==='verification' || result.code==='unresolved') && <p>{result.reason}</p>}</li>)}</ul>
   </aside>
 }

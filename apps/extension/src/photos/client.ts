@@ -10,6 +10,7 @@ export async function prepareFiles(id: string, total: number, progress: (ready: 
     signal?.throwIfAborted()
     try {
       const metadata = await request<PhotoMetadata>({ type: 'PHOTO_PREPARE', id, index })
+      signal?.throwIfAborted()
       if (metadata.size > 15 * 1024 * 1024 || metadata.index !== index) throw new Error('ფოტოს მეტამონაცემები არასწორია.')
       const bytes = new Uint8Array(metadata.size)
       let offset = 0
@@ -23,6 +24,7 @@ export async function prepareFiles(id: string, total: number, progress: (ready: 
       }
       const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(b => b.toString(16).padStart(2,'0')).join('')
       if (hash !== metadata.sha256) throw new Error('ფოტოს მთლიანობის შემოწმება ვერ გაიარა.')
+      signal?.throwIfAborted()
       files[index]=new File([bytes], metadata.name, { type: metadata.mime });ready++
     } catch (error) {
       signal?.throwIfAborted()

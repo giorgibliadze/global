@@ -1,3 +1,4 @@
+import { probePersistence, writeControlledInput, activateOption } from './inputInteraction'
 import { settleField, interactive } from './dropdownDom'
 import type { DropdownDiagnostic } from './dropdownDiagnostics'
 import type { FieldFailureCode } from '@auto-importer/shared'
@@ -79,7 +80,7 @@ export function myautoFields(v: NormalizedVehicle): FormField[] {
   return fields
 }
 
-export interface FillOptions { planned?:FormField[];onlyFields?:string[];previousResults?:FieldResult[];onFieldStage?:(stage:'discovery'|'matching'|'selection')=>void; onTiming?: (stage:TimingStage,ms:number)=>void; allowAutofillCorrection?: boolean; dropdownTimeoutMs?: number; signal?: AbortSignal; beforeField?: () => void; onResult?: (results: FieldResult[]) => void }
+export interface FillOptions { planned?:FormField[];recoveringFields?:string[];onlyFields?:string[];previousResults?:FieldResult[];onField?:(label:string)=>void;onFieldStage?:(stage:'discovery'|'matching'|'selection')=>void; onTiming?: (stage:TimingStage,ms:number)=>void; allowAutofillCorrection?: boolean; dropdownTimeoutMs?: number; signal?: AbortSignal; beforeField?: () => void; onResult?: (results: FieldResult[]) => void | Promise<void> }
 export async function fillMyautoForm(doc: Document, vehicle: NormalizedVehicle, options: FillOptions = {}): Promise<FieldResult[]> {
   const results: FieldResult[] = (options.previousResults ?? []).map(result=>({...result}))
   const normalizationStarted=performance.now()
@@ -92,43 +93,47 @@ export async function fillMyautoForm(doc: Document, vehicle: NormalizedVehicle, 
   const userEdited = new Set<string>()
   const protectUserEdit = (event: Event) => {
     if (!event.isTrusted || !(event.target instanceof doc.defaultView!.Element)) return
-    for (const f of planned.filter(f=>f.mode==='dropdown')) {
-      const owner = doc.querySelector(`[data-testid="single-select-primaryFeatures.${f.dropdownKey}"]`)
+    for (const f of planned) {
+      const owner = f.dropdownKey?doc.querySelector(`[data-testid="single-select-primaryFeatures.${f.dropdownKey}"]`) ?? nativeDropdown(doc,f.dropdownKey) ?? (f.field==='model'?editableModelInput(doc)?.element:undefined):f.selector?doc.querySelector(f.selector):null
       if (owner?.contains(event.target)) userEdited.add(f.field)
     }
   }
   doc.addEventListener('pointerdown',protectUserEdit,true)
   doc.addEventListener('keydown',protectUserEdit,true)
-  const ordered = [planned.find(f => f.field === 'vin')!, ...planned.filter(f => f.mode === 'dropdown'), ...planned.filter(f => f.field !== 'vin' && f.mode !== 'dropdown')]
+  // Independent inputs must not wait behind an unavailable dropdown. Shared-overlay
+  // dropdowns remain serialized, with manufacturer before its dependent model.
+  const ordered = [...planned.filter(f => f.mode !== 'dropdown'), ...planned.filter(f => f.mode === 'dropdown')]
   try {
   for (const field of ordered) {
     if(options.onlyFields && !options.onlyFields.includes(field.field))continue
     options.signal?.throwIfAborted()
     options.beforeField?.()
-    options.onResult?.([...results])
+    options.onField?.(field.label)
     const fail = (reason:string,code:FieldFailureCode='unresolved',retryable=['unavailable','verification'].includes(code)) => results.push({key:field.field,field:field.label,status:'unfilled',reason,code,retryable})
     let diagnostic:DropdownDiagnostic | undefined
-    const descriptor={...field.optionValue!,onPhase:options.onFieldStage,onDiagnostic:(item:DropdownDiagnostic)=>{diagnostic=item;reportDropdown(item);options.onTiming?.('dropdownDiscovery',item.discoveryMs ?? 0);options.onTiming?.('dropdownSelection',item.selectionMs ?? 0);options.onTiming?.('matching',item.matchingMs ?? 0);options.onTiming?.('fieldVerification',item.verificationMs ?? 0)}}
+    const descriptor={...field.optionValue!,interaction:'pointer' as const,onPhase:options.onFieldStage,onDiagnostic:(item:DropdownDiagnostic)=>{diagnostic=item;reportDropdown(item);options.onTiming?.('dropdownDiscovery',item.discoveryMs ?? 0);options.onTiming?.('dropdownSelection',item.selectionMs ?? 0);options.onTiming?.('matching',item.matchingMs ?? 0);options.onTiming?.('fieldVerification',item.verificationMs ?? 0)}}
     const dropdownFailure=(reason:string)=>fail(reason,diagnostic?.outcome==='protected'?'protected':diagnostic && ['unavailable','not-discovered','interaction-error'].includes(diagnostic.outcome)?'unavailable':diagnostic?.outcome==='not-verified'?'verification':'unresolved')
+    const resultStart=results.length
+    try {
     if (field.value === undefined || field.value === '') { fail('წყაროში მონაცემი არ არის ან შესაბამისობა დაუდასტურებელია.','missing'); continue }
     if (field.mode === 'dropdown') {
       if (field.field === 'model' && !results.some(r => r.field === 'მწარმოებელი' && r.status === 'filled')) { fail('ჯერ საჭიროა მწარმოებლის დადასტურებული არჩევანი.','dependency',results.some(result=>result.field==='მწარმოებელი' && result.retryable)); continue }
       if (field.field === 'model' && editableModelInput(doc) && !nativeDropdown(doc,'model') && !interactive(doc,'model')) {
-        const error=await fillEditableModel(doc,fullModel(vehicle)!,options.allowAutofillCorrection === true && initiallyEmpty.has(field.field) && !userEdited.has(field.field))
+        const error=await fillEditableModel(doc,fullModel(vehicle)!,((options.allowAutofillCorrection === true && initiallyEmpty.has(field.field)) || options.recoveringFields?.includes(field.field)===true) && !userEdited.has(field.field))
         if(error)fail(`${MYAUTO_MODEL_WARNING} ${error}`)
-        else results.push({field:field.label,status:'filled',reason:'სრული ორიგინალური მოდელი შეყვანილია მოდელის რედაქტირებად ველში.',match:'custom',optionLabel:fullModel(vehicle)})
+        else results.push({field:field.label,status:'filled',persisted:true,reason:'სრული ორიგინალური მოდელი შეყვანილია მოდელის რედაქტირებად ველში.',match:'custom',optionLabel:fullModel(vehicle)})
         continue
       }
       if (field.dropdownKey && nativeDropdown(doc,field.dropdownKey)) {
-        const selected=await selectNativeDropdown(doc,field.dropdownKey,field.value,options.allowAutofillCorrection === true && initiallyEmpty.has(field.field) && !userEdited.has(field.field),descriptor,options.dropdownTimeoutMs,options.signal)
-        if(selected.error){if(field.field==='model' && editableModelInput(doc)){const error=await fillEditableModel(doc,fullModel(vehicle)!);if(!error){results.push({field:field.label,status:'filled',match:'custom',optionLabel:fullModel(vehicle),reason:'სრული მოდელი შეყვანილია რედაქტირებად ველში.'});continue}}dropdownFailure([field.field==='model'?MYAUTO_MODEL_WARNING:undefined,selected.error,myautoCatalogHint(field.dropdownKey,field.value)].filter(Boolean).join(' '))}
+        const selected=await selectNativeDropdown(doc,field.dropdownKey,field.value,((options.allowAutofillCorrection === true && initiallyEmpty.has(field.field)) || options.recoveringFields?.includes(field.field)===true) && !userEdited.has(field.field),descriptor,options.dropdownTimeoutMs,options.signal)
+        if(selected.error){if(field.field==='model' && editableModelInput(doc)){const error=await fillEditableModel(doc,fullModel(vehicle)!);if(!error){results.push({field:field.label,status:'filled',persisted:true,match:'custom',optionLabel:fullModel(vehicle),reason:'სრული მოდელი შეყვანილია რედაქტირებად ველში.'});continue}}dropdownFailure([field.field==='model'?MYAUTO_MODEL_WARNING:undefined,selected.error,myautoCatalogHint(field.dropdownKey,field.value)].filter(Boolean).join(' '))}
         else results.push({field:field.label,status:'filled',reason:'ზუსტი ვარიანტი დადასტურებულია.',...selected.selection})
         continue
       }
       let selection: DropdownSelection | undefined
       options.onFieldStage?.('discovery')
-      const reason = await selectDropdown(doc, field.dropdownKey!, {...descriptor,allowReplaceSelection:options.allowAutofillCorrection === true && initiallyEmpty.has(field.field) && !userEdited.has(field.field),onSelected:value => {selection=value}}, options.dropdownTimeoutMs, options.signal)
-      if(reason && field.field==='model' && diagnostic?.outcome!=='protected' && editableModelInput(doc)){const error=await fillEditableModel(doc,fullModel(vehicle)!);if(!error){results.push({field:field.label,status:'filled',match:'custom',optionLabel:fullModel(vehicle),reason:'სრული მოდელი შეყვანილია რედაქტირებად ველში.'});continue}}
+      const reason = await selectDropdown(doc, field.dropdownKey!, {...descriptor,allowReplaceSelection:((options.allowAutofillCorrection === true && initiallyEmpty.has(field.field)) || options.recoveringFields?.includes(field.field)===true) && !userEdited.has(field.field),onSelected:value => {selection=value}}, options.dropdownTimeoutMs, options.signal)
+      if(reason && field.field==='model' && diagnostic?.outcome!=='protected' && editableModelInput(doc)){const error=await fillEditableModel(doc,fullModel(vehicle)!);if(!error){results.push({field:field.label,status:'filled',persisted:true,match:'custom',optionLabel:fullModel(vehicle),reason:'სრული მოდელი შეყვანილია რედაქტირებად ველში.'});continue}}
       if (reason) dropdownFailure(field.field === 'model' ? `${MYAUTO_MODEL_WARNING} ${reason}` : [reason,myautoCatalogHint(field.dropdownKey!,field.value)].filter(Boolean).join(' '))
       else results.push({ field: field.label, status: 'filled', reason: 'რეალური ვარიანტი და მისი მნიშვნელობა დადასტურებულია.', ...selection })
       continue
@@ -159,14 +164,35 @@ export async function fillMyautoForm(doc: Document, vehicle: NormalizedVehicle, 
     if (element.maxLength > 0 && field.value.length > element.maxLength) { fail('ტექსტი აღემატება ფორმის დაშვებულ სიგრძეს. მონაცემები არ შემოკლებულა; ორიგინალი შენარჩუნებულია.'); continue }
     if (element.disabled || element.readOnly) { fail('ველი მიუწვდომელია.','unavailable'); continue }
     if (field.field === 'description' && !(await enforceDescriptionPrivacy(doc,vehicle.vin))) { fail('აღწერიდან საიდენტიფიკაციო მონაცემის მოცილება ვერ დადასტურდა.'); continue }
-    if (element.value && element.value !== field.value) { fail('არსებული მნიშვნელობა არ გადაგვიწერია.','protected'); continue }
-    // Use native setters so React receives a real value change rather than a changed tracker.
-    const proto = element.tagName === 'TEXTAREA' ? doc.defaultView!.HTMLTextAreaElement.prototype : doc.defaultView!.HTMLInputElement.prototype
-    Object.getOwnPropertyDescriptor(proto, 'value')!.set!.call(element, field.value)
-    element.dispatchEvent(new doc.defaultView!.Event('input', { bubbles: true }))
-    element.dispatchEvent(new doc.defaultView!.Event('change', { bubbles: true }))
-    if (await verify(()=>doc.querySelector<HTMLInputElement | HTMLTextAreaElement>(field.selector!)?.value===field.value)) results.push({ field: field.label, status: 'filled', reason: 'მნიშვნელობა შეყვანილია; საბოლოოდ გადაამოწმეთ ფორმაში.' })
-    else fail('ფორმამ მნიშვნელობა არ შეინარჩუნა. შეავსეთ ხელით.','verification')
+    if (element.value && element.value !== field.value && !options.recoveringFields?.includes(field.field)) { fail('არსებული მნიშვნელობა არ გადაგვიწერია.','protected'); continue }
+    const persisted=await writeControlledInput(doc,()=>doc.querySelector<HTMLInputElement|HTMLTextAreaElement>(field.selector!),field.value,options.signal,()=>!userEdited.has(field.field),options.recoveringFields?.includes(field.field))
+    if(persisted)results.push({field:field.label,status:'filled',persisted:true,reason:'შევსებულია და შენარჩუნებულია'})
+    else fail('მნიშვნელობა ვერ შენარჩუნდა','verification')
+
+    } finally {
+      const index=results.findIndex((result,offset)=>offset>=resultStart && result.field===field.label)
+      const result=results[index]
+      if(result?.status==='filled' && !result.persisted) {
+        const resolve=()=>field.mode==='dropdown' ? result.match==='custom'?editableModelInput(doc)?.element:nativeDropdown(doc,field.dropdownKey!) ?? interactive(doc,field.dropdownKey!) : field.selector?doc.querySelector<HTMLElement>(field.selector):undefined
+        const valid=()=>verifyMyautoFields(doc,vehicle,[result],planned)[0]?.status==='filled'
+        let persisted=await probePersistence(doc,resolve,valid,options.signal)
+        // One supported alternate interaction, never a whole-form restart or a blind
+        // overwrite of a different user-selected value.
+        if(!persisted && !userEdited.has(field.field)) {
+          if(field.mode==='dropdown' && result.match==='custom')persisted=!(await fillEditableModel(doc,fullModel(vehicle)!))
+          else if(field.mode==='dropdown' && !nativeDropdown(doc,field.dropdownKey!)) {
+            const current=doc.querySelector(`[data-testid="single-select-value-primaryFeatures.${field.dropdownKey}"]`)?.textContent?.trim()
+            if(!current){let selected:DropdownSelection|undefined;const error=await selectDropdown(doc,field.dropdownKey!,{...descriptor,interaction:'pointer',onSelected:option=>{selected=option}},options.dropdownTimeoutMs,options.signal);if(!error && selected){Object.assign(result,selected);persisted=await probePersistence(doc,resolve,valid,options.signal)}}
+          }else if(field.mode==='choice' && field.selector && doc.querySelector<HTMLInputElement>(field.verifySelector!)?.value==='') {
+            const control=doc.querySelector<HTMLElement>(field.selector);if(control){activateOption(control,'pointer',options.signal);persisted=await probePersistence(doc,resolve,valid,options.signal)}
+          }
+        }
+        if(persisted){result.persisted=true;result.reason='შევსებულია და შენარჩუნებულია'}
+        else results[index]={...result,status:'unfilled',persisted:false,code:'verification',retryable:!userEdited.has(field.field),reason:'მნიშვნელობა ვერ შენარჩუნდა'}
+      }
+      await options.onResult?.(results.map(result=>({...result,key:result.key ?? planned.find(item=>item.label===result.field)?.field})))
+    }
+
   }
   } finally { doc.removeEventListener('pointerdown',protectUserEdit,true);doc.removeEventListener('keydown',protectUserEdit,true) }
   if (!(await enforceDescriptionPrivacy(doc,vehicle.vin))) {
@@ -174,7 +200,7 @@ export async function fillMyautoForm(doc: Document, vehicle: NormalizedVehicle, 
     const result:FieldResult={field:'აღწერა',status:'unfilled',reason:'ფორმა აღწერაში საიდენტიფიკაციო მონაცემს ხელახლა ამატებს. გამოქვეყნება დაუშვებელია მის მოცილებამდე.'}
     if(index>=0)results[index]=result;else results.push(result)
   }
-  options.onResult?.([...results])
+  await options.onResult?.([...results])
   return results.map(result=>({...result,key:result.key ?? planned.find(field=>field.label===result.field)?.field}))
 }
 
@@ -197,7 +223,7 @@ export function verifyMyautoFields(doc: Document, vehicle: NormalizedVehicle, re
       valid = matchesOption(selected, field.optionValue!) && !!result.optionId && doc.querySelector<HTMLInputElement>(`[data-testid="single-select-input-primaryFeatures.${field.dropdownKey}"]`)?.value === result.optionId
     }
     if (field.field === 'mileageKm') valid &&= doc.querySelector('[data-testid="single-select-value-primaryFeatures.mileageType"]')?.textContent?.trim() === 'კმ'
-    return valid ? result : { key:field.field,field: result.field, status: 'unfilled',code:'verification',retryable:true, reason: 'საბოლოო შემოწმებისას მნიშვნელობა შეიცვალა ან ვერ დადასტურდა.' }
+    return valid ? result : { key:field.field,field: result.field, status: 'unfilled',persisted:false,code:'verification',retryable:true, reason: 'საბოლოო შემოწმებისას მნიშვნელობა შეიცვალა ან ვერ დადასტურდა.' }
   })
 }
 
@@ -219,3 +245,18 @@ export async function enforceDescriptionPrivacy(doc:Document,vin:string):Promise
 }
 
 export { settleField }
+
+export async function verifyMyautoPersistence(doc:Document,vehicle:NormalizedVehicle,results:FieldResult[],planned=myautoFields(vehicle),signal?:AbortSignal):Promise<FieldResult[]> {
+  const checked=verifyMyautoFields(doc,vehicle,results,planned)
+  for(let index=0;index<checked.length;index++){
+    const result=checked[index]
+    if(result.status!=='filled')continue
+    const field=planned.find(item=>item.label===result.field)
+    if(!field)continue
+    const resolve=()=>field.mode==='dropdown'?result.match==='custom'?editableModelInput(doc)?.element:nativeDropdown(doc,field.dropdownKey!) ?? interactive(doc,field.dropdownKey!):field.selector?doc.querySelector<HTMLElement>(field.selector):undefined
+    const valid=()=>verifyMyautoFields(doc,vehicle,[result],planned)[0]?.status==='filled'
+    if(await probePersistence(doc,resolve,valid,signal)){result.persisted=true;result.reason='შევსებულია და შენარჩუნებულია'}
+    else checked[index]={...result,status:'unfilled',persisted:false,code:'verification',retryable:true,reason:'მნიშვნელობა ვერ შენარჩუნდა'}
+  }
+  return checked
+}

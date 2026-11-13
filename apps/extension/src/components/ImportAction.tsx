@@ -1,13 +1,12 @@
-import { useEffect, useState } from 'react'
-import type { NormalizedVehicle, TransferRecord } from '@auto-importer/shared'
+import { useEffect, useRef, useState } from 'react'
+import type { TransferRecord } from '@auto-importer/shared'
 import { request } from '../services/extensionApi'
-import { VehicleReview } from './VehicleReview'
 import { TransferProgress } from './TransferProgress'
 
 export function ImportAction({ enabled, guidance, manheim24 = false }: { enabled: boolean; guidance?: string; manheim24?: boolean }) {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
-  const [review,setReview] = useState<{vehicle:NormalizedVehicle;reviewId:string} | null>(null)
+  const starting=useRef(false)
   const [record, setRecord] = useState<TransferRecord | null>(null)
   useEffect(() => {
     if (!record?.id || record.status !== 'running') return
@@ -27,24 +26,17 @@ export function ImportAction({ enabled, guidance, manheim24 = false }: { enabled
   }, [record?.id, record?.status])
   async function start() {
     if (!manheim24) { setMessage('ავტომობილის მონაცემების გადატანის ფუნქცია ამ პლატფორმისთვის მალე დაემატება.'); return }
-    setBusy(true); setMessage(''); setReview(null); setRecord(null)
-    try { setReview(await request({type:'TRANSFER_REVIEW'})) }
-    catch (error) { setMessage(error instanceof Error ? error.message : 'ავტომობილის ამოცნობა ვერ მოხერხდა.') }
-    finally { setBusy(false) }
-  }
-  async function confirm() {
-    if (!review) return
-    setBusy(true); setMessage('')
-    try { setRecord(await request<TransferRecord>({type:'TRANSFER_START',reviewId:review.reviewId})); setReview(null) }
-    catch (error) { setMessage(error instanceof Error ? error.message : 'გადატანა ვერ შესრულდა.'); setReview(null) }
-    finally { setBusy(false) }
+    if(starting.current || record?.status==='running')return
+    starting.current=true;setBusy(true);setMessage('მონაცემების გადატანა დაიწყო');setRecord(null)
+    try {setRecord(await request<TransferRecord>({type:'TRANSFER_BEGIN'}))}
+    catch(error){setMessage(error instanceof Error?error.message:'გადატანა ვერ დაიწყო.')}
+    finally{starting.current=false;setBusy(false)}
   }
   return <div className="import-action">
-    <button className="import-button" type="button" disabled={!enabled || busy} onClick={() => void start()}>
-      {busy ? review ? 'MyAuto-ს გახსნა…' : 'ავტომობილის მონაცემების წაკითხვა' : 'MyAuto-ზე გადატანა'} <span aria-hidden="true">↗</span>
+    <button className="import-button" type="button" disabled={!enabled || busy || record?.status==='running'} onClick={() => void start()}>
+      {busy ? 'შევსება მიმდინარეობს' : 'MyAuto-ზე გადატანა'} <span aria-hidden="true">↗</span>
     </button>
     {guidance && <p className="guidance">{guidance}</p>}
-    {review && <VehicleReview vehicle={review.vehicle} busy={busy} confirm={() => void confirm()} cancel={() => setReview(null)} />}
     {record && <TransferProgress record={record} />}
     {message && <p className="notice" role="status">{message}</p>}
   </div>

@@ -43,7 +43,7 @@ export async function runTransferTests(manheim: string, myauto: string, check: (
   const sourceSender: Sender = { id: 'fixture', tab: { id: 7, url: 'https://home.manheim24.com/landingPage#/results/fixture' } }
   check(await rejectedValidation(), 'normalization validation rejects credentials hidden in raw fields')
   async function rejectedValidation() { try { assertNormalizedVehicle({ ...parseManheim24(source), raw: { accessToken: 'synthetic-sensitive-value' } }); return false } catch { return true } }
-  const startReviewed = async () => { const review = await manager.review(sourceSender); return manager.start(sourceSender,review.reviewId) }
+  const startReviewed = async () => { return manager.handle({type:'TRANSFER_BEGIN'},sourceSender) as Promise<TransferRecord> }
   const a = await startReviewed()
   const [a2,a3] = await Promise.all([startReviewed(),startReviewed()])
   check(a.id === a2.id && a2.id === a3.id && nextTab === 101, 'repeated/concurrent clicks deduplicate active vehicle A')
