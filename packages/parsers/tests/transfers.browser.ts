@@ -1,3 +1,4 @@
+import {transferLifecycle} from '../../../apps/extension/src/services/transferLifecycle'
 import { assertNormalizedVehicle } from '../src/validation'
 import { TransferManager, isManheimSource, isMyautoDestination } from '../../../apps/extension/src/background/transfers'
 import { IndexedPhotoStore } from '../../../apps/extension/src/photos/store'
@@ -45,6 +46,10 @@ export async function runTransferTests(manheim: string, myauto: string, check: (
   async function rejectedValidation() { try { assertNormalizedVehicle({ ...parseManheim24(source), raw: { accessToken: 'synthetic-sensitive-value' } }); return false } catch { return true } }
   const startReviewed = async () => { return manager.handle({type:'TRANSFER_BEGIN'},sourceSender) as Promise<TransferRecord> }
   const a = await startReviewed()
+  check(a.lifecycle==='NAVIGATING' && (await manager.handle({type:'TRANSFER_ACTIVE'},sourceSender) as TransferRecord).id===a.id,'direct UX: navigating state persists and source reload can recover the running job')
+  check(transferLifecycle({...a,status:'running',stage:'filling'})==='FILLING' && transferLifecycle({...a,status:'running',stage:'uploading'})==='UPLOADING_PHOTOS','direct UX: lifecycle follows form then photo operations')
+  check(transferLifecycle({...a,status:'error',fields:[],photos:{...a.photos,uploaded:0}})==='FAILED','direct UX: complete failure is distinguished from a populated partial draft')
+  check(transferLifecycle({...a,status:'error',photos:{...a.photos,uploaded:0},fields:[{key:'price',field:'price',status:'filled',persisted:true,reason:''}]})==='FAILED','direct UX: negotiable price alone cannot mask a completely failed vehicle transfer')
   const [a2,a3] = await Promise.all([startReviewed(),startReviewed()])
   check(a.id === a2.id && a2.id === a3.id && nextTab === 101, 'repeated/concurrent clicks deduplicate active vehicle A')
   source = makeDoc()
@@ -60,6 +65,7 @@ export async function runTransferTests(manheim: string, myauto: string, check: (
   const senderB: Sender = { id: 'fixture', tab: { id: b.destinationTabId, url: 'https://myauto.ge/ka/add' }, documentId: 'document-B' }
   const claimed = await manager.handle({ type: 'TRANSFER_CLAIM' }, senderA) as TransferRecord
   await manager.handle({ type: 'TRANSFER_CLAIM' }, senderB)
+  check(claimed.lifecycle==='NAVIGATING','direct UX: destination claim preserves navigation state until the form is ready')
   check(claimed.id === a.id && await manager.handle({ type: 'TRANSFER_CLAIM' }, senderA) === null, 'single claim prevents reinjection/refresh overwrites')
   async function rejected(operation: () => Promise<unknown>) { try { await operation(); return false } catch { return true } }
   check(await rejected(() => manager.handle({ type: 'PHOTO_PREPARE', id: a.id, index: 0 }, senderB)), 'B cannot request A photos')
@@ -159,6 +165,8 @@ export async function runTransferTests(manheim: string, myauto: string, check: (
   await manager.handle({ type: 'TRANSFER_PROGRESS', id:a.id,stage:'verifying' }, senderA)
   const finished = await manager.handle({ type: 'TRANSFER_FINISH', id:a.id,fields:[],uploaded:1,errors:['დანარჩენი ფოტოები სატესტო რეჟიმში არ ატვირთულა.'] },senderA) as TransferRecord
   check(await rejected(() => manager.handle({type:'TRANSFER_PROGRESS',id:a.id,stage:'filling'},senderA)), 'finished transfers cannot be restarted or mutated by progress messages')
+  check(finished.lifecycle==='COMPLETED' && !store[`destination:${a.destinationTabId}`] && (store[`active:${sourceSender.tab!.id}`]===b.id),'direct UX: completed partial draft cleans only its destination binding and preserves newer active transfers')
+  check(await manager.handle({type:'TRANSFER_CLAIM'},senderA)===null,'direct UX: reload cannot reclaim a completed transfer')
   check(finished.status === 'error' && finished.photos.uploaded === 1 && finished.photos.failed === a.photos.total - 1, 'partial photo transfer never becomes fake completion')
   check(!await cache.get(a.id,0) && !!await cache.get(b.id,0), 'finish clears A binary data without touching B')
   await manager.tabClosed(b.destinationTabId!)

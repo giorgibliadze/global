@@ -1,3 +1,4 @@
+import {transferLifecycle} from '../services/transferLifecycle'
 import {resolveListingLocation,exactLocation} from '@auto-importer/parsers/location'
 import {getLocationPreference,setLocationPreference} from '../services/locationPreferences'
 import {deduplicatePhotos} from '@auto-importer/parsers'
@@ -65,6 +66,7 @@ export class TransferManager {
     return structuredClone(record)
   }
   private async save(record: TransferRecord) {
+    record.lifecycle=transferLifecycle(record)
     record.updatedAt = Date.now()
     await this.api.storage.session.set({ [`job:${record.id}`]: record })
   }
@@ -228,6 +230,13 @@ export class TransferManager {
     })
   }
   async handle(message: Record<string, unknown>, sender: Sender): Promise<unknown> {
+    if(message.type==='TRANSFER_ACTIVE'){
+      const tab=sender.tab??(await this.api.tabs.query({active:true,currentWindow:true}))[0]
+      if(tab?.id===undefined || !isManheimSource(tab.url))return null
+      const id=(await this.api.storage.session.get(`active:${tab.id}`))[`active:${tab.id}`]
+      if(!uuid(id))return null
+      try{const record=await this.read(id);return record.status==='running'?record:null}catch{return null}
+    }
     if(message.type==='LOCATION_PREFERENCE_GET')return getLocationPreference(this.api)
     if(message.type==='LOCATION_PREFERENCE_SET')return setLocationPreference(this.api,message.label)
     if(message.type==='PREFETCH_INVALIDATE' || message.type==='PREFETCH_PREPARE'){
@@ -340,7 +349,10 @@ export class TransferManager {
       latest.photos.failed = latest.photos.total - latest.photos.uploaded
       latest.status = errors.length || fields.some(f => f.status !== 'filled' || f.reviewRequired) || latest.photos.failed > 0 ? 'error' : 'review'
       latest.stage = latest.status === 'review' ? 'review' : 'verifying'
-      await this.save(latest); await this.photos.remove(record.id); return latest
+      await this.save(latest); await this.photos.remove(record.id);
+      if((await this.api.storage.session.get(`active:${latest.sourceTabId}`))[`active:${latest.sourceTabId}`]===latest.id)await this.api.storage.session.remove(`active:${latest.sourceTabId}`)
+      if(latest.destinationTabId!==undefined)await this.api.storage.session.remove(`destination:${latest.destinationTabId}`)
+      return latest
     })
     throw new Error('უცნობი მოთხოვნა.')
   }

@@ -74,7 +74,9 @@ export interface PreparedFormField {
 }
 export type PreparationStatus='preparing'|'ready'|'updating'|'error'
 export interface PreparationSummary {id:string;extractedAt:number;durationMs:number;normalizationMs:number;cacheHit:boolean}
+export type TransferLifecycle='IDLE'|'PREPARING'|'NAVIGATING'|'FILLING'|'UPLOADING_PHOTOS'|'COMPLETED'|'FAILED'
 export interface TransferRecord {
+  lifecycle?:TransferLifecycle
   id: string
   sourceTabId: number
   destinationTabId?: number
