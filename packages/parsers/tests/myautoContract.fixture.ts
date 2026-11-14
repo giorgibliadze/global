@@ -4,8 +4,8 @@ import {createElement as h,useEffect,useState} from 'react'
 import {createRoot} from 'react-dom/client'
 import {useForm,useController,useWatch,FormProvider} from 'virtual:myauto-rhf'
 const config=window.fixtureConfiguration ?? {model:'M5 Touring Wagon'}
-const ids:Record<string,string>={manufacturer:'fixture-manufacturer',model:'fixture-model',issueYear:'fixture-issueYear',fuelType:'fixture-fuelType',engineVolume:'fixture-engineVolume',cylinders:'fixture-cylinders',vehicleCategory:'fixture-vehicleCategory'}
-const labels:Record<string,string>={manufacturer:'BMW',model:config.model,issueYear:'2026',fuelType:'დამუხტვადი ჰიბრიდი',engineVolume:'4.4',cylinders:'8',vehicleCategory:'უნივერსალი'}
+const ids:Record<string,string>={listingLocation:'fixture-location',manufacturer:'fixture-manufacturer',model:'fixture-model',issueYear:'fixture-issueYear',fuelType:'fixture-fuelType',engineVolume:'fixture-engineVolume',cylinders:'fixture-cylinders',vehicleCategory:'fixture-vehicleCategory'}
+const labels:Record<string,string>={listingLocation:config.locationLabel??'აშშ',manufacturer:'BMW',model:config.model,issueYear:'2026',fuelType:'დამუხტვადი ჰიბრიდი',engineVolume:'4.4',cylinders:'8',vehicleCategory:'უნივერსალი'}
 window.fixtureOpenCounts={};window.fixtureFailFuel=!!config.failFuel
 function Text({name}:{name:string}){
   const {field}=useController({name,defaultValue:''})
@@ -15,19 +15,20 @@ function Text({name}:{name:string}){
   }})
 }
 function Select({name,disabled}:{name:string;disabled?:boolean}){
-  const {field}=useController({name:'primaryFeatures.'+name,defaultValue:null})
+  const formName=name==='listingLocation'?'location.location':'primaryFeatures.'+name
+  const {field}=useController({name:formName,defaultValue:null})
   const [open,setOpen]=useState(false),[query,setQuery]=useState(''),[opens,setOpens]=useState(0)
   useEffect(()=>{window.fixtureOpenCounts={...window.fixtureOpenCounts,[name]:opens}},[name,opens])
   const selected=field.value as {id:string;title:string}|null
   if(name==='fuelType'&&window.fixtureFailFuel)return null
   const item=(name!=='fuelType' || !window.fixtureFailFuel) && labels[name].toLowerCase().includes(query.toLowerCase())
-  return h('div',{'data-testid':'single-select-primaryFeatures.'+name,className:disabled?'pointer-events-none':''},
-    h('div',{'data-testid':'single-select-trigger-primaryFeatures.'+name,onClick:()=>{setOpens(value=>value+1);setOpen(!open)}},
-      h('input',{onBlur:field.onBlur,ref:field.ref,'data-testid':'single-select-input-primaryFeatures.'+name,className:'opacity-0 pointer-events-none'}),
-      h('span',{'data-testid':'single-select-value-primaryFeatures.'+name,className:selected?'pt-[6px]':''},selected?.title ?? ''),
-      h('input',{'data-testid':'single-select-search-primaryFeatures.'+name,type:open?'text':'hidden',value:query,onInput:(event:{currentTarget:HTMLInputElement})=>setQuery(event.currentTarget.value)}),
-      selected && h('span',{'data-testid':'single-select-clear-primaryFeatures.'+name,onClick:(event:{stopPropagation:()=>void})=>{event.stopPropagation();field.onChange(null)}},'×')),
-    open && h('div',{'data-testid':'single-select-dropdown-primaryFeatures.'+name},item?h('div',{'data-testid':'single-select-option-primaryFeatures.'+name+'-'+ids[name],onClick:()=>{field.onChange({id:ids[name],title:labels[name]});setOpen(false);setQuery('')}},labels[name]):h('li',{'data-testid':'single-select-no-data-primaryFeatures.'+name},'მონაცემები ვერ მოიძებნა')))
+  return h('div',{'data-testid':'single-select-'+formName,className:disabled?'pointer-events-none':''},
+    h('div',{'data-testid':'single-select-trigger-'+formName,onClick:()=>{setOpens(value=>value+1);setOpen(!open)}},
+      h('input',{onBlur:field.onBlur,ref:field.ref,'data-testid':'single-select-input-'+formName,className:'opacity-0 pointer-events-none'}),
+      h('span',{'data-testid':'single-select-value-'+formName,className:selected?'pt-[6px]':''},selected?.title ?? ''),
+      h('input',{'data-testid':'single-select-search-'+formName,type:open?'text':'hidden',value:query,onInput:(event:{currentTarget:HTMLInputElement})=>setQuery(event.currentTarget.value)}),
+      selected && h('span',{'data-testid':'single-select-clear-'+formName,onClick:(event:{stopPropagation:()=>void})=>{event.stopPropagation();field.onChange(null)}},'×')),
+    open && h('div',{'data-testid':'single-select-dropdown-'+formName},item?h('div',{'data-testid':'single-select-option-'+formName+'-'+ids[name],onClick:()=>{field.onChange({id:ids[name],title:labels[name]});setOpen(false);setQuery('')}},labels[name]):h('li',{'data-testid':'single-select-no-data-'+formName},'მონაცემები ვერ მოიძებნა')))
 }
 function Choices({name,id}:{name:string;id:string}){
   const {field}=useController({name:'primaryFeatures.'+name})
@@ -48,7 +49,7 @@ function Form(){
   useEffect(()=>{methods.setValue('primaryFeatures.model',null);const timer=setTimeout(()=>setModelReady(!!manufacturer),40);return()=>clearTimeout(timer)},[manufacturer,methods])
   useEffect(()=>{
     const current=methods.getValues().primaryFeatures as Record<string,unknown>
-    window.fixtureState={values:{steeringWheel:String(current.wheelTypeId??''),doorCount:String(current.doorTypeId??''),negotiable:String((methods.getValues().sale as {isNegotiablePrice:boolean}).isNegotiablePrice),transmission:String(current.gearTypeId??''),drivetrain:String(current.driveTypeId??''),exteriorColor:String(current.vehicleColorId??''),interiorColor:String(current.saloonColorId??''),interiorMaterial:String(current.saloonMaterialId??''),vin:String(current.vinCode??''),trim:String(current.customModel??''),mileage:String(current.mileage??''),description:(current.description as Record<string,string>).ka},selected:Object.fromEntries(Object.keys(ids).map(key=>[key,current[key]?{id:(current[key] as {id:string}).id,label:(current[key] as {title:string}).title}:undefined])),photos:photos.length,uploads,published,renders}
+    window.fixtureState={values:{locationId:String((methods.getValues().location as {location?:{id:string}}|undefined)?.location?.id??''),steeringWheel:String(current.wheelTypeId??''),doorCount:String(current.doorTypeId??''),negotiable:String((methods.getValues().sale as {isNegotiablePrice:boolean}).isNegotiablePrice),transmission:String(current.gearTypeId??''),drivetrain:String(current.driveTypeId??''),exteriorColor:String(current.vehicleColorId??''),interiorColor:String(current.saloonColorId??''),interiorMaterial:String(current.saloonMaterialId??''),vin:String(current.vinCode??''),trim:String(current.customModel??''),mileage:String(current.mileage??''),description:(current.description as Record<string,string>).ka},selected:Object.fromEntries(Object.keys(ids).filter(key=>key!=='listingLocation').map(key=>[key,current[key]?{id:(current[key] as {id:string}).id,label:(current[key] as {title:string}).title}:undefined])),photos:photos.length,uploads,published,renders}
     window.fixtureForceRender=()=>setRenders(value=>value+1)
   })
   return h(FormProvider,{...methods},h('form',{onSubmit:(event:{preventDefault:()=>void})=>{event.preventDefault();setPublished(value=>value+1)},style:ready?{}:{visibility:'hidden',pointerEvents:'none'}},

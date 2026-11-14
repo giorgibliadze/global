@@ -1,3 +1,4 @@
+export interface StorageArea {get(key:string|null):Promise<Record<string,unknown>>;set(value:Record<string,unknown>):Promise<void>;remove(key:string):Promise<void>}
 export interface Tab { id?: number; url?: string }
 export interface Sender { id?: string; tab?: Tab; documentId?: string }
 type Listener = (message: unknown, sender: Sender, reply: (response: unknown) => void) => boolean | void
@@ -17,7 +18,7 @@ export interface ExtensionApi {
     create(name: string, info: { delayInMinutes: number }): Promise<void> | void
     onAlarm: { addListener(listener: (alarm: { name: string }) => void): void }
   }
-  storage: { session: {
+  storage: { local?:StorageArea;session: {
     get(key: string | null): Promise<Record<string, unknown>>
     set(value: Record<string, unknown>): Promise<void>
     remove(key: string): Promise<void>

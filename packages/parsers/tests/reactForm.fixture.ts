@@ -2,7 +2,7 @@
 import { createElement, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createRoot } from 'react-dom/client'
-interface Configuration {batchedValidation?:boolean;model:string;make?:string;year?:string;resetAfterUpload?:boolean;rejectField?:string;pointerOnly?:boolean;failFuel?:boolean}
+interface Configuration {locationLabel?:string;batchedValidation?:boolean;model:string;make?:string;year?:string;resetAfterUpload?:boolean;rejectField?:string;pointerOnly?:boolean;failFuel?:boolean}
 interface Selection {label:string;id:string}
 declare global {
   interface Window {

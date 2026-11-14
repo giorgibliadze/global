@@ -1,9 +1,12 @@
+import {LocationPreferences} from './LocationPreferences'
 import { useEffect, useRef, useState } from 'react'
 import type { TransferRecord } from '@auto-importer/shared'
 import { request } from '../services/extensionApi'
 import { TransferProgress } from './TransferProgress'
 
 export function ImportAction({ enabled, guidance, manheim24 = false }: { enabled: boolean; guidance?: string; manheim24?: boolean }) {
+  const [locationSaving,setLocationSaving]=useState(false)
+  const [listingLocation,setListingLocation]=useState('')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const starting=useRef(false)
@@ -26,16 +29,18 @@ export function ImportAction({ enabled, guidance, manheim24 = false }: { enabled
   }, [record?.id, record?.status])
   async function start() {
     if (!manheim24) { setMessage('ავტომობილის მონაცემების გადატანის ფუნქცია ამ პლატფორმისთვის მალე დაემატება.'); return }
-    if(starting.current || record?.status==='running')return
+    if(starting.current || locationSaving || record?.status==='running')return
     starting.current=true;setBusy(true);setMessage('მონაცემების გადატანა დაიწყო');setRecord(null)
-    try {setRecord(await request<TransferRecord>({type:'TRANSFER_BEGIN'}))}
+    const override=listingLocation;setListingLocation('')
+    try {setRecord(await request<TransferRecord>({type:'TRANSFER_BEGIN',...(override?{listingLocation:override}:{})}))}
     catch(error){setMessage(error instanceof Error?error.message:'გადატანა ვერ დაიწყო.')}
     finally{starting.current=false;setBusy(false)}
   }
   return <div className="import-action">
-    <button className="import-button" type="button" disabled={!enabled || busy || record?.status==='running'} onClick={() => void start()}>
+    <button className="import-button" type="button" disabled={!enabled || busy || locationSaving || record?.status==='running'} onClick={() => void start()}>
       {busy ? 'შევსება მიმდინარეობს' : 'MyAuto-ზე გადატანა'} <span aria-hidden="true">↗</span>
     </button>
+    {manheim24 && <LocationPreferences override={listingLocation} onOverride={setListingLocation} onSaving={setLocationSaving} disabled={busy||record?.status==='running'} />}
     {guidance && <p className="guidance">{guidance}</p>}
     {record && <TransferProgress record={record} />}
     {message && <p className="notice" role="status">{message}</p>}

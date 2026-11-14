@@ -1,3 +1,5 @@
+import {locationField,fillLocation} from '@auto-importer/parsers/myauto'
+import {resolveListingLocation} from '@auto-importer/parsers/location'
 import { waitForDomReady } from '../services/domReady'
 import { pipelineLog, timingLog } from '../services/diagnostics'
 import { isMyautoControllerForm,textInteractive,fillMyautoForm, verifyMyautoFields, verifyMyautoPersistence, applyAutofillPolicy, myautoFields } from '@auto-importer/parsers/myauto'
@@ -57,7 +59,7 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
   const noteUser=(event:Event)=>{
     if(!event.isTrusted || !(event.target instanceof doc.defaultView!.Element))return
     for(const field of planned){
-      const owner=field.dropdownKey?doc.querySelector(`[data-testid="single-select-primaryFeatures.${field.dropdownKey}"]`) ?? doc.querySelector(`select[name="primaryFeatures.${field.dropdownKey}"]`) ?? doc.querySelector(`input[name="primaryFeatures.${field.dropdownKey}"]`):field.selector?doc.querySelector(field.selector):null
+      const owner=field.dropdownKey==='location.location'?doc.querySelector('[data-testid="single-select-location.location"]'):field.dropdownKey?doc.querySelector(`[data-testid="single-select-primaryFeatures.${field.dropdownKey}"]`) ?? doc.querySelector(`select[name="primaryFeatures.${field.dropdownKey}"]`) ?? doc.querySelector(`input[name="primaryFeatures.${field.dropdownKey}"]`):field.selector?doc.querySelector(field.selector):null
       if(owner?.contains(event.target) && (event.type!=='pointerdown' || field.mode!=='text'))userEdited.add(field.field)
     }
   }
@@ -116,6 +118,10 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
       errors.push('ფორმის შევსება ვერ შესრულდა.')
       if(error instanceof Error && /[\u10A0-\u10FF]/.test(error.message))errors.push(error.message)
     }
+    const locationPlan=locationField(transfer.listingLocation??resolveListingLocation(transfer.vehicle))
+    planned.push(locationPlan);current.formTotal=planned.length
+    guard();current.currentField='მდებარეობა';update()
+    results.push(await fillLocation(doc,locationPlan,controller.signal));current.fields=results
     current.textComplete=true;await phase('uploading')
     try{await photoPipeline()}catch(error){
       guard();errors.push(error instanceof Error && /[\u10A0-\u10FF]/.test(error.message)?error.message:'ფოტოების ატვირთვა ვერ შესრულდა.')
@@ -127,7 +133,7 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
     results = await measure('finalValidation',()=>verifyMyautoPersistence(doc, transfer.vehicle, results,planned,controller.signal))
     const lost=results.filter(field=>field.status==='unfilled' && field.code==='verification' && (field.resetAfter || beforeFinal.some(previous=>previous.field===field.field && previous.status==='filled'))).map(field=>field.key!).filter(Boolean)
     if(lost.includes('make') && beforeFinal.some(field=>field.key==='model' && field.status==='filled') && !lost.includes('model'))lost.push('model')
-    const recoverable=lost.filter(key=>!userEdited.has(key) && !(key==='model' && userEdited.has('make')))
+    const recoverable=lost.filter(key=>key!=='location' && !userEdited.has(key) && !(key==='model' && userEdited.has('make')))
     if(recoverable.length){guard();results=await fillMyautoForm(doc,transfer.vehicle,{planned,onlyFields:recoverable,recoveringFields:recoverable,previousResults:results,signal:controller.signal,beforeField:guard,dropdownTimeoutMs:options.dropdownTimeoutMs,onField:label=>{current.currentField=label;update()},onResult:fields=>{current.fields=fields;update()}});results=await verifyMyautoPersistence(doc,transfer.vehicle,results,planned,controller.signal,recoverable)}
   } catch (error) {
     if(current.fields.length)results=verifyMyautoFields(doc,transfer.vehicle,current.fields)

@@ -1,3 +1,5 @@
+import {resolveListingLocation,exactLocation} from '@auto-importer/parsers/location'
+import {getLocationPreference,setLocationPreference} from '../services/locationPreferences'
 import {deduplicatePhotos} from '@auto-importer/parsers'
 import {applyAutofillPolicy} from '@auto-importer/parsers/myauto'
 import { PreparedVehicles } from './preparation'
@@ -130,9 +132,10 @@ export class TransferManager {
     await this.api.storage.session.set({[`review:${review.reviewId}`]:review})
     return review
   }
-  async begin(sender:Sender):Promise<TransferRecord> {
+  async begin(sender:Sender,override?:unknown):Promise<TransferRecord> {
     const tab=sender.tab ?? (await this.api.tabs.query({active:true,currentWindow:true}))[0]
     if(tab?.id===undefined || !isManheimSource(tab.url))throw new Error('გახსენით ავტომობილის დეტალები Manheim24-ზე.')
+    if(override!==undefined && !exactLocation(override))throw new Error('მდებარეობის ვარიანტი არასწორია.')
     const bound={...sender,tab}
     for(let attempt=0;attempt<3;attempt++) {
       const resolved=await this.api.tabs.sendMessage(tab.id,{type:'MANHEIM_RESOLVE'}) as {ok?:boolean;vehicle?:NormalizedVehicle;preparationId?:string}
@@ -149,14 +152,14 @@ export class TransferManager {
       const key=`${tab.id}:${selectedIdentity(review.vehicle)}`
       const pending=this.beginnings.get(key)
       if(pending){await this.api.storage.session.remove(`review:${review.reviewId}`);return pending}
-      const operation=this.start(bound,review.reviewId,prepared)
+      const operation=this.start(bound,review.reviewId,prepared,override as string|undefined)
       this.beginnings.set(key,operation)
       try{return await operation}catch(error){if(!(error instanceof Error) || error.message!=='PREPARATION_SUPERSEDED')throw error}
       finally{if(this.beginnings.get(key)===operation)this.beginnings.delete(key)}
     }
     throw new Error('ავტომობილის მონაცემები ჯერ ახლდება. დაელოდეთ დეტალების ჩატვირთვას და ხელახლა სცადეთ.')
   }
-  async start(sender: Sender, reviewId?: unknown, prepared?:PreparedVehicle): Promise<TransferRecord> {
+  async start(sender: Sender, reviewId?: unknown, prepared?:PreparedVehicle,override?:string): Promise<TransferRecord> {
     const tab = sender.tab ?? (await this.api.tabs.query({ active: true, currentWindow: true }))[0]
     if (tab?.id === undefined || !isManheimSource(tab.url)) throw new Error('გახსენით ავტომობილის დეტალები Manheim24-ზე.')
     return this.lock(`source:${tab.id}`, async () => {
@@ -190,7 +193,11 @@ export class TransferManager {
       }
       const entries = await this.api.storage.session.get(null)
       if (Object.entries(entries).filter(([k,v]) => k.startsWith('job:') && (v as TransferRecord).status === 'running').length >= 4) throw new Error('ერთდროულად მაქსიმუმ ოთხი გადატანაა შესაძლებელი. დაელოდეთ მიმდინარე ოპერაციებს.')
+      let listingLocation
+      try{listingLocation=resolveListingLocation(vehicle,override,override?undefined:await getLocationPreference(this.api))}
+      catch{listingLocation={source:'unresolved' as const,original:'შენახული მდებარეობა ვერ წაიკითხა'}}
       const record: TransferRecord = {
+        listingLocation,
         preparedFields:prepared?applyAutofillPolicy(prepared.fields):undefined,preparation:prepared?.summary,
         timings:{sourceExtraction,...(prepared?{prefetch:prepared.summary.durationMs,prefetchNormalization:prepared.summary.normalizationMs}:{})}, id: reviewed.reviewId, sourceTabId: tab.id!, vehicle,
         createdAt: Date.now(), updatedAt: Date.now(), stage: 'preparing', status: 'running', claimed: false,
@@ -221,6 +228,8 @@ export class TransferManager {
     })
   }
   async handle(message: Record<string, unknown>, sender: Sender): Promise<unknown> {
+    if(message.type==='LOCATION_PREFERENCE_GET')return getLocationPreference(this.api)
+    if(message.type==='LOCATION_PREFERENCE_SET')return setLocationPreference(this.api,message.label)
     if(message.type==='PREFETCH_INVALIDATE' || message.type==='PREFETCH_PREPARE'){
       const tab=sender.tab?.id
       if(tab===undefined || !isManheimSource(sender.tab?.url) || !uuid(message.preparationId))throw new Error('მომზადების წყარო არასწორია.')
@@ -229,7 +238,7 @@ export class TransferManager {
       assertNormalizedVehicle(message.vehicle)
       return !!this.preparations.prepare(tab,message.preparationId,message.vehicle,message.observedAt)
     }
-    if(message.type==='TRANSFER_BEGIN')return this.begin(sender)
+    if(message.type==='TRANSFER_BEGIN')return this.begin(sender,message.listingLocation)
     if (message.type === 'TRANSFER_REVIEW') return this.review(sender)
     if (message.type === 'TRANSFER_START') return this.start(sender,message.reviewId)
     if (message.type === 'TRANSFER_CLAIM') {

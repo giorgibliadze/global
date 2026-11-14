@@ -7,7 +7,8 @@
     ".": "./src/manheim24.ts",
     "./myauto": "./src/myauto.ts",
     "./validation": "./src/validation.ts",
-    "./normalization": "./src/normalization.ts"
+    "./normalization": "./src/normalization.ts",
+    "./location": "./src/listingLocation.ts"
   },
   "dependencies": {
     "@auto-importer/shared": "*"

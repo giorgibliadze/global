@@ -1,3 +1,4 @@
+import {runLocationTests} from './location.browser'
 import {runMandatoryTests} from './mandatorySpecifications.browser'
 import {runPhotoRegressionTests} from './photoRegression.browser'
 import {runStagedTests} from './stagedMyauto.browser'
@@ -91,6 +92,7 @@ try {
   check(unverifiedResults.filter(r => r.status === 'filled').length === 4, 'unverified custom choices are not reported as filled')
   unverifiedFrame.remove()
 
+  await runLocationTests(manheim,check)
   await runMandatoryTests(manheim,myauto,check)
   await runPhotoRegressionTests(manheim,check)
   await runStagedTests(manheim,myauto,check)

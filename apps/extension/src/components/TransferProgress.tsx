@@ -5,6 +5,7 @@ export function TransferProgress({ record }: { record: TransferRecord }) {
   const [now,setNow]=useState(Date.now)
   useEffect(()=>{if(record.status!=='running')return;const timer=setInterval(()=>setNow(Date.now()),250);return()=>clearInterval(timer)},[record.id,record.status])
   const fields=record.fields.filter(field=>field.key!=='description' && field.field!=='აღწერა')
+  const locationResult=fields.find(field=>field.key==='location')
   const completed=fields.filter(field=>field.status==='filled' && field.persisted).length
   const failed=fields.filter(field=>field.status==='unfilled').length
   const unverified=fields.filter(field=>field.status==='unverified').length
@@ -17,6 +18,7 @@ export function TransferProgress({ record }: { record: TransferRecord }) {
     {record.currentField && record.status==='running' && <p>შევსება მიმდინარეობს: {record.currentField}</p>}
     <p>ავტომატურად შევსებულია: {completed}/{fields.length || Math.max(0,(record.formTotal ?? 0))} · ხელით შესავსები: {failed}</p>
     {fields.some(field=>field.key==='price' && field.status==='filled' && field.persisted) && <p>ფასი — შეთანხმებით</p>}
+    {locationResult && <p>{locationResult.persisted?`მდებარეობა: ${locationResult.optionLabel} — შევსებულია`:'მდებარეობა — ხელით შესავსები'}</p>}
     <p>აღწერა — გამოტოვებულია მოთხოვნის შესაბამისად</p>
     <p>შევსება ვერ გადამოწმდა: {unverified}</p>
     <p>ხელით გადასამოწმებელი შესაბამისობები: {unresolved}</p>

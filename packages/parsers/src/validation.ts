@@ -18,6 +18,13 @@ export function assertNormalizedVehicle(value: unknown): asserts value is Normal
     const n = value[key]
     if (n !== undefined && (typeof n !== 'number' || !Number.isFinite(n) || n < 0)) return fail()
   }
+  if(value.location!==undefined){
+    const location=value.location
+    if(!plain(location) || Object.keys(location).some(key=>!['physicalCountry','physicalCity','physicalVerified','auctionCountry','atAuction','shipping'].includes(key)))return fail()
+    for(const key of ['physicalCountry','physicalCity','auctionCountry'])if(location[key]!==undefined&&!text(location[key]))return fail()
+    for(const key of ['physicalVerified','atAuction'])if(location[key]!==undefined&&typeof location[key]!=='boolean')return fail()
+    if(location.shipping!==undefined && (!plain(location.shipping)||Object.keys(location.shipping).some(key=>!['status','destination','verified'].includes(key))||location.shipping.status!=='in-transit'||!text(location.shipping.destination)||typeof location.shipping.verified!=='boolean'))return fail()
+  }
   if (value.description !== undefined && !text(value.description,12000)) return fail()
   for (const key of ['equipment','announcements','warnings']) if (value[key] !== undefined && (!Array.isArray(value[key]) || value[key].length > 500 || !value[key].every(v => text(v)))) return fail()
   if (!plain(value.raw) || Object.keys(value.raw).length > 80) return fail()

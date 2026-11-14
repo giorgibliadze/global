@@ -146,6 +146,7 @@ export function parseManheim24(doc: Document): NormalizedVehicle {
   for (const [key, value] of Object.entries({ ...damage, ...auction })) if (value !== undefined) raw[key] = value
   const allImages = selectedPhotos(root,data)
   const vehicle: NormalizedVehicle = {
+    location:{physicalCountry:string(data.pickupLocationCountry),physicalCity:string(data.pickupLocationCity),physicalVerified:!!string(data.pickupLocationCountry),auctionCountry:string(data.auctionCountry),atAuction:typeof data.atAuction==='boolean'?data.atAuction:undefined},
     source: 'Manheim24', original: identity.original, listingId: string(data.id), title, vin,
     make: identity.original.manufacturer, model: identity.original.model, fullModelName:identity.original.fullModelName,baseModel:identity.original.baseModel,bodyStyle:string(data.bodyStyle),year,
     trim: identity.original.trim, mileageKm,

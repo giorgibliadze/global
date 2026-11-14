@@ -11,9 +11,10 @@ export function textInteractive(doc:Document):boolean {
   return controls.length>0 && controls.every(shown)
 }
 export function selectedOption(doc:Document,key:string,result:FieldResult):boolean {
-  const label=doc.querySelector<HTMLElement>(`[data-testid="single-select-value-primaryFeatures.${key}"]`)
-  const closed=!doc.querySelector(`[data-testid="single-select-dropdown-primaryFeatures.${key}"]`)
-  return !!label && !!result.optionId && label.textContent?.trim()===result.optionLabel && closed && (!!doc.querySelector(`[data-testid="single-select-clear-primaryFeatures.${key}"]`) || result.optionId==='0' && label.classList.contains('pt-[6px]'))
+  const name=key.includes('.')?key:`primaryFeatures.${key}`
+  const label=doc.querySelector<HTMLElement>(`[data-testid="single-select-value-${name}"]`)
+  const closed=!doc.querySelector(`[data-testid="single-select-dropdown-${name}"]`)
+  return !!label && !!result.optionId && label.textContent?.trim()===result.optionLabel && closed && (!!doc.querySelector(`[data-testid="single-select-clear-${name}"]`) || result.optionId==='0' && label.classList.contains('pt-[6px]'))
 }
 export function selectedChoice(element:Element|null):boolean {
   // Exact state classes from the public SingleCheckbox component's value comparison.

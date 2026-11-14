@@ -23,3 +23,10 @@
 
 .vehicle-review .review-actions { position: sticky; top: 0; z-index: 2; background: #FFFFFF; padding: 10px 0; border-bottom: 1px solid #E2E8F0; }
 .vehicle-review .review-actions p { margin: 0; }
+
+.location-preferences { margin-top:12px; padding:10px 12px; border:1px solid #E2E8F0; border-radius:10px; background:#F8FAFC; font-size:12px; color:#0F172A; }
+.location-preferences summary { cursor:pointer; font-weight:600; }
+.location-preferences label { display:block; margin:12px 0 6px; }
+.location-preferences select { width:100%; min-height:38px; padding:6px; border:1px solid #E2E8F0; border-radius:7px; background:#FFF; color:#0F172A; font:inherit; }
+.location-preferences select:focus-visible { outline:2px solid #2563EB; outline-offset:2px; }
+.location-preferences p { font-size:11px; line-height:1.6; overflow-wrap:anywhere; color:#64748B; }

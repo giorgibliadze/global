@@ -1,3 +1,4 @@
+import {readLocation} from './locationField'
 import {enableNegotiablePrice,negotiableSelected} from './negotiablePrice'
 import {TextInputAdapter} from './TextInputAdapter'
 import {DropdownAdapter} from './DropdownAdapter'
@@ -10,6 +11,7 @@ import type {FieldResult,NormalizedVehicle} from '@auto-importer/shared'
 export function readStagedFields(doc:Document,vehicle:NormalizedVehicle,results:FieldResult[],plan:FormField[],only?:string[]):FieldResult[]{
   const fields=new Map(plan.map(field=>[field.field,field]))
   return results.map(result=>{
+    if(result.key==='location')return readLocation(doc,result)
     const field=fields.get(result.key??'')
     if(!field || !result.evidence || only && !only.includes(field.field))return result
     let valid=false

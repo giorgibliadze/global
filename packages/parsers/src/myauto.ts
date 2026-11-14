@@ -1,3 +1,4 @@
+import {readLocation} from './locationField'
 import {mandatorySpecifications} from './mandatorySpecifications'
 import {enableNegotiablePrice,negotiableSelected,negotiableSelector} from './negotiablePrice'
 import {isMyautoControllerForm} from './myautoContract'
@@ -233,6 +234,7 @@ export function verifyMyautoFields(doc: Document, vehicle: NormalizedVehicle, re
   results=results.filter(result=>result.key!=='description' && result.field!=='აღწერა')
   if(isMyautoControllerForm(doc))return readStagedFields(doc,vehicle,results,planned)
   return results.map(result => {
+    if(result.key==='location')return readLocation(doc,result)
     if (result.status !== 'filled') return result
     const field = planned.find(f => f.label === result.field)
     if (!field) return result
@@ -274,3 +276,5 @@ export async function verifyMyautoPersistence(doc:Document,vehicle:NormalizedVeh
 }
 
 export {isMyautoControllerForm,textInteractive} from './myautoContract'
+
+export {locationField,fillLocation} from './locationField'

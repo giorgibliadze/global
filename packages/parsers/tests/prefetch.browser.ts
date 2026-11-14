@@ -12,6 +12,8 @@ export async function runPrefetchTests(html:string,check:(value:unknown,label:st
   let url='https://home.manheim24.com/landingPage#/results/a',tabs=0,downloads=0,preparations=0
   let hold=false,release:()=>void=()=>{},started:()=>void=()=>{}
   let gate=Promise.resolve()
+  const localMemory:Record<string,unknown>={}
+  const local={get:async(key:string|null)=>structuredClone(key===null?localMemory:{[key]:localMemory[key]}),set:async(value:Record<string,unknown>)=>{Object.assign(localMemory,structuredClone(value))},remove:async(key:string)=>{delete localMemory[key]}}
   const memory:Record<string,unknown>={},store=new IndexedPhotoStore()
   const sender:Sender={id:'fixture',tab:{id:51,url},documentId:'prefetch-document'}
   let source:VehiclePreparation
@@ -30,7 +32,7 @@ export async function runPrefetchTests(html:string,check:(value:unknown,label:st
       if(input.type==='MANHEIM_RESOLVE'){try{return{ok:true,...await source.resolve()}}catch{return{ok:false}}}
       throw new Error('Fresh full parsing must not run on a verified prepared hit')
     },create:async()=>({id:++tabs+500})},
-    storage:{session:{get:async key=>structuredClone(key===null?memory:{[key]:memory[key]}),set:async entries=>{Object.assign(memory,structuredClone(entries))},remove:async key=>{delete memory[key]}}},
+    storage:{local,session:{get:async key=>structuredClone(key===null?memory:{[key]:memory[key]}),set:async entries=>{Object.assign(memory,structuredClone(entries))},remove:async key=>{delete memory[key]}}},
   }
   const manager=new TransferManager(api,store,async()=>{downloads++;throw new Error('Prefetch must not download photos')})
   const states:PreparationStatus[]=[]
@@ -45,14 +47,17 @@ export async function runPrefetchTests(html:string,check:(value:unknown,label:st
     check(tabs===0 && downloads===0,'prefetch: initial detail preparation opens no tab and downloads no photos')
     const a=await source.resolve(),count=preparations
     check((await source.resolve()).preparationId===a.preparationId && preparations===count,'prefetch: warm source cache reuses unique preparation without normalization')
-    const transfer=await manager.begin(sender)
+    await manager.handle({type:'LOCATION_PREFERENCE_SET',label:'თბილისი'},sender)
+    const transfer=await manager.begin(sender,'ბათუმი')
+    check(transfer.listingLocation?.label==='ბათუმი' && transfer.listingLocation.source==='override','location: background binds explicit override to this vehicle above saved default')
     check(transfer.preparation?.cacheHit && !!transfer.preparedFields?.length && tabs===1,'prefetch: click reuses background prepared fields and opens one destination')
     check(!transfer.preparedFields!.some(field=>field.field==='description') && !transfer.vehicle.description && !transfer.vehicle.raw.description,'prefetch: no generated or source auction description is transferred')
     check((await manager.begin(sender)).id===transfer.id && tabs===1,'prefetch: repeated prepared clicks still deduplicate transfers')
     const recoveredMemory:Record<string,unknown>={}
-    const restartedApi:ExtensionApi={...api,tabs:{...api.tabs,create:async()=>({id:999})},storage:{session:{get:async key=>structuredClone(key===null?recoveredMemory:{[key]:recoveredMemory[key]}),set:async entries=>{Object.assign(recoveredMemory,structuredClone(entries))},remove:async key=>{delete recoveredMemory[key]}}}}
+    const restartedApi:ExtensionApi={...api,tabs:{...api.tabs,create:async()=>({id:999})},storage:{local,session:{get:async key=>structuredClone(key===null?recoveredMemory:{[key]:recoveredMemory[key]}),set:async entries=>{Object.assign(recoveredMemory,structuredClone(entries))},remove:async key=>{delete recoveredMemory[key]}}}}
     const restarted=new TransferManager(restartedApi,new IndexedPhotoStore())
     const recovered=await restarted.begin(sender)
+    check(recovered.listingLocation?.label==='თბილისი' && recovered.listingLocation.source==='default','location: a restarted manager uses the durable default')
     check(recovered.preparation?.cacheHit===false && !!recovered.preparedFields?.length && recovered.vehicle.fullModelName==='M5 Touring Wagon','prefetch: worker restart cache miss rebuilds verified source payload automatically')
 
     hold=true;gate=new Promise(resolve=>{release=resolve})
@@ -74,6 +79,7 @@ export async function runPrefetchTests(html:string,check:(value:unknown,label:st
     check(current.vehicle.make==='Ford' && current.vehicle.fullModelName==='Super Duty F-350' && current.preparationId!==a.preparationId,'prefetch: stale asynchronous B result discarded; compound model C remains exact')
     check(states.filter(status=>status==='ready').length===2,'prefetch: superseded preparation never publishes a ready state')
     const second=await manager.begin(sender)
+    check(second.listingLocation?.label==='თბილისი' && second.listingLocation.source==='default','location: next vehicle uses default without inheriting the previous vehicle override')
     check(second.id!==transfer.id && second.vehicle.vin!==transfer.vehicle.vin && second.preparation?.cacheHit,'prefetch: SPA switching produces isolated current-vehicle transfer')
 
     // A hash can change before the old panel is replaced. Never accept that panel.

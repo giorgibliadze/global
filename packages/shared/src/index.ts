@@ -1,3 +1,9 @@
+export interface VehicleLocationEvidence {
+  physicalCountry?:string;physicalCity?:string;physicalVerified?:boolean
+  auctionCountry?:string;atAuction?:boolean
+  shipping?:{status:'in-transit';destination:string;verified:boolean}
+}
+export interface ListingLocation {label?:string;source:'override'|'default'|'physical'|'shipping'|'auction'|'unresolved';original?:string}
 export interface OriginalVehicleIdentity {
   manufacturer: string
   model: string
@@ -9,6 +15,7 @@ export interface OriginalVehicleIdentity {
 }
 export interface NormalizedVehicle {
   source: 'Manheim24'
+  location?:VehicleLocationEvidence
   original: OriginalVehicleIdentity
   listingId?: string
   title: string
@@ -75,6 +82,7 @@ export interface TransferRecord {
   createdAt: number
   updatedAt: number
   vehicle: NormalizedVehicle
+  listingLocation?:ListingLocation
   stage: TransferStage
   status: 'running' | 'review' | 'error'
   claimed: boolean
