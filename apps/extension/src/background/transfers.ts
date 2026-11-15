@@ -1,3 +1,4 @@
+import {photoTrace} from '../photos/checkpoints'
 import {transferLifecycle} from '../services/transferLifecycle'
 import {resolveListingLocation,exactLocation} from '@auto-importer/parsers/location'
 import {getLocationPreference,setLocationPreference} from '../services/locationPreferences'
@@ -205,6 +206,9 @@ export class TransferManager {
         createdAt: Date.now(), updatedAt: Date.now(), stage: 'preparing', status: 'running', claimed: false,
         photos: { total: vehicle.images.length, prepared: 0, uploaded: 0, failed: 0 }, fields: [], errors: [],
       }
+      const sourceTrace=await photoTrace(record.id,record.vehicle.vin)
+      sourceTrace.mark('PHOTO_SOURCE_READY',record.photos.total)
+      sourceTrace.mark('PHOTO_URLS_EXTRACTED',record.photos.total,record.photos.total?{}:{errorCode:'NO_URLS'})
       pipelineLog(record.id,'storing','started')
       await this.save(record)
       pipelineLog(record.id,'storing','completed')
@@ -280,14 +284,14 @@ export class TransferManager {
       if(latest.status!=='running')throw new Error('ეს გადატანა აღარ მუშავდება.')
       if(latest.photos.total || latest.photos.prepared || latest.photos.uploaded)return latest.photos
       let response:{ok?:boolean;error?:string;value?:{vin:string;listingId?:string;images:string[];availableImageCount:number}}
-      try{response=await this.api.tabs.sendMessage(latest.sourceTabId,{type:'MANHEIM_PHOTOS',expected:{vin:latest.vehicle.vin,listingId:latest.vehicle.listingId}}) as typeof response}
+      try{response=await this.api.tabs.sendMessage(latest.sourceTabId,{type:'MANHEIM_PHOTOS',transferId:latest.id,expected:{vin:latest.vehicle.vin,listingId:latest.vehicle.listingId}}) as typeof response}
       catch{throw new Error('ფოტოების წყაროსთან დაკავშირება ვერ მოხერხდა. Manheim24-ის დეტალური გვერდი გახსნილი დატოვეთ.')}
       if(!response?.ok || !response.value)throw new Error(response?.error ?? 'წყაროს ფოტოგალერეა ვერ წაიკითხა.')
       const value=response.value
       if(value.vin!==latest.vehicle.vin || latest.vehicle.listingId && value.listingId!==latest.vehicle.listingId)throw new Error('ფოტოების ავტომობილი არ ემთხვევა გადატანის ავტომობილს.')
       const images=deduplicatePhotos(Array.isArray(value.images)?value.images:[])
       if(!images.length)throw new Error('არჩეული ავტომობილის გალერეაში ფოტოები ვერ მოიძებნა.')
-      latest.vehicle.images=images;latest.vehicle.availableImageCount=images.length;latest.photos.total=images.length
+      latest.vehicle.images=images;latest.vehicle.availableImageCount=Number.isSafeInteger(value.availableImageCount)&&value.availableImageCount>=images.length&&value.availableImageCount<=10000?value.availableImageCount:images.length;latest.photos.total=images.length
       await this.save(latest);return latest.photos
     })
     if (message.type === 'PHOTO_PREPARE') {
@@ -296,9 +300,11 @@ export class TransferManager {
         if (fresh.status !== 'running') throw new Error('ეს გადატანა აღარ მუშავდება.')
         const index = message.index
         if (!Number.isInteger(index) || (index as number) < 0 || (index as number) >= record.photos.total) throw new Error('ფოტოს ნომერი არასწორია.')
+        const trace=await photoTrace(record.id,record.vehicle.vin)
+        trace.mark('PHOTO_URLS_EXTRACTED',record.photos.total)
         const cached = await this.photos.get(record.id, index as number)
-        if (cached) return cached.metadata
-        const prepared = await this.limitedDownload(async()=>{const current=await this.read(record.id);if(current.status!=='running')throw new Error('ეს გადატანა აღარ მუშავდება.');return this.download(current.vehicle.images[index as number], index as number)})
+        if (cached) {trace.mark('PHOTO_DOWNLOAD_COMPLETED',1,{index:index as number});return cached.metadata}
+        const prepared = await this.limitedDownload(async()=>{const current=await this.read(record.id);if(current.status!=='running')throw new Error('ეს გადატანა აღარ მუშავდება.');return this.download(current.vehicle.images[index as number], index as number,undefined,trace)})
         return this.lock(`job:${record.id}`,async()=>{
         const writable=await this.read(record.id)
         if(writable.status!=='running')throw new Error('ეს გადატანა აღარ მუშავდება.')
@@ -306,7 +312,7 @@ export class TransferManager {
         // Recheck after network/IDB work; an expired or closed destination cannot leave an orphan cache.
         await this.read(record.id)
         prepared.metadata.name = `vehicle-${record.id.slice(0, 8)}-${index as number + 1}.${prepared.metadata.mime === 'image/jpeg' ? 'jpg' : prepared.metadata.mime === 'image/png' ? 'png' : 'webp'}`
-        await this.photos.put(record.id, prepared.blob, prepared.metadata)
+        try{await this.photos.put(record.id, prepared.blob, prepared.metadata)}catch(error){trace.mark('PHOTO_DOWNLOAD_COMPLETED',0,{index:index as number,errorCode:'STORAGE_FAILED'});throw error}
         let latest: TransferRecord
         try { latest = await this.read(record.id) }
         catch (error) { await this.photos.remove(record.id); throw error }

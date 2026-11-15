@@ -1,3 +1,4 @@
+import {isPhotoErrorCode} from '../photos/checkpoints'
 import { pipelineLog } from '../services/diagnostics'
 import { extensionApi, operation } from '../services/extensionApi'
 import { IndexedPhotoStore } from '../photos/store'
@@ -13,7 +14,8 @@ api.runtime.onMessage.addListener((message, sender, reply) => {
     value => reply({ ok: true, value }),
     error => {
       pipelineLog((message as {id?:unknown;reviewId?:unknown}).id ?? (message as {reviewId?:unknown}).reviewId,'messaging','failed')
-      reply({ ok: false, error: error instanceof Error && /[\u10A0-\u10FF]/.test(error.message) ? error.message : 'გადატანა ვერ შესრულდა. გადატვირთეთ გვერდი და ხელახლა სცადეთ.' })
+      const code=error && typeof error==='object' && 'photoErrorCode' in error?error.photoErrorCode:undefined
+      reply({ ok: false, ...(isPhotoErrorCode(code)?{photoErrorCode:code}:{}), error: error instanceof Error && /[\u10A0-\u10FF]/.test(error.message) ? error.message : 'გადატანა ვერ შესრულდა. გადატვირთეთ გვერდი და ხელახლა სცადეთ.' })
     },
   )
   return true

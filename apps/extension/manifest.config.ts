@@ -17,7 +17,8 @@ export default defineManifest({
     "https://*.adesa.com/*",
     "https://*.myauto.ge/*",
     "https://i.fyuse.com/*",
-    "https://images.cdn.manheim.com/*"
+    "https://images.cdn.manheim.com/*",
+    "https://images--cdn.manheim24.com/*"
   ],
 
   background: { service_worker: "src/background/index.ts", type: "module" },

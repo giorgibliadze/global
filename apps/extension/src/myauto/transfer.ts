@@ -1,3 +1,5 @@
+import {photoTrace,photoReport,preparationFailureStage} from '../photos/checkpoints'
+import type {PhotoCheckpoint,PhotoErrorCode} from '../photos/checkpoints'
 import {locationField,fillLocation} from '@auto-importer/parsers/myauto'
 import {resolveListingLocation} from '@auto-importer/parsers/location'
 import { waitForDomReady } from '../services/domReady'
@@ -29,6 +31,9 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
   if(activeForms.has(doc))throw new Error('ამ ფორმაში გადატანა უკვე მიმდინარეობს.')
   const controller = new AbortController()
   const owner={id:transfer.id,controller};activeForms.set(doc,owner)
+  const trace=await photoTrace(transfer.id,transfer.vehicle.vin)
+  const photoCounts={source:transfer.photos.total,downloaded:0,received:0,attempts:0,verified:0}
+  let photoStage:PhotoCheckpoint='PHOTO_PAYLOAD_RECEIVED',photoCode:PhotoErrorCode|undefined
   const transferStarted=performance.now()
   const pageUrl = options.pageUrl ?? (() => doc.location.href)
   let current = structuredClone(transfer)
@@ -97,16 +102,31 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
     }
     const photoPipeline=async()=>{
       pipelineLog(transfer.id,'uploading','started')
+      photoStage='PHOTO_URLS_EXTRACTED';photoCode='MESSAGE_FAILED'
       if(!current.photos.total){current.photos=await request<TransferRecord['photos']>({type:'PHOTO_REFRESH',id:transfer.id});update()}
+      photoCounts.source=current.photos.total
+      trace.mark('PHOTO_URLS_EXTRACTED',current.photos.total,current.photos.total?{}:{errorCode:'NO_URLS'})
+      photoStage='PHOTO_PAYLOAD_RECEIVED'
       const prepared=await measure('photoDownload',()=>prepareFiles(transfer.id,current.photos.total,(ready,failed)=>{
         guard();current.photos.prepared=ready;current.photos.failed=failed;update()
-      },controller.signal))
+      },controller.signal,undefined,trace))
+      photoCounts.received=prepared.files.length
+      // Files are reconstructed only after metadata, complete chunks and SHA verification.
+      photoCounts.downloaded=prepared.downloaded
+      if(prepared.errors.length)photoCode=prepared.failureCode
       errors.push(...prepared.errors)
       // The adapter owns one upload operation. Only source-confirmed failed
       // gallery IDs may be resubmitted; successful photos are never cleared.
+      if(!prepared.files.length){photoStage=preparationFailureStage(prepared.failureCode);photoCode=prepared.failureCode??(current.photos.total?'FILE_CONVERSION_FAILED':'NO_URLS');throw new Error('ფოტოების გადატანა ვერ დასრულდა')}
+      photoStage='MYAUTO_UPLOADER_READY';photoCode='UPLOADER_TIMEOUT'
       await waitForDomReady(doc,()=>{guard();return !!doc.querySelector('[data-testid="photo-video-dropzone"] input[type="file"]:not(:disabled)')},controller.signal,options.uploadTimeoutMs ?? 25000)
-      const upload=await measure('photoUpload',()=>uploadPhotos(doc,prepared.files,count=>{guard();current.photos.uploaded=count;update()},{timeoutMs:options.uploadTimeoutMs,signal:controller.signal,guard,onSubmitted:count=>{current.photos.submitted=count;update()}}))
-      uploaded=upload.verified;errors.push(...upload.errors)
+      trace.mark('MYAUTO_UPLOADER_READY',prepared.files.length)
+      photoStage='PHOTO_UPLOAD_STARTED';photoCode='INPUT_REJECTED'
+      const upload=await measure('photoUpload',()=>uploadPhotos(doc,prepared.files,count=>{guard();current.photos.uploaded=count;update()},{timeoutMs:options.uploadTimeoutMs,signal:controller.signal,guard,trace,onSubmitted:count=>{photoCounts.attempts++;current.photos.submitted=count;update()}}))
+      uploaded=upload.verified;photoCounts.verified=uploaded;errors.push(...upload.errors)
+      photoStage=photoCounts.attempts?'PHOTO_GALLERY_VERIFIED':'PHOTO_UPLOAD_STARTED';photoCode=upload.errorCode??(!photoCounts.attempts?'INPUT_REJECTED':uploaded===current.photos.total && uploaded>0?undefined:uploaded?'UPLOAD_UNCONFIRMED':'EMPTY_GALLERY')
+      if(photoCounts.attempts)trace.mark('PHOTO_UPLOAD_COMPLETED',uploaded,photoCode?{errorCode:photoCode}:{})
+      if(photoCode)trace.mark(photoStage,uploaded,{errorCode:photoCode})
       if(uploaded)addTiming('photoComplete',Math.max(0,Date.now()-transfer.createdAt))
       await request({type:'TRANSFER_PROGRESS',id:transfer.id,stage:'uploading',uploaded,submitted:current.photos.submitted})
       pipelineLog(transfer.id,'uploading',upload.errors.length || prepared.errors.length?'partial':'completed')
@@ -124,6 +144,7 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
     results.push(await fillLocation(doc,locationPlan,controller.signal));current.fields=results
     current.textComplete=true;await phase('uploading')
     try{await photoPipeline()}catch(error){
+      trace.mark(photoStage,photoCounts.verified,{errorCode:controller.signal.aborted?'INTERRUPTED':photoCode??'MESSAGE_FAILED'})
       guard();errors.push(error instanceof Error && /[\u10A0-\u10FF]/.test(error.message)?error.message:'ფოტოების ატვირთვა ვერ შესრულდა.')
       pipelineLog(transfer.id,'uploading','failed')
     }
@@ -142,6 +163,7 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
     errors.push(stageError)
     errors.push(error instanceof Error && /[\u10A0-\u10FF]/.test(error.message) ? error.message : 'გადატანა ვერ დასრულდა. ველები და ფოტოები გადაამოწმეთ; წარმატება არ დადასტურებულა.')
   }
+  photoReport(trace,photoCounts,photoCounts.verified>0 && photoCounts.verified===photoCounts.source?undefined:photoStage,photoCode)
   routeObserver.disconnect();doc.defaultView?.removeEventListener('popstate',navigation);doc.defaultView?.removeEventListener('hashchange',navigation);doc.defaultView?.removeEventListener('pagehide',pagehide)
   for(const event of editEvents)doc.removeEventListener(event,noteUser,true)
   current.currentField=undefined;current.activity=undefined

@@ -15,30 +15,9 @@ export function engineToCc(value: string): number | undefined {
   return m ? Math.round(Number(m[1]) * (/^l/i.test(m[2]) ? 1000 : 1)) : undefined
 }
 
-export function safePhotoUrl(value: unknown): string | undefined {
-  if (typeof value !== 'string' || value.length > 2000) return
-  try {
-    const u = new URL(value)
-    if (u.protocol !== 'https:' || u.username || u.password || u.hash) return
-    if (!['i.fyuse.com', 'images.cdn.manheim.com'].includes(u.hostname)) return
-    if (!/\.(jpe?g|png|webp)$/i.test(u.pathname) || /\/(tags|icons|logos)\//i.test(u.pathname)) return
-    // Never persist/transmit signed URLs, authentication parameters, or arbitrary query data.
-    if ([...u.searchParams.keys()].some(k => !['w', 'h', 'width', 'height', 'quality', 'format'].includes(k))) return
-    return u.href
-  } catch { return }
-}
-export function deduplicatePhotos(values: unknown[], limit = 15): string[] {
-  const found = new Map<string, { url: string; rank: number }>()
-  for (const value of values) {
-    const url = safePhotoUrl(value)
-    if (!url) continue
-    const u = new URL(url)
-    const key = u.hostname + u.pathname.replace(/\/(?:1080p|720p|480p)\//, '/')
-    const rank = /\/1080p\//.test(u.pathname) ? 3 : /\/720p\//.test(u.pathname) ? 2 : 1
-    if (!found.has(key) || found.get(key)!.rank < rank) found.set(key, { url, rank })
-  }
-  return [...found.values()].slice(0, limit).map(v => v.url)
-}
+export {safePhotoUrl,deduplicatePhotos} from './photoUrls'
+import {deduplicatePhotos} from './photoUrls'
+import {extractFyusionGallery} from './fyusion'
 
 function visible(element: Element): boolean {
   let current: Element | null = element
@@ -77,18 +56,24 @@ export function inspectManheim24Selection(doc:Document):{key:string;root:Element
   const {root,title,vin,data,identity}=selectedManheim24(doc)
   return {root,key:JSON.stringify([string(data.id),vin,title,identity.original.manufacturer,identity.original.fullModelName])}
 }
-function selectedPhotos(root:Element,data:Record<string,unknown>):string[]{
-  const gallery=[...root.querySelectorAll('#fyusion-prism-viewer img[src]')].filter(img=>!img.classList.contains('svfy_thumb')).map(img=>img.getAttribute('src'))
+function selectedPhotos(root:Element,data:Record<string,unknown>){
+  const fyusion=extractFyusionGallery(root,JSON.stringify([data.id,data.vin]))
+  if(fyusion.present)return {...fyusion,availableImageCount:fyusion.galleryCount??fyusion.validCount}
+  const gallery=[...root.querySelectorAll('#fyusion-prism-viewer img[src]')].filter(img=>!img.classList.contains('svfy_thumb')&&visible(img.closest('#fyusion-prism-viewer')!)).map(img=>img.getAttribute('src'))
   const records=Array.isArray(data.images)?data.images:[]
   const urls=records.map(value=>value && typeof value==='object'?(value as Record<string,unknown>).largeUrl:undefined)
   // mainImage.largeUrl is independently present in the supplied StockWaveInfo.
   const main=data.mainImage && typeof data.mainImage==='object'?(data.mainImage as Record<string,unknown>).largeUrl:undefined
-  return deduplicatePhotos([...gallery,...urls,main],Infinity)
+  const images=deduplicatePhotos([...gallery,...urls,main],Infinity).filter(url=>{
+    const u=new URL(url)
+    return u.hostname!=='i.fyuse.com'||typeof data.fyuseUid!=='string'||u.pathname.split('/').includes(data.fyuseUid)
+  })
+  return {images,availableImageCount:images.length,present:false,ready:true,stale:false,galleryCount:undefined}
 }
 export function inspectManheim24Photos(doc:Document){
   const {root,data,vin}=selectedManheim24(doc)
-  const images=selectedPhotos(root,data)
-  return {vin,listingId:string(data.id),images:images.slice(0,15),availableImageCount:images.length}
+  const photos=selectedPhotos(root,data)
+  return {vin,listingId:string(data.id),images:photos.images.slice(0,15),availableImageCount:photos.availableImageCount,galleryCount:photos.galleryCount,galleryReady:photos.ready,galleryStale:photos.stale}
 }
 export function parseManheim24(doc: Document): NormalizedVehicle {
   const {root,title,vin,data,identity}=selectedManheim24(doc)
@@ -144,7 +129,8 @@ export function parseManheim24(doc: Document): NormalizedVehicle {
   if (description) raw.description = description
   if (optionalEquipmentSummary) raw.optionalEquipmentSummary = optionalEquipmentSummary
   for (const [key, value] of Object.entries({ ...damage, ...auction })) if (value !== undefined) raw[key] = value
-  const allImages = selectedPhotos(root,data)
+  const photoSelection = selectedPhotos(root,data)
+  const allImages=photoSelection.ready?photoSelection.images:[]
   const vehicle: NormalizedVehicle = {
     location:{physicalCountry:string(data.pickupLocationCountry),physicalCity:string(data.pickupLocationCity),physicalVerified:!!string(data.pickupLocationCountry),auctionCountry:string(data.auctionCountry),atAuction:typeof data.atAuction==='boolean'?data.atAuction:undefined},
     source: 'Manheim24', original: identity.original, listingId: string(data.id), title, vin,
@@ -159,7 +145,7 @@ export function parseManheim24(doc: Document): NormalizedVehicle {
     interiorMaterial: string(data.interiorType), body: string(data.bodyStyle),
     condition: string(data.conditionType), conditionGrade: positive(data.conditionGradeNumeric),
     price: price !== undefined && currency && /^[A-Z]{3}$/.test(currency) ? { amount: price, currency, kind: 'buyNow' } : undefined,
-    description, equipment, optionalEquipmentSummary, announcements, damage, auction, availableImageCount: allImages.length,
+    description, equipment, optionalEquipmentSummary, announcements, damage, auction, availableImageCount: photoSelection.availableImageCount,
     images: allImages.slice(0, 15), raw, warnings,
   }
   return vehicle

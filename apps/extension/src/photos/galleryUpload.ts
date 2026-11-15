@@ -1,8 +1,9 @@
+import type {PhotoTrace} from './checkpoints'
 import type {UploadResult} from './upload'
 
 // Confirmed public MyAuto contract: loading-local-ID placeholders become
 // item-local-ID cards only after the server completes; failures remove that ID.
-export async function uploadNamedGallery(doc:Document,files:File[],progress:(count:number)=>void,options:{timeoutMs?:number;signal?:AbortSignal;guard?:()=>void;onSubmitted?:(count:number)=>void}):Promise<UploadResult>{
+export async function uploadNamedGallery(doc:Document,files:File[],progress:(count:number)=>void,options:{timeoutMs?:number;signal?:AbortSignal;guard?:()=>void;onSubmitted?:(count:number)=>void;trace?:PhotoTrace}):Promise<UploadResult>{
   const selector='[data-testid="photo-video-container"]'
   const root=()=>doc.querySelector(selector)
   const ids=(kind:'item'|'loading')=>[...(root()?.querySelectorAll<HTMLElement>(`[data-testid^="photo-video-${kind}-"]`)??[])].map(node=>node.dataset.testid!.slice(`photo-video-${kind}-`.length))
@@ -27,7 +28,8 @@ export async function uploadNamedGallery(doc:Document,files:File[],progress:(cou
     observer.observe(doc.documentElement,{subtree:true,childList:true})
     try{
       const data=new doc.defaultView.DataTransfer();for(const file of pending)data.items.add(file)
-      input.files=data.files;input.dispatchEvent(new doc.defaultView.Event('change',{bubbles:true}))
+      if(!input.isConnected){options.trace?.mark('PHOTO_UPLOAD_STARTED',0,{errorCode:'INPUT_REPLACED'});return {verified,errorCode:'INPUT_REPLACED',errors:['ფოტოების გადატანა ვერ დასრულდა']}}
+      input.files=data.files;options.trace?.mark('PHOTO_UPLOAD_STARTED',pending.length,{attempt:attempt+1});input.dispatchEvent(new doc.defaultView.Event('change',{bubbles:true}))
       submitted+=pending.length;options.onSubmitted?.(Math.min(files.length,submitted))
       let settledAt=0,lastSignature='',retry=false
       while(Date.now()<deadline){
@@ -49,7 +51,7 @@ export async function uploadNamedGallery(doc:Document,files:File[],progress:(cou
         const signature=JSON.stringify([ids('item'),loading,count,verified])
         if(signature!==lastSignature){lastSignature=signature;settledAt=Date.now()}
         const settled=!loading.length && count===cards.length && Date.now()-settledAt>=Math.min(750,timeout/4)
-        if(settled && verified===files.length)return {verified,errors:[]}
+        if(settled && verified===files.length){options.trace?.mark('PHOTO_UPLOAD_COMPLETED',verified);options.trace?.mark('PHOTO_GALLERY_VERIFIED',verified);return {verified,errors:[]}}
         if(settled && newIds.length===pending.length && mapped.size===confirmed.size+newIds.filter(id=>!confirmed.has(id)).length){
           const present=new Set(ids('item'))
           const failed=[...mapped].filter(([id])=>!confirmed.has(id) && !present.has(id))

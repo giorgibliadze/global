@@ -1,3 +1,5 @@
+import {runFyusionTests} from './fyusion.browser'
+import {runPhotoCheckpointTests} from './photoCheckpoints.browser'
 import {runLocationTests} from './location.browser'
 import {runMandatoryTests} from './mandatorySpecifications.browser'
 import {runPhotoRegressionTests} from './photoRegression.browser'
@@ -27,6 +29,8 @@ function changeData(d: Document, changes: Record<string, unknown>) {
 }
 const expectError = (fn: () => unknown, label: string) => { let threw = false; try { fn() } catch { threw = true } check(threw, label) }
 try {
+  await runPhotoCheckpointTests(check)
+  await runFyusionTests(manheim,check)
   const selected = doc()
   const v = parseManheim24(selected)
   check(v.vin === '1HGCM82633A004352' && v.title === '2026 BMW M5 Touring Wagon', 'selected vehicle identity; not search results')

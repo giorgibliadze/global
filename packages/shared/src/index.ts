@@ -89,7 +89,8 @@ export interface TransferRecord {
   status: 'running' | 'review' | 'error'
   claimed: boolean
   textComplete?:boolean
-  photos: { total: number; prepared: number; uploaded: number; failed: number; submitted?:number }
+  photoReceipt?:{confirmed:{index:number;slot?:string}[];retryable:number[];uncertain:number[]}
+  photos: { total: number; prepared: number; uploaded: number; failed: number; submitted?:number; staged?:boolean; issue?:boolean; failures?:{index:number;retryable:boolean}[] }
   fields: FieldResult[]
   errors: string[]
   preparedFields?:PreparedFormField[]
