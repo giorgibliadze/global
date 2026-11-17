@@ -22,7 +22,7 @@ export class DropdownAdapter {
   private doc:Document
   private processed=new Set<string>()
   constructor(doc:Document){this.doc=doc}
-  async select(field:FormField,signal?:AbortSignal,timeout=1500):Promise<FieldResult>{
+  async select(field:FormField,signal?:AbortSignal,timeout=1500,replaceDefaultMileageUnit=false):Promise<FieldResult>{
     const key=field.dropdownKey!,doc=this.doc,name=key.includes('.')?key:`primaryFeatures.${key}`
     const result:FieldResult={key:field.field,field:field.label,status:'unfilled',code:'unresolved',reason:'შესაბამისი ვარიანტი ვერ მოიძებნა.'}
     if(doc.defaultView!.innerWidth<768){Object.assign(result,{status:'unverified',code:'unverified',reason:'MyAuto-ს მობილური მოდალის არჩევანი ამ ადაპტერით არ შემოწმებულა; სია არ გახსნილა.'});return result}
@@ -32,7 +32,7 @@ export class DropdownAdapter {
     const usable=()=>!!owner() && !!trigger() && shown(owner()!) && shown(trigger()!)
     if(!usable() && (key!=='model' || !await ready(doc,usable,timeout,signal))){Object.assign(result,{code:'unavailable',retryable:true,reason:'ველი გამორთულია ან მისი დამოკიდებული მონაცემები არ ჩაიტვირთა.'});return result}
     const label=doc.querySelector(`[data-testid="single-select-value-${name}"]`)?.textContent?.trim()
-    if(label){Object.assign(result,{code:'protected',reason:'არსებული არჩევანი არ გადაგვიწერია.'});return result}
+    if(label&&!(replaceDefaultMileageUnit&&key==='mileageType'&&!!doc.querySelector('input[name="primaryFeatures.mileage"]')&&!doc.querySelector<HTMLInputElement>('input[name="primaryFeatures.mileage"]')!.value)){Object.assign(result,{code:'protected',reason:'არსებული არჩევანი არ გადაგვიწერია.'});return result}
     const menu=()=>owner()?.querySelector<HTMLElement>(`[data-testid="single-select-dropdown-${name}"]`)
     const prefix=`single-select-option-${name}-`,child=`single-select-child-option-${name}-`
     const options=()=>[...menu()?.querySelectorAll<HTMLElement>('[data-testid]') ?? []].filter(node=>{const id=node.dataset.testid??'';return(id.startsWith(prefix)||id.startsWith(child)) && !node.classList.contains('opacity-40') && shown(node)})

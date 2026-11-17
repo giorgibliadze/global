@@ -1,3 +1,7 @@
+import {runSearch24SnapshotTests} from './search24Snapshot.browser'
+import {runMileageUnitTests} from './mileageUnits.browser'
+import {runManheim24SearchTests} from './manheim24Search.browser'
+import {runRegularManheimTests} from './regularManheim.browser'
 import {runPhotoDestinationTests} from './photoDestination.browser'
 import {runStabilityTests} from './stability.browser'
 import {runPlatformIsolationTests} from './platformIsolation.browser'
@@ -40,6 +44,10 @@ try {
   await runPassiveMyautoTests(manheim,check)
   await runSearchManheimTests(check)
   await runSiteManheimTests(check)
+  await runRegularManheimTests(check)
+  await runManheim24SearchTests(check)
+  await runSearch24SnapshotTests(check)
+  await runMileageUnitTests(check)
   await runPlatformIsolationTests(check)
   await runStabilityTests(check)
   await runPhotoDestinationTests(check)

@@ -1,3 +1,4 @@
+import {selectedMileageUnit,mileageCandidates} from './mileage'
 import {readLocation} from './locationField'
 import {enableNegotiablePrice,negotiableSelected} from './negotiablePrice'
 import {TextInputAdapter} from './TextInputAdapter'
@@ -23,6 +24,7 @@ export function readStagedFields(doc:Document,vehicle:NormalizedVehicle,results:
     }else if(result.evidence==='myauto-option')valid=selectedOption(doc,field.dropdownKey!,result)
     else if(result.evidence==='negotiable')valid=negotiableSelected(doc)
     else if(result.evidence==='myauto-choice')valid=selectedChoice(doc.querySelector(field.selector!))
+    if(field.field==='mileageKm')valid=valid&&selectedMileageUnit(doc,vehicle)
     return valid?{...result,status:'filled',persisted:true,code:undefined,reason:'შევსებულია და შენარჩუნებულია'}:(result.persisted || result.resetAfter)?{...result,resetAfter:result.resetAfter??'stagedCommit',status:'unfilled',persisted:false,code:'verification',retryable:true,reason:'შენახული მნიშვნელობა შეიცვალა; საჭიროა მხოლოდ ამ ველის გადამოწმება.'}:{...result,status:'unverified',persisted:false,code:'unverified',retryable:false,reason:'კონტროლერის შენახული მნიშვნელობა ვერ გადამოწმდა.'}
   })
 }
@@ -35,11 +37,12 @@ export async function fillStagedMyauto(doc:Document,vehicle:NormalizedVehicle,pl
   const edited=new Set<string>()
   const edit=(event:Event)=>{
     if(!event.isTrusted || !(event.target instanceof doc.defaultView!.Element))return
+    if(event.target.closest('[data-testid="single-select-primaryFeatures.mileageType"]'))edited.add('mileageKm')
     const name=event.target.getAttribute('name')
     const field=name?plan.find(item=>item.selector===`input[name="${name}"]`):event.target.matches('[data-testid="description-textarea"]')?plan.find(item=>item.field==='description'):undefined
     if(field)edited.add(field.field)
   }
-  doc.addEventListener('input',edit,true);doc.addEventListener('change',edit,true);doc.addEventListener('keydown',edit,true)
+  doc.addEventListener('pointerdown',edit,true);doc.addEventListener('input',edit,true);doc.addEventListener('change',edit,true);doc.addEventListener('keydown',edit,true)
   const notify=()=>options.onResult?.(results.map(result=>({...result})))
   const populate=async(fields:FormField[])=>{
     if(!fields.length)return
@@ -61,17 +64,19 @@ export async function fillStagedMyauto(doc:Document,vehicle:NormalizedVehicle,pl
     options.onTiming?.('dropdownBatch',performance.now()-started);await notify()
   }
   const mileage=selected.find(field=>field.field==='mileageKm')
-  const km=()=>doc.querySelector('[data-testid="single-select-value-primaryFeatures.mileageType"]')?.textContent?.trim()==='კმ'
+  const km=()=>selectedMileageUnit(doc,vehicle)
   try{
     // Initial text is independent. Optional trim follows its real model dependency.
     if(!options.recoveringFields?.length)await populate(selected.filter(field=>field.mode==='text'&&field.field!=='trim'&&(field.field!=='mileageKm'||km())))
+    if(mileage&&mileage.value===undefined)results.push({key:'mileageKm',field:mileage.label,status:'unfilled',code:'missing',reason:'გარბენის მნიშვნელობა ან ერთეული უცნობია; ხელით შესავსები.'})
     await dropdowns()
-    if(mileage && (!km() || options.recoveringFields?.includes('mileageKm'))){
-      if(!km()){
-        const unit=await dropdown.select({field:'mileageType',label:'გარბენის ერთეული',mode:'dropdown',value:'კმ',dropdownKey:'mileageType',optionValue:{candidates:['კმ']}},options.signal,options.dropdownTimeoutMs)
+    if(mileage && mileage.value!==undefined && (!km() || options.recoveringFields?.includes('mileageKm'))){
+      if(!km()&&!edited.has('mileageKm')){
+        const unit=await dropdown.select({field:'mileageType',label:'გარბენის ერთეული',mode:'dropdown',value:mileageCandidates(vehicle)[0],dropdownKey:'mileageType',optionValue:{candidates:mileageCandidates(vehicle)}},options.signal,options.dropdownTimeoutMs,!!vehicle.mileage)
         if(unit.status!=='filled')results.push({...unit,key:'mileageKm',field:mileage.label,reason:'გარბენის ერთეული ვერ დადასტურდა.'})
       }
       if(km())await populate([mileage])
+      else if(edited.has('mileageKm'))results.push({key:'mileageKm',field:mileage.label,status:'unfilled',code:'protected',reason:'მომხმარებლის გარბენის ერთეული არ გადაგვიწერია.'})
     }
     await populate(selected.filter(field=>field.mode==='text'&&(field.field==='trim'||!!options.recoveringFields?.includes(field.field))&&field.field!=='mileageKm'))
     for(const field of selected.filter(item=>item.mode==='choice').sort((a,b)=>Number(!!b.mandatory)-Number(!!a.mandatory))){
@@ -94,5 +99,5 @@ export async function fillStagedMyauto(doc:Document,vehicle:NormalizedVehicle,pl
     if(selected.some(field=>field.mode==='toggle'))results.push(await enableNegotiablePrice(doc,options.signal))
     for(const field of selected.filter(item=>item.mode==='manual'))results.push({key:field.field,field:field.label,status:'unfilled',code:'manual',reason:field.reason??'საჭიროა ხელით გადამოწმება.'})
     await notify();return results
-  }finally{doc.removeEventListener('input',edit,true);doc.removeEventListener('change',edit,true);doc.removeEventListener('keydown',edit,true)}
+  }finally{doc.removeEventListener('pointerdown',edit,true);doc.removeEventListener('input',edit,true);doc.removeEventListener('change',edit,true);doc.removeEventListener('keydown',edit,true)}
 }

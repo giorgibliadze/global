@@ -5,7 +5,7 @@ const text = (value: unknown, size = 500) => typeof value === 'string' && value.
 const rawKeys = new Set(['doorCount','doors','fullModelName','baseModel','title','vin','model','catalogModel','models','structuredShortDescription','trim','make','year','sourceTrim','odometer','odometerUnits','engineDisplacement','engineType','engineFuelType','transmission','driveTrain','exteriorColor','interiorColor','interiorType','bodyStyle','conditionType','conditionGrade','buyNowPrice','currency','mileageDisplay','sellerTitle','equipment','announcements','description','frameDamageReported','salvageReported','optionalEquipmentSummary','name','startsAt','endsAt','status'])
 export function assertNormalizedVehicle(value: unknown): asserts value is NormalizedVehicle {
   const fail = () => { throw new Error('ავტომობილის მონაცემების ფორმატი ან უსაფრთხოების შემოწმება ვერ დადასტურდა. ახალი ჩანართი არ გაიხსნება.') }
-  if (!plain(value) || !['Manheim24','ManheimSearch','ManheimSite'].includes(String(value.source)) || !text(value.title) || typeof value.vin !== 'string' || !/^[A-HJ-NPR-Z0-9]{17}$/.test(value.vin)) return fail()
+  if (!plain(value) || !['Manheim24','Manheim24Search','ManheimSearch','ManheimSite'].includes(String(value.source)) || !text(value.title) || typeof value.vin !== 'string' || !/^[A-HJ-NPR-Z0-9]{17}$/.test(value.vin)) return fail()
   if (!plain(value.original) || Object.keys(value.original).some(k=>!['manufacturer','model','fullModelName','baseModel','trim','catalogModel','evidence'].includes(k)) || !text(value.original.manufacturer) || !value.original.manufacturer || !text(value.original.model) || !value.original.model || (value.original.catalogModel!==undefined && !text(value.original.catalogModel)) || !['structured-model','structured-standard-description','selected-title'].includes(String(value.original.evidence)) || value.make !== value.original.manufacturer || value.model !== value.original.model || (value.trim ?? null) !== (value.original.trim ?? null)) return fail()
   if(value.fullModelName!==undefined && (!text(value.fullModelName) || !value.fullModelName || value.fullModelName!==value.model || value.original.fullModelName!==value.fullModelName))return fail()
   for(const key of ['fullModelName','baseModel'])if(value.original[key]!==undefined && !text(value.original[key]))return fail()
@@ -18,6 +18,7 @@ export function assertNormalizedVehicle(value: unknown): asserts value is Normal
     const n = value[key]
     if (n !== undefined && (typeof n !== 'number' || !Number.isFinite(n) || n < 0)) return fail()
   }
+  if(value.mileage!==undefined && (!plain(value.mileage)||Object.keys(value.mileage).some(key=>!['value','unit'].includes(key))||typeof value.mileage.value!=='number'||!Number.isFinite(value.mileage.value)||value.mileage.value<0||!['mi','km'].includes(String(value.mileage.unit))))return fail()
   if(value.location!==undefined){
     const location=value.location
     if(!plain(location) || Object.keys(location).some(key=>!['physicalCountry','physicalCity','physicalVerified','auctionCountry','atAuction','shipping'].includes(key)))return fail()

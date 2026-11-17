@@ -5,7 +5,8 @@ import {createRoot} from 'react-dom/client'
 import {useForm,useController,useWatch,FormProvider} from 'virtual:myauto-rhf'
 const config=window.fixtureConfiguration ?? {model:'M5 Touring Wagon'}
 const ids:Record<string,string>={listingLocation:'fixture-location',manufacturer:'fixture-manufacturer',model:'fixture-model',issueYear:'fixture-issueYear',fuelType:'fixture-fuelType',engineVolume:'fixture-engineVolume',cylinders:'fixture-cylinders',vehicleCategory:'fixture-vehicleCategory'}
-const labels:Record<string,string>={listingLocation:config.locationLabel??'აშშ',manufacturer:config.make??'BMW',model:config.model,issueYear:config.year??'2026',fuelType:config.fuel??'დამუხტვადი ჰიბრიდი',engineVolume:'4.4',cylinders:'8',vehicleCategory:config.body??'უნივერსალი'}
+const labels:Record<string,string>={listingLocation:config.locationLabel??'აშშ',manufacturer:config.make??'BMW',model:config.model,issueYear:config.year??'2026',fuelType:config.fuel??'დამუხტვადი ჰიბრიდი',engineVolume:config.engine??'4.4',cylinders:config.cylinders??'8',vehicleCategory:config.body??'უნივერსალი'}
+if(config.mileageUnit){ids.mileageType='fixture-mileage-'+config.mileageUnit;labels.mileageType=config.mileageUnit==='mi'?'მილი':'კმ'}
 window.fixtureOpenCounts={};window.fixtureFailFuel=!!config.failFuel
 function Text({name}:{name:string}){
   const {field}=useController({name,defaultValue:''})
@@ -27,7 +28,7 @@ function Select({name,disabled}:{name:string;disabled?:boolean}){
       h('input',{onBlur:field.onBlur,ref:field.ref,'data-testid':'single-select-input-'+formName,className:'opacity-0 pointer-events-none'}),
       h('span',{'data-testid':'single-select-value-'+formName,className:selected?'pt-[6px]':''},selected?.title ?? ''),
       h('input',{'data-testid':'single-select-search-'+formName,type:open?'text':'hidden',value:query,onInput:(event:{currentTarget:HTMLInputElement})=>setQuery(event.currentTarget.value)}),
-      selected && h('span',{'data-testid':'single-select-clear-'+formName,onClick:(event:{stopPropagation:()=>void})=>{event.stopPropagation();field.onChange(null)}},'×')),
+      selected && name!=='mileageType' && h('span',{'data-testid':'single-select-clear-'+formName,onClick:(event:{stopPropagation:()=>void})=>{event.stopPropagation();field.onChange(null)}},'×'),name==='mileageType'&&h('span',{'data-testid':'single-select-dropdown-arrow-'+formName})),
     open && h('div',{'data-testid':'single-select-dropdown-'+formName},item?h('div',{'data-testid':'single-select-option-'+formName+'-'+ids[name],onClick:()=>{field.onChange({id:ids[name],title:labels[name]});setOpen(false);setQuery('')}},labels[name]):h('li',{'data-testid':'single-select-no-data-'+formName},'მონაცემები ვერ მოიძებნა')))
 }
 function Choices({name,id}:{name:string;id:string}){
@@ -40,7 +41,7 @@ function Description(){
   return h('div',null,h('button',{type:'button','data-testid':'description-locale-tab-ka','aria-pressed':'true'},'ქართული'),h('textarea',{ref:field.ref,value:values.ka,maxLength:4000,'data-testid':'description-textarea',onBlur:field.onBlur,onChange:(event:{currentTarget:HTMLTextAreaElement})=>field.onChange({...values,ka:event.currentTarget.value.slice(0,4000)})}))
 }
 function Form(){
-  const methods=useForm({defaultValues:{sale:{isNegotiablePrice:false,price:''},primaryFeatures:{vinCode:'',mileage:'',customModel:'',manufacturer:null,model:null,description:{ka:'',en:'',ru:''}}}})
+  const methods=useForm({defaultValues:{sale:{isNegotiablePrice:false,price:''},primaryFeatures:{vinCode:'',mileage:'',customModel:'',manufacturer:null,model:null,mileageType:config.mileageUnit?{id:'fixture-km',title:'კმ'}:undefined,description:{ka:'',en:'',ru:''}}}})
   const values=useWatch({control:methods.control}) as {primaryFeatures:Record<string,unknown>;sale?:{isNegotiablePrice?:boolean}}
   useEffect(()=>{if(values.sale?.isNegotiablePrice)methods.setValue('sale.price','')},[values.sale?.isNegotiablePrice,methods])
   const [ready,setReady]=useState(false),[modelReady,setModelReady]=useState(false),[renders,setRenders]=useState(0),[photos,setPhotos]=useState<string[]>([]),[uploads,setUploads]=useState(0),[published,setPublished]=useState(0),[reset,setReset]=useState(false)
@@ -56,8 +57,8 @@ function Form(){
     h('label',{'data-testid':'toggle-checkbox-label-sale.isNegotiablePrice'},h('input',{type:'checkbox',defaultChecked:false,...methods.register('sale.isNegotiablePrice')}),'ფასი შეთანხმებით'),h(Text,{name:'sale.price'}),
     h(Text,{name:'primaryFeatures.vinCode'}),h(Text,{name:'primaryFeatures.mileage'}),h(Text,{name:'primaryFeatures.customModel'}),h(Description),
     ...Object.keys(labels).map(name=>h(Select,{key:name,name,disabled:name==='model'&&!modelReady})),
-    h('span',{'data-testid':'single-select-value-primaryFeatures.mileageType'},'კმ'),
-    ...[['wheelTypeId','0'],['wheelTypeId','1'],['doorTypeId','1'],['doorTypeId','2'],['doorTypeId','4'],['gearTypeId','2'],['driveTypeId','3'],['vehicleColorId','19'],['saloonColorId','16'],['saloonMaterialId','1']].map(([name,id])=>h(Choices,{key:name,name,id})),
+    !config.mileageUnit&&h('span',{'data-testid':'single-select-value-primaryFeatures.mileageType'},'კმ'),
+    ...[['wheelTypeId','0'],['wheelTypeId','1'],['doorTypeId','1'],['doorTypeId','2'],['doorTypeId','4'],['gearTypeId','2'],['driveTypeId','3'],['vehicleColorId','19'],['saloonColorId','16'],['saloonMaterialId','1']].map(([name,id])=>h(Choices,{key:name+'-'+id,name,id})),
     h('div',{'data-testid':'photo-video-container'},h('span',{className:'fixture-photo-count','data-testid':'photo-video-label'},`ფოტო ${photos.length}/15`),h('div',{'data-testid':'photo-video-dropzone'},h('input',{type:'file',multiple:true,onChange:(event:{currentTarget:HTMLInputElement})=>{setUploads(value=>value+1);setPhotos([...event.currentTarget.files!].map(file=>file.name));if(config.resetAfterUpload&&!reset){setReset(true);methods.setValue('primaryFeatures.mileage','');methods.setValue('primaryFeatures.engineVolume',null)}}})),h('div',{'data-testid':'photo-video-gallery'},...photos.map(name=>h('div',{key:name,'data-testid':'photo-video-item-local-'+name},h('img',{'data-testid':'photo-video-image-local-'+name,src:'https://cdn.example.test/'+name}))))),
     h('button',{type:'button',id:'fixture-other-field',onClick:()=>setRenders(value=>value+1)},'სხვა ველი')))
 }

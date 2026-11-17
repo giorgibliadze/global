@@ -1,3 +1,4 @@
+import {mileageValue,mileageCandidates,selectedMileageUnit} from './mileage'
 import {readLocation} from './locationField'
 import {mandatorySpecifications} from './mandatorySpecifications'
 import {enableNegotiablePrice,negotiableSelected,negotiableSelector} from './negotiablePrice'
@@ -57,7 +58,7 @@ export function myautoFields(v: NormalizedVehicle): FormField[] {
   const fields: FormField[] = [
     { field: 'vin', label: 'VIN', mode: 'text', selector: 'input[name="primaryFeatures.vinCode"]', value: v.vin },
     { field: 'trim', label: 'კომპლექტაცია', mode: 'text', selector: 'input[name="primaryFeatures.customModel"]', value: v.trim ?? undefined },
-    { field: 'mileageKm', label: 'გარბენი', mode: 'text', selector: 'input[name="primaryFeatures.mileage"]', value: v.mileageKm === undefined ? undefined : String(Math.round(v.mileageKm)) },
+    { field: 'mileageKm', label: 'გარბენი', mode: 'text', selector: 'input[name="primaryFeatures.mileage"]', value: mileageValue(v) },
   ]
   for (const [field, label, key, value] of [
     ['make', 'მწარმოებელი', 'manufacturer', v.make], ['model', 'მოდელი', 'model', myautoModelName(v)],
@@ -171,10 +172,12 @@ export async function fillMyautoForm(doc: Document, vehicle: NormalizedVehicle, 
       } else results.push({key:field.field,field:field.label,status:'unverified',persisted:false,code:'unverified',retryable:false,reason:'არჩევანი დაჭერილია, მაგრამ ფორმის შენახული მდგომარეობა ვერ გადამოწმდა. გადაამოწმეთ ხელით.'})
       continue
     }
-    if (field.field === 'mileageKm' && doc.querySelector(testid('single-select-value-primaryFeatures.mileageType'))?.textContent?.trim() !== 'კმ') {
+    if (field.field === 'mileageKm' && !selectedMileageUnit(doc,vehicle)) {
       options.onFieldStage?.('discovery')
-      const reason = await selectDropdown(doc, 'mileageType', { candidates: ['კმ'] }, options.dropdownTimeoutMs, options.signal)
-      if (reason) { fail('გარბენის ერთეული „კმ“ ვერ დადასტურდა.'); continue }
+      const candidates=mileageCandidates(vehicle),replace=!!vehicle.mileage&&!doc.querySelector<HTMLInputElement>('input[name="primaryFeatures.mileage"]')?.value
+      const native=nativeDropdown(doc,'mileageType')
+      const reason=native?(await selectNativeDropdown(doc,'mileageType',candidates[0],replace,{candidates},options.dropdownTimeoutMs,options.signal)).error:await selectDropdown(doc,'mileageType',{candidates,allowReplaceSelection:replace},options.dropdownTimeoutMs,options.signal)
+      if(reason||!selectedMileageUnit(doc,vehicle)){fail('წყაროს გარბენის ერთეული ვერ დადასტურდა; ხელით შესავსები.');continue}
     }
     if (!(element instanceof doc.defaultView!.HTMLInputElement || element instanceof doc.defaultView!.HTMLTextAreaElement)) { fail('ველის ტიპი შეიცვალა.'); continue }
     if(field.field==='description'){const fitted=fitDescription(field.value,element.maxLength,vehicle.vin);field.value=fitted.text;omissions=fitted.omissions;reviewRequired=fitted.criticalOmitted;if(!field.value){fail('სრული დასახელება აღწერის ლიმიტში ვერ ეტევა. სრული მონაცემები შენარჩუნებულია.','manual');continue}}
@@ -251,7 +254,7 @@ export function verifyMyautoFields(doc: Document, vehicle: NormalizedVehicle, re
       const selected = doc.querySelector(`[data-testid="single-select-value-primaryFeatures.${field.dropdownKey}"]`)?.textContent ?? ''
       valid = matchesOption(selected, field.optionValue!) && !!result.optionId && doc.querySelector<HTMLInputElement>(`[data-testid="single-select-input-primaryFeatures.${field.dropdownKey}"]`)?.value === result.optionId
     }
-    if (field.field === 'mileageKm') valid &&= doc.querySelector('[data-testid="single-select-value-primaryFeatures.mileageType"]')?.textContent?.trim() === 'კმ'
+    if (field.field === 'mileageKm') valid &&= selectedMileageUnit(doc,vehicle)
     return valid ? result : { key:field.field,field: result.field,sourceValue:field.sourceValue, status: 'unfilled',persisted:false,code:'verification',retryable:true, reason: 'საბოლოო შემოწმებისას მნიშვნელობა შეიცვალა ან ვერ დადასტურდა.' }
   })
 }

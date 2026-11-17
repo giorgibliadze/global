@@ -1,7 +1,6 @@
-import {watchSiteManheim} from './siteManheim'
-import {siteManheimAdapter} from './sourceAdapters'
+import {watchRegularManheim} from './regularManheim'
+import {siteManheimAdapter,searchManheimAdapter,manheim24SearchAdapter} from './sourceAdapters'
 import {vehicleSource} from '../services/sourceRegistry'
-import {registerSearchManheimParser} from './searchManheim'
 import { registerManheimParser } from './manheim'
 import { createRoot } from 'react-dom/client'
 import { detectWebsite } from '../services/website'
@@ -13,7 +12,7 @@ import styles from './launcher.css?inline'
 const hostId = 'global-auto-transporter-launcher'
 const website = detectWebsite(window.location.href)
 
-function mountLauncher(){
+function mountLauncher(regularManheim=false){
   if(document.getElementById(hostId))return ()=>{}
   const host = document.createElement('div')
   host.id = hostId
@@ -32,21 +31,23 @@ function mountLauncher(){
   shadow.append(style, root)
   document.documentElement.append(host)
   const reactRoot=createRoot(root)
-  reactRoot.render(<FloatingLauncher website={website} />)
+  reactRoot.render(<FloatingLauncher website={website} regularManheim={regularManheim} />)
   return ()=>{reactRoot.unmount();host.remove()}
 }
 
-// Informational Site pages have only a read-only component watcher. The same
+// Informational regular Manheim pages have only a read-only component watcher. The same
 // verified vehicle component can arrive through any path/hash or async render.
 if(window.top===window){
   const source=vehicleSource(window.location.href)
-  if(source?.id==='ManheimSite')watchSiteManheim(document,siteManheimAdapter,()=>{
-    const stop=registerManheimParser(document,siteManheimAdapter),unmount=mountLauncher()
-    return ()=>{try{unmount()}finally{stop?.()}}
-  })
-  else if(website.kind==='auction'&&!document.getElementById(hostId)){
+  if(source?.id==='ManheimSite'||source?.id==='ManheimSearch'){
+    const adapter=source.id==='ManheimSite'?siteManheimAdapter:searchManheimAdapter
+    watchRegularManheim(document,adapter,()=>{
+      const stop=registerManheimParser(document,adapter),unmount=mountLauncher(true)
+      return ()=>{try{unmount()}finally{stop?.()}}
+    })
+  }else if(website.kind==='auction'&&!document.getElementById(hostId)){
     if(source?.id==='Manheim24')registerManheimParser()
-    if(source?.id==='ManheimSearch')registerSearchManheimParser()
+    if(source?.id==='Manheim24Search')registerManheimParser(document,manheim24SearchAdapter)
     mountLauncher()
   }
 }

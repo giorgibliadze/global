@@ -15,8 +15,9 @@ export interface OriginalVehicleIdentity {
   catalogModel?: string
   evidence: 'structured-model' | 'structured-standard-description' | 'selected-title'
 }
+export interface VehicleMileage {value:number;unit:'mi'|'km'}
 export interface NormalizedVehicle {
-  source: 'Manheim24' | 'ManheimSearch' | 'ManheimSite'
+  source: 'Manheim24' | 'Manheim24Search' | 'ManheimSearch' | 'ManheimSite'
   location?:VehicleLocationEvidence
   original: OriginalVehicleIdentity
   listingId?: string
@@ -29,6 +30,7 @@ export interface NormalizedVehicle {
   bodyStyle?: string
   year?: number
   trim?: string | null
+  mileage?:VehicleMileage
   mileageKm?: number
   engineCc?: number
   cylinders?: number
@@ -112,7 +114,9 @@ export type TransferTimings = Partial<Record<TimingStage, number>>
 export function searchManheimRouteVin(url:string):string|undefined{
   try{
     const u=new URL(url)
-    if(u.protocol!=='https:'||u.hostname!=='search.manheim.com'||!/^\/(?:results\/?)?$/.test(u.pathname))return
+    if(u.protocol!=='https:'||u.hostname!=='search.manheim.com')return
     return u.hash.match(/^#\/details\/([A-HJ-NPR-Z0-9]{17})\/[A-Z0-9_-]+\/?(?:\?.*)?$/i)?.[1].toUpperCase()
   }catch{return}
 }
+
+export function manheim24SearchRouteVin(url:string):string|undefined{try{const u=new URL(url);if(u.protocol!=='https:'||u.hostname!=='search.manheim24.com')return;return u.hash.match(/^#\/details\/([A-HJ-NPR-Z0-9]{17})\/[A-Z0-9_-]+\/?(?:\?.*)?$/i)?.[1].toUpperCase()}catch{return}}

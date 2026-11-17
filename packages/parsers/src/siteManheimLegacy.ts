@@ -1,3 +1,4 @@
+import {sourceMileage} from './mileage'
 // Site legacy detail contract from supplied snapshot; independent of Manheim24.
 import {explicitSteering,sourceDoorCount} from './mandatorySpecifications'
 import { extractOriginalIdentity } from './identity'
@@ -10,7 +11,7 @@ const text = (root: ParentNode, id: string) => {
 }
 const string = (v: unknown): string | undefined => typeof v === 'string' && v.trim() ? v.trim().slice(0, 500) : undefined
 const positive = (v: unknown): number | undefined => typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : undefined
-import {milesToKm,engineToCc} from './units'
+import {engineToCc} from './units'
 export {milesToKm,engineToCc} from './units'
 
 export {safePhotoUrl,deduplicatePhotos} from './photoUrls'
@@ -92,12 +93,8 @@ export function parseSiteLegacy(doc: Document): NormalizedVehicle {
   const odo = structuredOdo ?? displayedOdo
   const unit = string(data.odometerUnits) || mileageMatch?.[2]
   if (structuredOdo !== undefined && displayedOdo !== undefined && structuredOdo !== displayedOdo) throw new Error('გარბენის მონაცემები ახლდება. ხელახლა სცადეთ.')
-  let mileageKm: number | undefined
-  if (odo !== undefined && unit) {
-    if (/^(mi|miles?)$/i.test(unit)) mileageKm = milesToKm(odo)
-    else if (/^(km|kilometers?|kilometres?)$/i.test(unit)) mileageKm = odo
-  }
-  if (odo !== undefined && mileageKm === undefined) warnings.push('გარბენის ერთეული უცნობია; კილომეტრებში გადაყვანა ვერ მოხერხდა.')
+  const mileage=sourceMileage(data.odometer??odo,unit,mileageText)
+  if(odo!==undefined&&!mileage)warnings.push('გარბენის ერთეული უცნობია; გადაამოწმეთ წყარო.')
   const displacement = string(data.engineDisplacement) ?? text(root, 'card-view-engine-displacement')
   const engineType = string(data.engineType) ?? text(root, 'card-view-engine-type')
   if (displacement) raw.engineDisplacement = displacement
@@ -134,7 +131,7 @@ export function parseSiteLegacy(doc: Document): NormalizedVehicle {
     location:{physicalCountry:string(data.pickupLocationCountry),physicalCity:string(data.pickupLocationCity),physicalVerified:!!string(data.pickupLocationCountry),auctionCountry:string(data.auctionCountry),atAuction:typeof data.atAuction==='boolean'?data.atAuction:undefined},
     source: 'ManheimSite', original: identity.original, listingId: string(data.id), title, vin,
     make: identity.original.manufacturer, model: identity.original.model, fullModelName:identity.original.fullModelName,baseModel:identity.original.baseModel,bodyStyle:string(data.bodyStyle),year,
-    trim: identity.original.trim, mileageKm,
+    trim: identity.original.trim, mileage,
     engineCc: engineToCc(displacement), cylinders: cylinders ? Number(cylinders[1]) : undefined,
     fuel: string(data.engineFuelType) ?? (text(root, 'card-view-engine-fuel-type') || undefined),
     steeringWheel:explicitSteering(equipment),doorCount:sourceDoorCount(data.doorCount,data.doors),

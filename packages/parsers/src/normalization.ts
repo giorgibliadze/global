@@ -1,3 +1,4 @@
+import {mileageDescription,mappedMileage} from './mileage'
 import type { NormalizedVehicle } from '@auto-importer/shared'
 export type DetailCategory = 'fuel' | 'transmission' | 'drivetrain' | 'color' | 'body' | 'interior' | 'condition' | 'equipment' | 'damage' | 'note'
 export interface Translation { original: string; georgian: string; verified: boolean }
@@ -18,7 +19,7 @@ const dictionaries: Record<DetailCategory, readonly DictionaryEntry[]> = {
     {originals:['Orange'],georgian:'ნარინჯისფერი'},{originals:['Gold'],georgian:'ოქროსფერი'},{originals:['Pink'],georgian:'ვარდისფერი'},
     {originals:['Beige'],georgian:'ჩალისფერი'},{originals:['Burgundy'],georgian:'შინდისფერი'},{originals:['Brown'],georgian:'ყავისფერი'},
   ],
-  body: [{originals:['Wagon'],georgian:'უნივერსალი'},{originals:['Sedan'],georgian:'სედანი'},{originals:['Hatchback'],georgian:'ჰეტჩბეკი'},{originals:['SUV'],georgian:'ჯიპი'},{originals:['Coupe'],georgian:'კუპე'},{originals:['Convertible'],georgian:'კაბრიოლეტი'},{originals:['Pickup'],georgian:'პიკაპი'}],
+  body: [{originals:['Wagon'],georgian:'უნივერსალი'},{originals:['Sedan'],georgian:'სედანი'},{originals:['Hatchback'],georgian:'ჰეტჩბექი'},{originals:['SUV'],georgian:'ჯიპი'},{originals:['Coupe'],georgian:'კუპე'},{originals:['Convertible'],georgian:'კაბრიოლეტი'},{originals:['Pickup'],georgian:'პიკაპი'}],
   interior: [{originals:['Leather'],georgian:'ტყავი'},{originals:['Cloth','Fabric'],georgian:'ქსოვილი',myautoLabels:['ნაჭერი']},{originals:['Alcantara'],georgian:'ალკანტარა'}],
   condition: [{originals:['With Condition Report'],georgian:'მდგომარეობის ანგარიში ხელმისაწვდომია'},{originals:['Used'],georgian:'მეორადი'},{originals:['New'],georgian:'ახალი'},{originals:['As Is'],georgian:'არსებული მდგომარეობით'}],
   equipment: [
@@ -50,7 +51,7 @@ export function reviewDetails(v: NormalizedVehicle): ReviewDetail[] {
     {key:'model',label:'მოდელი',original:v.fullModelName ?? v.model,georgian:v.fullModelName ?? v.model,resolved:!!(v.fullModelName ?? v.model)},
     {key:'trim',label:'კომპლექტაცია',original:v.trim ?? undefined,georgian:v.trim ?? undefined,resolved:!!v.trim},
     {key:'year',label:'წელი',original:v.year === undefined ? undefined : String(v.year),georgian:v.year === undefined ? undefined : String(v.year),resolved:v.year !== undefined},
-    {key:'mileage',label:'გარბენი',original:String(v.raw.mileageDisplay || `${v.raw.odometer ?? ''} ${v.raw.odometerUnits ?? ''}`).trim() || undefined,georgian:v.mileageKm === undefined ? undefined : `${v.mileageKm.toLocaleString('ka-GE',{maximumFractionDigits:6})} კმ`,resolved:v.mileageKm !== undefined},
+    {key:'mileage',label:'გარბენი',original:String(v.raw.mileageDisplay || `${v.raw.odometer ?? ''} ${v.raw.odometerUnits ?? ''}`).trim() || undefined,georgian:v.mileage?mileageDescription(v).replace(/^გარბენი: /,''):v.mileageKm===undefined?undefined:`${v.mileageKm.toLocaleString('ka-GE',{maximumFractionDigits:6})} კმ`,resolved:mappedMileage(v)!==undefined},
     {key:'engine',label:'ძრავის მოცულობა',original:typeof v.raw.engineDisplacement === 'string' ? v.raw.engineDisplacement : undefined,georgian:v.engineCc === undefined ? undefined : `${v.engineCc} სმ³`,resolved:v.engineCc !== undefined},
     {key:'cylinders',label:'ცილინდრები',original:typeof v.raw.engineType === 'string' ? v.raw.engineType : undefined,georgian:v.cylinders === undefined ? undefined : String(v.cylinders),resolved:v.cylinders !== undefined},
   ]

@@ -13,14 +13,16 @@ const extensionDist=process.env.AUTO_EXTENSION_DIST ?? join(root,'apps/extension
 for(const file of await readdir(join(extensionDist,'assets'))){
   if(file.endsWith('.js'))assert.ok(!(await readFile(join(extensionDist,'assets',file),'utf8')).includes('vite:preloadError'),'Built extension never dispatches website-global Vite preload errors')
 }
+const snapshot24=process.env.AUTO_24_SNAPSHOT==='1'
+const search24Test=process.env.AUTO_24_SEARCH_TEST==='1'
 const searchTest=process.env.AUTO_SEARCH_TEST==='1'
 const siteTest=process.env.AUTO_SITE_TEST==='1'
-const sourceHost=searchTest?'search.manheim.com':siteTest?'site.manheim.com':'home.manheim24.com'
-const expectedSource=searchTest?'ManheimSearch':siteTest?'ManheimSite':'Manheim24'
+const sourceHost=search24Test?'search.manheim24.com':searchTest?'search.manheim.com':siteTest?'site.manheim.com':'home.manheim24.com'
+const expectedSource=search24Test?'Manheim24Search':searchTest?'ManheimSearch':siteTest?'ManheimSite':'Manheim24'
 const locationTest=process.env.AUTO_LOCATION_TEST==='1'
 const specificationTest=process.env.AUTO_SPEC_TEST==='1'
-const sourceA=(await readFile(join(root,'packages/parsers/tests/fixtures/'+(searchTest?'search-manheim.html':'manheim24.html')),'utf8')).replace('&quot;equipment&quot;: null',specificationTest?'&quot;equipment&quot;: [&quot;Right Hand Drive&quot;]':'&quot;equipment&quot;: null')
-const sourceB=searchTest?sourceA.replaceAll('SALKZ9F90RA229948','2HGCM82633A004352').replaceAll('Range Rover','Range Rover Sport').replaceAll('fixture-search-','fixture-search-b-'):sourceA.replaceAll('1HGCM82633A004352','2HGCM82633A004352').replaceAll('1HGCM82633 A004352','2HGCM82633 A004352').replaceAll('M5 Touring Wagon','M3 Touring').replaceAll('&quot;M5&quot;','&quot;M3&quot;').replaceAll('"M5"','"M3"').replaceAll('/fixture/','/fixture-b/')
+const sourceA=(await readFile(join(root,'packages/parsers/tests/fixtures/'+(snapshot24?'manheim24-search-snapshot.html':searchTest?'search-manheim.html':'manheim24.html')),'utf8')).replace('&quot;equipment&quot;: null',specificationTest?'&quot;equipment&quot;: [&quot;Right Hand Drive&quot;]':'&quot;equipment&quot;: null')
+const sourceB=snapshot24?sourceA.replaceAll('1HGCM82633A004352','2HGCM82633A004352').replaceAll('X3','X4').replaceAll('/vehicle/','/next-vehicle/').replaceAll('fixture-search24-primary','fixture-search24-primary-b'):searchTest?sourceA.replaceAll('SALKZ9F90RA229948','2HGCM82633A004352').replaceAll('Range Rover','Range Rover Sport').replaceAll('fixture-search-','fixture-search-b-'):sourceA.replaceAll('1HGCM82633A004352','2HGCM82633A004352').replaceAll('1HGCM82633 A004352','2HGCM82633 A004352').replaceAll('M5 Touring Wagon','M3 Touring').replaceAll('&quot;M5&quot;','&quot;M3&quot;').replaceAll('"M5"','"M3"').replaceAll('/fixture/','/fixture-b/')
 const form=await readFile(join(root,'packages/parsers/tests/fixtures/myauto.html'),'utf8')
 const png='iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAAAA+UlEQVR4nO3RQQ0AIAzAwJlBGfIxgYw9ekkFNLk592mxWT+IBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtPnAWxWXIaEEjAAAAAElFTkSuQmCC'
 const lazyPhotosTest=process.env.AUTO_LAZY_PHOTOS_TEST==='1'
@@ -31,11 +33,11 @@ const mechanismOnly=process.env.AUTO_MECHANISM_ONLY==='1'
 const batchTest=reactTest && process.env.AUTO_BATCHED_TEST==='1'
 const reactFixture=reactTest?await buildReactFixture():''
 let photoRequests=0
-let source=sourceA,model=searchTest?'Range Rover SV':'M5 Touring Wagon',locationLabel='აშშ'
+let source=sourceA,model=snapshot24?'X3 Sports Activity Vehicle xDrive30i':searchTest?'Range Rover SV':'M5 Touring Wagon',locationLabel='აშშ'
 const timingScript=`<script>addEventListener('input',event=>{const input=event.target;if(!(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) || input.type==='hidden' || input.type==='search' || !input.value || !(input.name?.startsWith('primaryFeatures.') || input.dataset.testid==='description-textarea'))return;window.fixtureFirstFieldAt ??=Date.now();if(input.name==='primaryFeatures.mileage')window.fixtureMileageAt ??=Date.now()},true)</script>`
 function destination() {
   // Only this local fixture has these synthetic options/IDs and upload acknowledgments.
-  if(reactTest)return '<!doctype html><meta charset="utf-8"><body>'+timingScript+'<script>window.fixtureConfiguration='+JSON.stringify({model,make:searchTest?'Land Rover':'BMW',year:searchTest?'2024':'2026',fuel:searchTest?'ბენზინი':'დამუხტვადი ჰიბრიდი',body:searchTest?'ჯიპი':'უნივერსალი',locationLabel,batchedValidation:batchTest,resetAfterUpload:true,pointerOnly:true,failFuel:false})+';</script><script>'+reactFixture.replaceAll('</script','<\\/script')+'</script>'
+  if(reactTest)return '<!doctype html><meta charset="utf-8"><body>'+timingScript+'<script>window.fixtureConfiguration='+JSON.stringify({model,mileageUnit:searchTest||search24Test||siteTest?'mi':undefined,make:searchTest?'Land Rover':'BMW',year:snapshot24?'2021':searchTest?'2024':'2026',engine:snapshot24?'2.0':'4.4',cylinders:snapshot24?'4':'8',fuel:searchTest||snapshot24?'ბენზინი':'დამუხტვადი ჰიბრიდი',body:searchTest||snapshot24?'ჯიპი':'უნივერსალი',locationLabel,batchedValidation:batchTest,resetAfterUpload:true,pointerOnly:true,failFuel:false})+';</script><script>'+reactFixture.replaceAll('</script','<\\/script')+'</script>'
   return form+timingScript+`<script>
     window.fixtureFailFuel=false;window.fixtureOpenCounts={};
     const labels={manufacturer:'BMW',model:${JSON.stringify(model)},issueYear:'2026',fuelType:'დამუხტვადი ჰიბრიდი',engineVolume:'4.4',cylinders:'8',vehicleCategory:'უნივერსალი'};
@@ -197,8 +199,20 @@ try {
     console.log('PASS actual public RHF mechanisms: mileage input commit survives rerender; named manufacturer option commits while ref.value remains empty')
   }
   const shadow=`document.getElementById('global-auto-transporter-launcher')?.shadowRoot`
-  await command('Page.navigate',{url:'https://'+sourceHost+(searchTest?'/results':siteTest?'/inventory/selected':'/landingPage')+(searchTest?'#/details/SALKZ9F90RA229948/OVE':'#/results/fixture-a')},sourceSession)
+  await command('Page.navigate',{url:'https://'+sourceHost+(searchTest||search24Test?'/results':siteTest?'/inventory/selected':'/landingPage')+(search24Test?'#/details/1HGCM82633A004352/OVE':searchTest?'#/details/SALKZ9F90RA229948/OVE':'#/results/fixture-a')},sourceSession)
   await wait(()=>evaluate(sourceSession,`!!${shadow}?.querySelector('.launcher')`),'injected launcher')
+  if(process.env.AUTO_REGULAR_LIFECYCLE_TEST==='1'){
+    assert.ok(siteTest||searchTest,'Regular lifecycle fixture cannot alter Manheim24')
+    await wait(()=>evaluate(sourceSession,`!${shadow}.querySelector('.launcher').disabled`),'regular initial preparation')
+    await evaluate(sourceSession,`dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true}))`)
+    assert.ok(await evaluate(sourceSession,`!document.getElementById('global-auto-transporter-launcher')`),'BFCache suspension removes the regular launcher')
+    await evaluate(sourceSession,`dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}))`)
+    await wait(()=>evaluate(sourceSession,`!!${shadow}?.querySelector('.launcher') && !${shadow}.querySelector('.launcher').disabled`),'regular BFCache restoration')
+    await evaluate(sourceSession,`history.pushState({},'',location.pathname+'?auto-importer-fixture=1'+location.hash)`)
+    await wait(()=>evaluate(sourceSession,`!!${shadow}?.querySelector('.launcher') && !${shadow}.querySelector('.launcher').disabled`),'regular History API route revalidation')
+    assert.equal(await evaluate(sourceSession,`document.querySelectorAll('#global-auto-transporter-launcher').length`),1,'Regular navigation never duplicates the launcher')
+    console.log('PASS regular launcher BFCache lifecycle and History API query navigation without overriding website APIs')
+  }
   if(locationTest)await evaluate(workerSession,`chrome.storage.local.set({'auto-importer:listing-location:v1':'აშშ'})`)
   const jobs=[]
   for(const name of mechanismOnly?[]:['A','B']) {
@@ -206,8 +220,8 @@ try {
     await wait(()=>evaluate(sourceSession,`!${shadow}.querySelector('.launcher').disabled`),'source action available '+name)
     const downloadsAtSelection=photoRequests
     if(name==='B'){
-      source=sourceB;model=searchTest?'Range Rover Sport SV':'M3 Touring';if(locationTest)locationLabel='თბილისი'
-      await evaluate(sourceSession,`document.body.innerHTML=new DOMParser().parseFromString(${JSON.stringify(sourceB)},'text/html').body.innerHTML;history.pushState({},'',${JSON.stringify(searchTest?'#/details/2HGCM82633A004352/OVE':'#/results/fixture-b')})`)
+      source=sourceB;model=snapshot24?'X4 Sports Activity Vehicle xDrive30i':searchTest?'Range Rover Sport SV':'M3 Touring';if(locationTest)locationLabel='თბილისი'
+      await evaluate(sourceSession,`document.body.innerHTML=new DOMParser().parseFromString(${JSON.stringify(sourceB)},'text/html').body.innerHTML;history.pushState({},'',${JSON.stringify(searchTest||search24Test?'#/details/2HGCM82633A004352/OVE':'#/results/fixture-b')})`)
     }
     if(prefetchTest){
       await wait(()=>evaluate(sourceSession,`${shadow}.querySelector('.dock').dataset.preparationState==='ready'`),'automatic preparation ready '+name)
@@ -241,8 +255,8 @@ try {
     if(locationTest)assert.ok(job.listingLocation?.label===locationLabel && job.listingLocation.source===('default'),'Durable default and explicit per-transfer override bind to the intended vehicle')
     if(lazyPhotosTest && name==='A')assert.ok(photosRestored && job.total===15,'Initially empty cached gallery refreshed for the same vehicle after form autofill')
     if(prefetchTest)assert.ok(job.preparation?.cacheHit && job.preparation.extractedAt<=benchmarkEpoch,'Transfer reuses text prepared before the click')
-    if(rhfTest && !searchTest && job.fields.filter(field=>field.status==='filled'&&field.persisted).length!==((specificationTest?19:18)))console.error('Field outcomes',job.fields.map(({key,status,code,reason})=>({key,status,code,reason})))
-    if(rhfTest && !searchTest)assert.equal(job.fields.filter(field=>field.status==='filled'&&field.persisted).length,(specificationTest?19:18),'Supported fields persist; the deliberate fuel failure and manual fields stay isolated')
+    if(rhfTest && !searchTest && !snapshot24 && job.fields.filter(field=>field.status==='filled'&&field.persisted).length!==((specificationTest?19:18)))console.error('Field outcomes',job.fields.map(({key,status,code,reason})=>({key,status,code,reason})))
+    if(rhfTest && !searchTest && !snapshot24)assert.equal(job.fields.filter(field=>field.status==='filled'&&field.persisted).length,(specificationTest?19:18),'Supported fields persist; the deliberate fuel failure and manual fields stay isolated')
     const benchmarkTotal=performance.now()-benchmarkStarted
     if(job.uploaded!==job.total)console.error('Transfer verification errors',job.errors)
     assert.equal(job.uploaded,job.total,'Automatic photo transport and upload acknowledgment complete')
@@ -263,7 +277,7 @@ try {
       await new Promise(resolve=>setTimeout(resolve,100))
       assert.ok(await evaluate(destinationSession,`(()=>{
         const state=window.fixtureState;
-        return state && state.values.vin===document.querySelector('[name="primaryFeatures.vinCode"]').value && state.values.vin.length===17 && state.values.mileage===document.querySelector('[name="primaryFeatures.mileage"]').value && !!state.values.mileage && state.values.description===document.querySelector('[data-testid="description-textarea"]').value && !state.values.description.includes(state.values.vin) && ['manufacturer','model','issueYear','fuelType','engineVolume','cylinders'].every(key=>state.selected[key]?.id==='fixture-'+key) && state.selected.model.label===${JSON.stringify(model)} && ${rhfTest?"state.values.locationId==='fixture-location' && state.values.transmission==='2' && state.values.drivetrain==='3' && state.values.doorCount==='2' && state.values.steeringWheel==='"+(specificationTest?'1':'')+"' && state.values.negotiable==='true' && document.querySelector('[name=\"sale.isNegotiablePrice\"]').checked &&":''} state.photos===15 && state.uploads===1 && state.published===0;
+        return state && state.values.vin===document.querySelector('[name="primaryFeatures.vinCode"]').value && state.values.vin.length===17 && state.values.mileage===document.querySelector('[name="primaryFeatures.mileage"]').value && !!state.values.mileage && state.values.description===document.querySelector('[data-testid="description-textarea"]').value && !state.values.description.includes(state.values.vin) && ['manufacturer','model','issueYear','fuelType','engineVolume','cylinders'].every(key=>state.selected[key]?.id==='fixture-'+key) && state.selected.model.label===${JSON.stringify(model)} && ${rhfTest?"state.values.locationId==='fixture-location' && state.values.transmission==='2' && state.values.drivetrain==='3' && state.values.doorCount==='2' && state.values.steeringWheel==='"+(specificationTest?'1':'')+"' && state.values.negotiable==='true' && document.querySelector('[name=\"sale.isNegotiablePrice\"]').checked &&":''} ${searchTest||search24Test||siteTest?"state.selected.mileageType?.label==='მილი' &&":''} state.photos===15 && state.uploads===1 && state.published===0;
       })()`),'Actual React form state survives blur, rerender, another field and photo side effects without submission')
       console.log('PASS real React state: native input/change + blur commit, pointer options, dependent models, post-photo recovery, no publication')
     }

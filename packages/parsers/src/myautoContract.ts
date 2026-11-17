@@ -14,7 +14,7 @@ export function selectedOption(doc:Document,key:string,result:FieldResult):boole
   const name=key.includes('.')?key:`primaryFeatures.${key}`
   const label=doc.querySelector<HTMLElement>(`[data-testid="single-select-value-${name}"]`)
   const closed=!doc.querySelector(`[data-testid="single-select-dropdown-${name}"]`)
-  return !!label && !!result.optionId && label.textContent?.trim()===result.optionLabel && closed && (!!doc.querySelector(`[data-testid="single-select-clear-${name}"]`) || result.optionId==='0' && label.classList.contains('pt-[6px]'))
+  return !!label && !!result.optionId && label.textContent?.trim()===result.optionLabel && closed && (!!doc.querySelector(`[data-testid="single-select-clear-${name}"]`) || (result.optionId==='0'||key==='mileageType'&&!!doc.querySelector(`[data-testid="single-select-dropdown-arrow-${name}"]`)) && label.classList.contains('pt-[6px]'))
 }
 export function selectedChoice(element:Element|null):boolean {
   // Exact state classes from the public SingleCheckbox component's value comparison.

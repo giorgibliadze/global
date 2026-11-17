@@ -1,4 +1,5 @@
 import {parseSearchManheim,inspectSearchManheimPhotos,searchManheimRoute,searchManheimDescription} from '../src/searchManheim'
+import {inspectSiteManheimPhotos} from '../src/siteManheim'
 import {assertNormalizedVehicle} from '../src/validation'
 import {detectWebsite} from '../../../apps/extension/src/services/website'
 import {vehicleSource} from '../../../apps/extension/src/services/sourceRegistry'
@@ -25,7 +26,7 @@ export async function runSearchManheimTests(check:(value:unknown,label:string)=>
     const vehicle=parseSearchManheim(doc,url);assertNormalizedVehicle(vehicle)
     check(vehicle.vin==='SALKZ9F90RA229948'&&vehicle.listingId==='OVE.NVAA.467124903'&&vehicle.source==='ManheimSearch','search snapshot: VIN/listing identity read from confirmed root and matching structured data')
     check(vehicle.title==='2024 Land Rover Range Rover SV'&&vehicle.make==='Land Rover'&&vehicle.fullModelName==='Range Rover SV'&&vehicle.baseModel==='Range Rover'&&vehicle.trim==='SV'&&vehicle.year===2024,'search snapshot: complete original title/model preserved; independently structured trim retained')
-    check(vehicle.mileageKm===10005*1.609344&&vehicle.raw.odometer===10005&&vehicle.raw.odometerUnits==='mi','search snapshot: 10,005 miles converted with original source/unit preserved')
+    check(vehicle.mileage?.value===10005&&vehicle.mileage.unit==='mi'&&vehicle.mileageKm===undefined&&vehicle.raw.odometer===10005&&vehicle.raw.odometerUnits==='mi','search snapshot: 10,005 miles remain 10,005 mi without conversion')
     check(vehicle.engineCc===4400&&vehicle.cylinders===8&&vehicle.transmission==='Automatic'&&vehicle.raw.transmission==='8-Speed Automatic'&&vehicle.fuel==='Gasoline'&&vehicle.drivetrain==='AWD','search snapshot: labeled seller specifications and explicit powertrain, no model-based guesses')
     check(vehicle.raw.exteriorColor==='Santorini Black Metallic'&&vehicle.raw.interiorColor==='Ebony Semi-Aniline Leather'&&vehicle.exteriorColor==='Black'&&vehicle.interiorColor==='Black'&&vehicle.interiorMaterial==='Leather'&&vehicle.body==='SUV'&&vehicle.doorCount===4,'search snapshot: detailed original colors/material retained alongside structured form-compatible values')
     check(vehicle.steeringWheel===undefined&&vehicle.condition===undefined&&!vehicle.price&&(vehicle.equipment?.length??0)>20,'search snapshot: features available, absent steering/condition and auction price not fabricated')
@@ -53,6 +54,26 @@ export async function runSearchManheimTests(check:(value:unknown,label:string)=>
     const waiting=resolveSelectedPhotos(doc,{vin:vehicle.vin,listingId:vehicle.listingId},500,undefined,current=>inspectSearchManheimPhotos(current,url))
     gallery.append(...savedGallery)
     check((await waiting).images.length===15,'search photos: delayed gallery is detected by bounded MutationObserver')
+    // Regular-only regressions: descriptive/unlabelled carousel slots, not previews.
+    const scroller=gallery.querySelector('.svfy_scroller')!,originalSlots=scroller.innerHTML
+    const counter=gallery.querySelector('.svfy_catbtn[data-name="All"] span.svfy_chp')!,originalCount=counter.textContent
+    data.images=[savedImages.find((image:{sequence:number})=>image.sequence===1)];dataNode.textContent=JSON.stringify(data)
+    for(const count of [1,5,15,23]){
+      counter.textContent=String(count)
+      scroller.innerHTML=Array.from({length:count},(_,i)=>`<div${i%2?'':' class="svfy_tip" tip="Exterior"'}><img src="https://images.cdn.manheim.com/regular-photo-${i+1}.jpg?size=w300h210"></div>`).join('')
+      const expected=Math.min(count,15),search=inspectSearchManheimPhotos(doc,url),site=inspectSiteManheimPhotos(doc,'https://site.manheim.com/vehicle')
+      check(search.galleryReady&&search.images.length===expected&&site.images.join('|')===search.images.join('|'),`regular carousel: ${count} photos on both hosts, including unlabeled/descriptive slots`)
+      check(search.images.every((u,i)=>new URL(u).pathname.endsWith(`regular-photo-${i+1}.jpg`)&&!u.includes('size=')), 'regular carousel: distinct similar CDN paths retain order and original URLs')
+      check(parseSearchManheim(doc,url).images.length===expected,'regular carousel: all selected photos survive vehicle payload construction')
+    }
+    counter.textContent='5';scroller.innerHTML='<div><img src="https://images.cdn.manheim.com/regular-photo-1.jpg"></div>'
+    check(!inspectSearchManheimPhotos(doc,url).galleryReady,'regular carousel: one initial slot cannot satisfy five-photo metadata')
+    const lazy=resolveSelectedPhotos(doc,{vin:vehicle.vin,listingId:vehicle.listingId},500,undefined,current=>inspectSearchManheimPhotos(current,url))
+    scroller.innerHTML=Array.from({length:5},(_,i)=>`<div><img data-src="https://images.cdn.manheim.com/regular-photo-${i+1}.jpg"></div>`).join('')
+    check((await lazy).images.length===5,'regular carousel: bounded observer resolves lazy data-src slots')
+    scroller.append(scroller.firstElementChild!.cloneNode(true))
+    check(inspectSearchManheimPhotos(doc,url).images.length===5,'regular carousel: duplicate thumbnail does not duplicate payload')
+    scroller.innerHTML=originalSlots;counter.textContent=originalCount
     data.images=savedImages;dataNode.textContent=JSON.stringify(data)
 
     const memory:Record<string,unknown>={},store=new IndexedPhotoStore()
@@ -102,7 +123,7 @@ export async function runSearchManheimTests(check:(value:unknown,label:string)=>
     const originalChrome=(globalThis as typeof globalThis & {chrome?:unknown}).chrome
     try{
       const destination=target.contentDocument!
-      destination.body.innerHTML='<input name="primaryFeatures.vinCode"><input name="primaryFeatures.mileage"><span data-testid="single-select-value-primaryFeatures.mileageType">კმ</span><textarea data-testid="description-textarea"></textarea><label data-testid="toggle-checkbox-label-sale.isNegotiablePrice"><input type="checkbox" name="sale.isNegotiablePrice" data-testid="toggle-checkbox-input-sale.isNegotiablePrice"></label><input name="sale.price"><div data-testid="photo-video-container"><span data-testid="photo-video-label">ფოტო 0/15</span><div data-testid="photo-video-dropzone"><input type="file" multiple></div><div data-testid="photo-video-gallery"></div></div>'
+      destination.body.innerHTML='<input name="primaryFeatures.vinCode"><input name="primaryFeatures.mileage"><span data-testid="single-select-value-primaryFeatures.mileageType">მილი</span><textarea data-testid="description-textarea"></textarea><label data-testid="toggle-checkbox-label-sale.isNegotiablePrice"><input type="checkbox" name="sale.isNegotiablePrice" data-testid="toggle-checkbox-input-sale.isNegotiablePrice"></label><input name="sale.price"><div data-testid="photo-video-container"><span data-testid="photo-video-label">ფოტო 0/15</span><div data-testid="photo-video-dropzone"><input type="file" multiple></div><div data-testid="photo-video-gallery"></div></div>'
       const targetSender:Sender={id:'fixture-search',tab:{id:a!.destinationTabId,url:'https://myauto.ge/ka/add'},documentId:'destination-search-A'}
       let preparedBeforeText=false,delivered=0,submittedAfterText=false
       ;(globalThis as typeof globalThis & {chrome?:unknown}).chrome={runtime:{sendMessage:async(message:Record<string,unknown>)=>{

@@ -1,10 +1,10 @@
+import {sourceMileage,mileageDescription} from './mileage'
+import {visible} from './manheimVisibility'
 import {extractSiteManheimGallery} from './manheimSiteGallery'
 import type {NormalizedVehicle} from '@auto-importer/shared'
 import {extractOriginalIdentity} from './identity'
-import {engineToCc,milesToKm} from './units'
+import {engineToCc} from './units'
 import {deduplicatePhotos,photoIdentity} from './photoUrls'
-import {createFyusionGalleryExtractor} from './fyusion'
-const extractFyusionGallery=createFyusionGalleryExtractor()
 import {explicitSteering,sourceDoorCount} from './mandatorySpecifications'
 import {sanitizeDescription} from './vinPrivacy'
 import {translateDetail} from './normalization'
@@ -17,14 +17,7 @@ import {searchManheimRouteVin as searchManheimRoute} from '@auto-importer/shared
 const object=(v:unknown):Record<string,unknown>=>v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{}
 const value=(v:unknown):string|undefined=>typeof v==='string'&&v.trim()&&v.trim().length<=500&&!/^(?:not specified|unknown|n\/?a|null|undefined|none)$/i.test(v.trim())?v.trim():undefined
 const number=(v:unknown)=>typeof v==='number'&&Number.isFinite(v)&&v>=0?v:undefined
-function visible(el:Element){
-  for(let n:Element|null=el;n;n=n.parentElement){
-    if(n.hasAttribute('hidden')||n.getAttribute('aria-hidden')==='true')return false
-    const s=n.ownerDocument.defaultView?.getComputedStyle(n)
-    if(s?.display==='none'||s?.visibility==='hidden'||/display\s*:\s*none|visibility\s*:\s*hidden/i.test(n.getAttribute('style')??''))return false
-  }
-  return true
-}
+
 const field=(root:Element,id:string)=>{
   const nodes=[...root.querySelectorAll(`[data-testid="${id}"]`)].filter(visible)
   if(nodes.length>1)throw new Error('ავტომობილის ველები ჯერ ახლდება.')
@@ -55,15 +48,15 @@ function photos(selection:ReturnType<typeof selected>){
   const records=Array.isArray(data.images)?data.images.map(object):[]
   const sorted=records.every(row=>typeof row.sequence==='number'&&Number.isInteger(row.sequence)&&row.sequence>0)?[...records].sort((a,b)=>Number(a.sequence)-Number(b.sequence)):records
   const structured=deduplicatePhotos(sorted.map(row=>row.largeUrl??row.smallUrl),Infinity)
-  const gallery=structured.length>=15?{images:[] as string[],galleryCount:undefined as number|undefined,ready:true}:selection.source==='ManheimSite'?extractSiteManheimGallery(root,key):extractFyusionGallery(root,key)
+  const gallery=structured.length>=15?{images:[] as string[],galleryCount:undefined as number|undefined,ready:true}:extractSiteManheimGallery(root,key)
   const main=deduplicatePhotos([object(data.mainImage).largeUrl??object(data.mainImage).smallUrl])
   // A partial metadata array must not mask a complete, correctly scoped gallery.
-  const useGallery=gallery.images.length>structured.length
+  const useGallery=gallery.images.length>0&&gallery.images.length>=structured.length
   const images=useGallery?gallery.images:structured.length?structured:main
   const owners=photoOwners[selection.source],previous=owners.get(root.ownerDocument)
   const forbidden=previous?.key===key?previous.forbidden:previous?.photos??new Set<string>()
   const stale=images.some(url=>forbidden.has(photoIdentity(url)))
-  if(images.length&&!stale)owners.set(root.ownerDocument,{key,photos:new Set(images.map(photoIdentity)),forbidden})
+  if(images.length&&!stale)owners.set(root.ownerDocument,{key,photos:new Set([...structured,...gallery.images,...main].map(photoIdentity).filter(identity=>!forbidden.has(identity))),forbidden})
   const availableImageCount=Math.max(images.length,gallery.galleryCount??0)
   return {images:stale?[]:images.slice(0,15),availableImageCount,galleryCount:gallery.galleryCount,galleryReady:!stale&&images.length>0&&(useGallery?gallery.ready:(images.length>=15||(gallery.galleryCount!==undefined&&gallery.galleryCount>0&&images.length>=gallery.galleryCount))),galleryStale:stale}
 }
@@ -86,7 +79,7 @@ function sellerText(input:unknown,vin:string){
   return {text:sanitizeDescription(text,vin).slice(0,12000),labels}
 }
 export function searchManheimDescription(v:NormalizedVehicle,limit=1000){
-  const lines=[v.title,v.mileageKm!==undefined?`გარბენი: ${Math.round(v.mileageKm)} კმ`:'',v.engineCc!==undefined?`ძრავის მოცულობა: ${v.engineCc} სმ³`:'',v.fuel?`საწვავი: ${translateDetail('fuel',v.fuel).georgian}`:'',v.transmission?`ტრანსმისია: ${translateDetail('transmission',v.transmission).georgian}`:'',v.drivetrain?`წამყვანი თვლები: ${translateDetail('drivetrain',v.drivetrain).georgian}`:'','მონაცემები გადმოტანილია Manheim-დან და საჭიროებს გადამოწმებას.']
+  const lines=[v.title,mileageDescription(v),v.engineCc!==undefined?`ძრავის მოცულობა: ${v.engineCc} სმ³`:'',v.fuel?`საწვავი: ${translateDetail('fuel',v.fuel).georgian}`:'',v.transmission?`ტრანსმისია: ${translateDetail('transmission',v.transmission).georgian}`:'',v.drivetrain?`წამყვანი თვლები: ${translateDetail('drivetrain',v.drivetrain).georgian}`:'','მონაცემები გადმოტანილია Manheim-დან და საჭიროებს გადამოწმებას.']
   return fitDescription(sanitizeDescription(lines.filter(Boolean).join('\n'),v.vin),limit,v.vin).text
 }
 export function parseSearchManheim(doc:Document,url=doc.URL,source:DetailSource='ManheimSearch'):NormalizedVehicle{
@@ -97,7 +90,7 @@ export function parseSearchManheim(doc:Document,url=doc.URL,source:DetailSource=
   const odometer=number(data.odometer)??(display?Number(display[1].replaceAll(',','')):undefined)
   if(number(data.odometer)!==undefined&&display&&odometer!==Number(display[1].replaceAll(',','')))throw new Error('გარბენის მონაცემები ერთმანეთს არ ემთხვევა.')
   const unit=value(data.odometerUnits)??display?.[2]
-  const mileageKm=odometer===undefined?undefined:/^(?:mi|miles?)$/i.test(unit??'')?milesToKm(odometer):/^km$/i.test(unit??'')?odometer:undefined
+  const mileage=sourceMileage(data.odometer??odometer,unit,mileageDisplay)
   const engineDisplay=value(data.engineDisplacement)??field(root,'card-view-engine-displacement')??label('Engine Size')
   const engineDescription=value(engine.primaryDescription)??value(data.engineType)??label('Engine Size')
   const engineCc=engineDisplay?engineToCc(engineDisplay)??engineToCc(engineDisplay.match(/\b\d+(?:\.\d+)?\s*L\b/i)?.[0]??''):undefined
@@ -113,11 +106,11 @@ export function parseSearchManheim(doc:Document,url=doc.URL,source:DetailSource=
   const exteriorColor=value(data.exteriorColor)??readOverview('.overview__value.exterior__value')??label('Color')
   const interiorColor=value(data.interiorColor)??readOverview('.overview__value.interior__value')
   const photoSelection=photos(selection),warnings=[...identity.warnings]
-  if(odometer!==undefined&&mileageKm===undefined)warnings.push('გარბენის ერთეული უცნობია; გადაამოწმეთ წყარო.')
+  if(odometer!==undefined&&mileage===undefined)warnings.push('გარბენის ერთეული უცნობია; გადაამოწმეთ წყარო.')
   const raw:NormalizedVehicle['raw']={title,vin,make:identity.original.manufacturer,model:identity.original.model,fullModelName:identity.original.model}
   const originals={odometer,odometerUnits:unit,mileageDisplay,engineDisplacement:label('Engine Size')??engineDisplay,engineType:engineDescription,engineFuelType:fuelSource,transmission:transmissionSource,driveTrain:value(data.driveTrain)??value(object(powertrain.drivetrain).type),exteriorColor:label('Color')??exteriorColor,interiorColor:interior??interiorColor,interiorType:material,doorCount,description:seller.text||undefined}
   for(const [key,v] of Object.entries(originals))if(v!==undefined)raw[key]=v
-  const vehicle:NormalizedVehicle={source,listingId,title,vin,original:identity.original,make:identity.original.manufacturer,model:identity.original.model,fullModelName:identity.original.fullModelName,baseModel:identity.original.baseModel,trim:identity.original.trim,year:identity.year,mileageKm,engineCc,cylinders,fuel,transmission,drivetrain:originals.driveTrain,exteriorColor,interiorColor,interiorMaterial:material==='Semi-Aniline Leather'?'Leather':material,body:value(data.bodyStyle)??value(body.primaryBodyStyle)??readOverview('.overview__value.bodyStyle__value'),bodyStyle:value(data.bodyStyle)??value(body.primaryBodyStyle),doorCount,steeringWheel:explicitSteering(equipment),equipment,images:photoSelection.galleryReady?photoSelection.images:[],availableImageCount:photoSelection.availableImageCount,raw,warnings}
+  const vehicle:NormalizedVehicle={source,listingId,title,vin,original:identity.original,make:identity.original.manufacturer,model:identity.original.model,fullModelName:identity.original.fullModelName,baseModel:identity.original.baseModel,trim:identity.original.trim,year:identity.year,mileage,engineCc,cylinders,fuel,transmission,drivetrain:originals.driveTrain,exteriorColor,interiorColor,interiorMaterial:material==='Semi-Aniline Leather'?'Leather':material,body:value(data.bodyStyle)??value(body.primaryBodyStyle)??readOverview('.overview__value.bodyStyle__value'),bodyStyle:value(data.bodyStyle)??value(body.primaryBodyStyle),doorCount,steeringWheel:explicitSteering(equipment),equipment,images:photoSelection.galleryReady?photoSelection.images:[],availableImageCount:photoSelection.availableImageCount,raw,warnings}
   vehicle.description=searchManheimDescription(vehicle)
   return vehicle
 }
