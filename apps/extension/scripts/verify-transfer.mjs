@@ -4,15 +4,23 @@ import { buildReactFixture } from '../../../packages/parsers/tests/build-react-f
 // The MyAuto form/server is simulated; this is not an authenticated live-site test.
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { readFile, mkdtemp, rm } from 'node:fs/promises'
+import { readFile, readdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 const root=fileURLToPath(new URL('../../../',import.meta.url))
+const extensionDist=process.env.AUTO_EXTENSION_DIST ?? join(root,'apps/extension/dist')
+for(const file of await readdir(join(extensionDist,'assets'))){
+  if(file.endsWith('.js'))assert.ok(!(await readFile(join(extensionDist,'assets',file),'utf8')).includes('vite:preloadError'),'Built extension never dispatches website-global Vite preload errors')
+}
+const searchTest=process.env.AUTO_SEARCH_TEST==='1'
+const siteTest=process.env.AUTO_SITE_TEST==='1'
+const sourceHost=searchTest?'search.manheim.com':siteTest?'site.manheim.com':'home.manheim24.com'
+const expectedSource=searchTest?'ManheimSearch':siteTest?'ManheimSite':'Manheim24'
 const locationTest=process.env.AUTO_LOCATION_TEST==='1'
 const specificationTest=process.env.AUTO_SPEC_TEST==='1'
-const sourceA=(await readFile(join(root,'packages/parsers/tests/fixtures/manheim24.html'),'utf8')).replace('&quot;equipment&quot;: null',specificationTest?'&quot;equipment&quot;: [&quot;Right Hand Drive&quot;]':'&quot;equipment&quot;: null')
-const sourceB=sourceA.replaceAll('1HGCM82633A004352','2HGCM82633A004352').replaceAll('1HGCM82633 A004352','2HGCM82633 A004352').replaceAll('M5 Touring Wagon','M3 Touring').replaceAll('&quot;M5&quot;','&quot;M3&quot;').replaceAll('"M5"','"M3"').replaceAll('/fixture/','/fixture-b/')
+const sourceA=(await readFile(join(root,'packages/parsers/tests/fixtures/'+(searchTest?'search-manheim.html':'manheim24.html')),'utf8')).replace('&quot;equipment&quot;: null',specificationTest?'&quot;equipment&quot;: [&quot;Right Hand Drive&quot;]':'&quot;equipment&quot;: null')
+const sourceB=searchTest?sourceA.replaceAll('SALKZ9F90RA229948','2HGCM82633A004352').replaceAll('Range Rover','Range Rover Sport').replaceAll('fixture-search-','fixture-search-b-'):sourceA.replaceAll('1HGCM82633A004352','2HGCM82633A004352').replaceAll('1HGCM82633 A004352','2HGCM82633 A004352').replaceAll('M5 Touring Wagon','M3 Touring').replaceAll('&quot;M5&quot;','&quot;M3&quot;').replaceAll('"M5"','"M3"').replaceAll('/fixture/','/fixture-b/')
 const form=await readFile(join(root,'packages/parsers/tests/fixtures/myauto.html'),'utf8')
 const png='iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAAAA+UlEQVR4nO3RQQ0AIAzAwJlBGfIxgYw9ekkFNLk592mxWT+IBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtAABoBwBAOwAA2gEA0A4AgHYAALQDAKAdAADtPnAWxWXIaEEjAAAAAElFTkSuQmCC'
 const lazyPhotosTest=process.env.AUTO_LAZY_PHOTOS_TEST==='1'
@@ -23,11 +31,11 @@ const mechanismOnly=process.env.AUTO_MECHANISM_ONLY==='1'
 const batchTest=reactTest && process.env.AUTO_BATCHED_TEST==='1'
 const reactFixture=reactTest?await buildReactFixture():''
 let photoRequests=0
-let source=sourceA,model='M5 Touring Wagon',locationLabel='აშშ'
+let source=sourceA,model=searchTest?'Range Rover SV':'M5 Touring Wagon',locationLabel='აშშ'
 const timingScript=`<script>addEventListener('input',event=>{const input=event.target;if(!(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) || input.type==='hidden' || input.type==='search' || !input.value || !(input.name?.startsWith('primaryFeatures.') || input.dataset.testid==='description-textarea'))return;window.fixtureFirstFieldAt ??=Date.now();if(input.name==='primaryFeatures.mileage')window.fixtureMileageAt ??=Date.now()},true)</script>`
 function destination() {
   // Only this local fixture has these synthetic options/IDs and upload acknowledgments.
-  if(reactTest)return '<!doctype html><meta charset="utf-8"><body>'+timingScript+'<script>window.fixtureConfiguration='+JSON.stringify({model,locationLabel,batchedValidation:batchTest,resetAfterUpload:true,pointerOnly:true,failFuel:false})+';</script><script>'+reactFixture.replaceAll('</script','<\\/script')+'</script>'
+  if(reactTest)return '<!doctype html><meta charset="utf-8"><body>'+timingScript+'<script>window.fixtureConfiguration='+JSON.stringify({model,make:searchTest?'Land Rover':'BMW',year:searchTest?'2024':'2026',fuel:searchTest?'ბენზინი':'დამუხტვადი ჰიბრიდი',body:searchTest?'ჯიპი':'უნივერსალი',locationLabel,batchedValidation:batchTest,resetAfterUpload:true,pointerOnly:true,failFuel:false})+';</script><script>'+reactFixture.replaceAll('</script','<\\/script')+'</script>'
   return form+timingScript+`<script>
     window.fixtureFailFuel=false;window.fixtureOpenCounts={};
     const labels={manufacturer:'BMW',model:${JSON.stringify(model)},issueYear:'2026',fuelType:'დამუხტვადი ჰიბრიდი',engineVolume:'4.4',cylinders:'8',vehicleCategory:'უნივერსალი'};
@@ -92,7 +100,7 @@ try {
       if(message.sessionId===workerSession && !main)photoRequests++
       if(benchmark && message.sessionId===workerSession && !main)await new Promise(resolve=>setTimeout(resolve,120))
       const lazyScript=`<script>(()=>{const node=document.querySelector('.StockWaveInfo'),gallery=document.querySelector('#fyusion-prism-viewer'),data=JSON.parse(node.textContent);const saved={images:data.images,mainImage:data.mainImage,html:gallery.innerHTML};data.images=[];delete data.mainImage;node.textContent=JSON.stringify(data);gallery.innerHTML='';window.fixtureRestorePhotos=()=>{const current=JSON.parse(node.textContent);current.images=saved.images;if(saved.mainImage)current.mainImage=saved.mainImage;node.textContent=JSON.stringify(current);gallery.innerHTML=saved.html}})()</script>`
-      const html=url.hostname==='home.manheim24.com'?source+(lazyPhotosTest?lazyScript:''):url.hostname==='myauto.ge'?destination():null
+      const html=(url.hostname===sourceHost&&url.pathname!=='/en/locations.html')?source+(lazyPhotosTest?lazyScript:''):url.hostname==='myauto.ge'?destination():url.hostname==='site.manheim.com'?'<h1>Find A Manheim Location</h1><img src="https://images.cdn.manheim.com/location-banner.jpg">':null
       await command('Fetch.fulfillRequest',{requestId,responseCode:main&&!html?404:200,responseHeaders:[{name:'Content-Type',value:main?'text/html; charset=utf-8':'image/png'}],body:main?Buffer.from(html ?? '').toString('base64'):png},message.sessionId)
     })().catch(()=>failures.push('Fixture request interception failed'))
     if(message.method==='Target.attachedToTarget')void (async()=>{
@@ -124,6 +132,37 @@ try {
     const result=await command('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true},sessionId)
     assert.ok(!result.exceptionDetails,'Fixture evaluation has no exception')
     return result.result.value
+  }
+  if(process.env.AUTO_PASSIVE_TEST==='1'){
+    await evaluate(workerSession,`globalThis.fixtureClaims={};chrome.runtime.onMessage.addListener((message,sender)=>{if(message?.type==='TRANSFER_CLAIM')globalThis.fixtureClaims[sender.tab.id]=(globalThis.fixtureClaims[sender.tab.id]??0)+1})`)
+    const {targetId}=await command('Target.createTarget',{url:'about:blank'})
+    await wait(()=>sessions.has(targetId),'ordinary MyAuto target')
+    const session=sessions.get(targetId)
+    for(const path of ['/','/ka/s/','/ka/pr/fixture','/ka/login','/ka/add']){
+      await command('Page.navigate',{url:'https://myauto.ge'+path},session)
+      await wait(()=>evaluate(session,"document.readyState==='complete' && !!window.fixtureState"),'ordinary MyAuto '+path)
+      const before=await evaluate(workerSession,`Object.values(globalThis.fixtureClaims).reduce((a,b)=>a+b,0)`)
+      await evaluate(session,`(()=>{for(let i=0;i<20;i++){const n=document.createElement('span');document.body.append(n);n.remove()}})()`)
+      await new Promise(resolve=>setTimeout(resolve,100))
+      const after=await evaluate(workerSession,`Object.values(globalThis.fixtureClaims).reduce((a,b)=>a+b,0)`)
+      assert.equal(after,before,'DOM changes do not trigger repeated claim scans')
+      assert.ok(await evaluate(session,`window.fixtureState.values.vin==='' && window.fixtureState.values.mileage==='' && window.fixtureState.photos===0 && window.fixtureState.published===0 && !document.getElementById('auto-importer-error')`),'Ordinary MyAuto fixture remains untouched')
+      console.log('PASS built passive MyAuto '+path+': no autofill, uploads, notice, publication or mutation-driven claim polling')
+    }
+    const claimsBeforeRefresh=await evaluate(workerSession,`Object.values(globalThis.fixtureClaims).reduce((a,b)=>a+b,0)`)
+    await command('Page.reload',{},session)
+    await wait(()=>evaluate(session,"document.readyState==='complete' && !!window.fixtureState"),'ordinary MyAuto refresh')
+    assert.equal(await evaluate(workerSession,`Object.values(globalThis.fixtureClaims).reduce((a,b)=>a+b,0)`),claimsBeforeRefresh,'Reload does not even probe for an old transfer')
+    assert.ok(await evaluate(session,`window.fixtureState.values.vin==='' && window.fixtureState.photos===0 && !document.getElementById('auto-importer-error')`),'Ordinary refresh remains passive')
+    await command('Target.closeTarget',{targetId})
+  }
+  if(process.env.AUTO_SOURCE_GATES_TEST==='1'){
+    await command('Page.navigate',{url:'https://site.manheim.com/en/locations.html'},sourceSession)
+    await wait(()=>evaluate(sourceSession,`document.readyState==='complete' && document.querySelector('h1')?.textContent==='Find A Manheim Location'`),'informational Manheim page')
+    assert.ok(await evaluate(sourceSession,`!document.getElementById('global-auto-transporter-launcher')`),'Informational Manheim page has no launcher or extension DOM')
+    assert.equal(photoRequests,0,'Informational page cannot trigger background photo downloads')
+    assert.ok(await evaluate(workerSession,`(async()=>{const data=await chrome.storage.session.get(null);return !Object.keys(data).some(k=>k.startsWith('job:'))})()`),'Informational page cannot create a vehicle transfer')
+    console.log('PASS built informational locations gate: no launcher, transfer record or background image downloads despite a CDN page image')
   }
   if(batchTest){
     const {targetId}=await command('Target.createTarget',{url:'about:blank'})
@@ -158,7 +197,7 @@ try {
     console.log('PASS actual public RHF mechanisms: mileage input commit survives rerender; named manufacturer option commits while ref.value remains empty')
   }
   const shadow=`document.getElementById('global-auto-transporter-launcher')?.shadowRoot`
-  await command('Page.navigate',{url:'https://home.manheim24.com/landingPage#/results/fixture-a'},sourceSession)
+  await command('Page.navigate',{url:'https://'+sourceHost+(searchTest?'/results':siteTest?'/inventory/selected':'/landingPage')+(searchTest?'#/details/SALKZ9F90RA229948/OVE':'#/results/fixture-a')},sourceSession)
   await wait(()=>evaluate(sourceSession,`!!${shadow}?.querySelector('.launcher')`),'injected launcher')
   if(locationTest)await evaluate(workerSession,`chrome.storage.local.set({'auto-importer:listing-location:v1':'აშშ'})`)
   const jobs=[]
@@ -167,8 +206,8 @@ try {
     await wait(()=>evaluate(sourceSession,`!${shadow}.querySelector('.launcher').disabled`),'source action available '+name)
     const downloadsAtSelection=photoRequests
     if(name==='B'){
-      source=sourceB;model='M3 Touring';if(locationTest)locationLabel='თბილისი'
-      await evaluate(sourceSession,`document.body.innerHTML=new DOMParser().parseFromString(${JSON.stringify(sourceB)},'text/html').body.innerHTML;history.pushState({},'','#/results/fixture-b')`)
+      source=sourceB;model=searchTest?'Range Rover Sport SV':'M3 Touring';if(locationTest)locationLabel='თბილისი'
+      await evaluate(sourceSession,`document.body.innerHTML=new DOMParser().parseFromString(${JSON.stringify(sourceB)},'text/html').body.innerHTML;history.pushState({},'',${JSON.stringify(searchTest?'#/details/2HGCM82633A004352/OVE':'#/results/fixture-b')})`)
     }
     if(prefetchTest){
       await wait(()=>evaluate(sourceSession,`${shadow}.querySelector('.dock').dataset.preparationState==='ready'`),'automatic preparation ready '+name)
@@ -176,6 +215,8 @@ try {
       assert.equal((await command('Target.getTargets')).targetInfos.filter(target=>target.type==='page'&&target.url==='https://myauto.ge/ka/add').length,jobs.length,'Prefetch never opens a listing tab')
     }
     if(locationTest && name==='B')await evaluate(workerSession,`chrome.storage.local.set({'auto-importer:listing-location:v1':'თბილისი'})`)
+    await wait(()=>evaluate(sourceSession,`!${shadow}.querySelector('.launcher').disabled`),'verified vehicle action available '+name)
+    if(process.env.AUTO_SOURCE_GATES_TEST==='1')assert.ok(await evaluate(workerSession,`(async()=>{const [tab]=await chrome.tabs.query({url:'https://${sourceHost}/*'});const result=await chrome.tabs.sendMessage(tab.id,{type:'VEHICLE_STATUS'});return result?.ok && result.value?.vehicle===true && result.value.source==='${expectedSource}'})()`),'Popup status handshake verifies the actual source vehicle without reading page images')
     const benchmarkStarted=performance.now(),benchmarkEpoch=Date.now()
     await evaluate(sourceSession,`${shadow}.querySelector('.launcher').click();${shadow}.querySelector('.launcher').click()`)
     assert.ok(await evaluate(sourceSession,`!${shadow}.querySelector('.vehicle-review,.review-actions,[aria-modal="true"]')`),'No confirmation UI required')
@@ -200,8 +241,8 @@ try {
     if(locationTest)assert.ok(job.listingLocation?.label===locationLabel && job.listingLocation.source===('default'),'Durable default and explicit per-transfer override bind to the intended vehicle')
     if(lazyPhotosTest && name==='A')assert.ok(photosRestored && job.total===15,'Initially empty cached gallery refreshed for the same vehicle after form autofill')
     if(prefetchTest)assert.ok(job.preparation?.cacheHit && job.preparation.extractedAt<=benchmarkEpoch,'Transfer reuses text prepared before the click')
-    if(rhfTest && job.fields.filter(field=>field.status==='filled'&&field.persisted).length!==((specificationTest?19:18)))console.error('Field outcomes',job.fields.map(({key,status,code,reason})=>({key,status,code,reason})))
-    if(rhfTest)assert.equal(job.fields.filter(field=>field.status==='filled'&&field.persisted).length,(specificationTest?19:18),'Supported fields persist; the deliberate fuel failure and manual fields stay isolated')
+    if(rhfTest && !searchTest && job.fields.filter(field=>field.status==='filled'&&field.persisted).length!==((specificationTest?19:18)))console.error('Field outcomes',job.fields.map(({key,status,code,reason})=>({key,status,code,reason})))
+    if(rhfTest && !searchTest)assert.equal(job.fields.filter(field=>field.status==='filled'&&field.persisted).length,(specificationTest?19:18),'Supported fields persist; the deliberate fuel failure and manual fields stay isolated')
     const benchmarkTotal=performance.now()-benchmarkStarted
     if(job.uploaded!==job.total)console.error('Transfer verification errors',job.errors)
     assert.equal(job.uploaded,job.total,'Automatic photo transport and upload acknowledgment complete')
@@ -210,11 +251,11 @@ try {
     assert.equal(tabs.length,jobs.length+1,'Each new vehicle opens an independent destination')
     const destinationTarget=tabs.find(target=>!jobs.some(previous=>previous.targetId===target.targetId))
     const destinationSession=sessions.get(destinationTarget.targetId)
-    if(benchmark)console.log('BENCHMARK '+JSON.stringify({version:benchmark,vehicle:name,totalMs:benchmarkTotal,clickToFormReadyMs:job.createdAt-benchmarkEpoch+(job.timings?.destinationReadiness ?? 0),clickToPhotosMs:job.timings?.photoComplete===undefined?undefined:job.createdAt-benchmarkEpoch+job.timings.photoComplete,firstDomFieldMs:(await evaluate(destinationSession,'window.fixtureFirstFieldAt'))-benchmarkEpoch,firstMileageMs:(await evaluate(destinationSession,'window.fixtureMileageAt'))-benchmarkEpoch,verifiedFields:job.fields.filter(field=>field.status==='filled'&&field.persisted).length,preparation:job.preparation,stages:job.timings}))
+    if(benchmark)console.log('BENCHMARK '+JSON.stringify({version:benchmark,platform:expectedSource,vehicle:name,photosDownloaded:photoRequests-downloadsAtSelection,photosVerified:job.uploaded,totalMs:benchmarkTotal,clickToFormReadyMs:job.createdAt-benchmarkEpoch+(job.timings?.destinationReadiness ?? 0),clickToPhotosMs:job.timings?.photoComplete===undefined?undefined:job.createdAt-benchmarkEpoch+job.timings.photoComplete,firstDomFieldMs:(await evaluate(destinationSession,'window.fixtureFirstFieldAt'))-benchmarkEpoch,firstMileageMs:(await evaluate(destinationSession,'window.fixtureMileageAt'))-benchmarkEpoch,verifiedFields:job.fields.filter(field=>field.status==='filled'&&field.persisted).length,preparation:job.preparation,stages:job.timings}))
     assert.ok(await evaluate(destinationSession,`(()=>{
       const vin=document.querySelector('[name="primaryFeatures.vinCode"]').value;
       const description=document.querySelector('[data-testid="description-textarea"]').value;
-      return vin.length===17 && !description.includes(vin) && description==='' && document.querySelector('[data-testid="single-select-value-primaryFeatures.model"]').textContent===${JSON.stringify(model)} && document.querySelector('[data-testid="single-select-value-primaryFeatures.manufacturer"]').textContent==='BMW' && !!document.querySelector('[name="primaryFeatures.mileage"]').value && ['issueYear','fuelType','engineVolume','cylinders'].every(key=>${rhfTest?"window.fixtureState.selected[key]?.id==='fixture-'+key":"document.querySelector('[data-testid='+JSON.stringify('single-select-input-primaryFeatures.'+key)+']').value==='fixture-'+key"}) && !document.getElementById('auto-importer-results') && !document.querySelector('[role=dialog]');
+      return vin.length===17 && !description.includes(vin) && description==='' && document.querySelector('[data-testid="single-select-value-primaryFeatures.model"]').textContent===${JSON.stringify(model)} && document.querySelector('[data-testid="single-select-value-primaryFeatures.manufacturer"]').textContent===${JSON.stringify(searchTest?'Land Rover':'BMW')} && !!document.querySelector('[name="primaryFeatures.mileage"]').value && ['issueYear','fuelType','engineVolume','cylinders'].every(key=>${rhfTest?"window.fixtureState.selected[key]?.id==='fixture-'+key":"document.querySelector('[data-testid='+JSON.stringify('single-select-input-primaryFeatures.'+key)+']').value==='fixture-'+key"}) && !document.getElementById('auto-importer-results') && !document.querySelector('[role=dialog]');
     })()`),'Dedicated VIN, exact model and mileage verified without a summary overlay')
     if(reactTest){
       assert.ok(inspected,'User can inspect a safe field while photos and form processing continue')

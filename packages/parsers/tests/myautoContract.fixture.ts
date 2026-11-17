@@ -5,7 +5,7 @@ import {createRoot} from 'react-dom/client'
 import {useForm,useController,useWatch,FormProvider} from 'virtual:myauto-rhf'
 const config=window.fixtureConfiguration ?? {model:'M5 Touring Wagon'}
 const ids:Record<string,string>={listingLocation:'fixture-location',manufacturer:'fixture-manufacturer',model:'fixture-model',issueYear:'fixture-issueYear',fuelType:'fixture-fuelType',engineVolume:'fixture-engineVolume',cylinders:'fixture-cylinders',vehicleCategory:'fixture-vehicleCategory'}
-const labels:Record<string,string>={listingLocation:config.locationLabel??'აშშ',manufacturer:'BMW',model:config.model,issueYear:'2026',fuelType:'დამუხტვადი ჰიბრიდი',engineVolume:'4.4',cylinders:'8',vehicleCategory:'უნივერსალი'}
+const labels:Record<string,string>={listingLocation:config.locationLabel??'აშშ',manufacturer:config.make??'BMW',model:config.model,issueYear:config.year??'2026',fuelType:config.fuel??'დამუხტვადი ჰიბრიდი',engineVolume:'4.4',cylinders:'8',vehicleCategory:config.body??'უნივერსალი'}
 window.fixtureOpenCounts={};window.fixtureFailFuel=!!config.failFuel
 function Text({name}:{name:string}){
   const {field}=useController({name,defaultValue:''})

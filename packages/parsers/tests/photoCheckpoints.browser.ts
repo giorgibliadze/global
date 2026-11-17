@@ -12,13 +12,14 @@ export async function runPhotoCheckpointTests(check:(v:unknown,label:string)=>vo
     trace.mark('PHOTO_SOURCE_READY',15)
     let calls=0
     try{await downloadPhoto('https://i.fyuse.com/group/fixture/a/b/frames_1.jpg',0,async()=>{calls++;return new Response(null,{status:410})},trace)}catch{/* permanent response is expected */}
-    photoReport(trace,{source:15,downloaded:0,received:0,attempts:0,verified:0},'PHOTO_DOWNLOAD_COMPLETED','HTTP_EXPIRED')
+    photoReport(trace,{source:15,discovered:98,delivered:0,downloaded:0,received:0,attempts:0,verified:0},'PHOTO_DOWNLOAD_COMPLETED','HTTP_EXPIRED')
     const entries=logs.map(row=>row[1]) as Record<string,unknown>[]
     check(calls===1 && entries.some(row=>row.stage==='PHOTO_DOWNLOAD_COMPLETED'&&row.errorCode==='HTTP_EXPIRED'),'photo diagnostics: expired URL identifies download checkpoint without permanent retry')
     check(entries.filter(row=>row.stage).every(row=>typeof row.timestamp==='string'&&typeof row.durationMs==='number'&&typeof row.photoCount==='number'&&row.transferId===id&&row.vehicleId===trace.vehicleId),'photo diagnostics: checkpoint ID, timestamp, duration and count present')
     check(!JSON.stringify(logs).includes(identity)&&!JSON.stringify(logs).includes('https://'),'photo diagnostics: no raw vehicle identity or image URLs')
     const report=entries.at(-1)!
     check(report.uploadAttempts===0&&report.photosVerifiedInGallery===0&&report.failureStage==='PHOTO_DOWNLOAD_COMPLETED','photo diagnostics: zero upload is a failed stage, never gallery success')
+    check(report.photosDiscovered===98&&report.photosSelected===15&&report.filesDelivered===0,'photo diagnostics: discovered, selected and delivered counts remain independent from accepted photos')
     const frame=document.createElement('iframe');document.body.append(frame)
     try{
       const doc=frame.contentDocument!

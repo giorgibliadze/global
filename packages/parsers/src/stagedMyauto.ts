@@ -54,7 +54,9 @@ export async function fillStagedMyauto(doc:Document,vehicle:NormalizedVehicle,pl
       options.signal?.throwIfAborted();options.beforeField?.();options.onField?.(field.label)
       if(field.value===undefined){results.push({key:field.field,field:field.label,status:'unfilled',code:'missing',reason:'წყაროში მონაცემი არ არის.'});continue}
       if(field.field==='model' && !results.some(result=>result.key==='make'&&result.status==='filled')){results.push({key:field.field,field:field.label,status:'unfilled',code:'dependency',reason:'მწარმოებლის დადასტურებული არჩევანი ჯერ არ არის.'});continue}
-      results.push(await dropdown.select(field,options.signal,options.dropdownTimeoutMs))
+      const selectionStarted=performance.now()
+      try{results.push(await dropdown.select(field,options.signal,options.dropdownTimeoutMs))}
+      finally{options.onTiming?.(field.field==='make'?'manufacturerDropdown':field.field==='model'?'modelDropdown':field.field==='year'?'yearDropdown':'otherDropdowns',performance.now()-selectionStarted)}
     }
     options.onTiming?.('dropdownBatch',performance.now()-started);await notify()
   }

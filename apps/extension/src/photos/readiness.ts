@@ -5,11 +5,14 @@ export function uploaderAuthenticationRequired(doc:Document){
 export async function waitForUploader(doc:Document,signal?:AbortSignal,timeoutMs=15000,id?:string){
   const ready=()=>{
     const input=doc.querySelector<HTMLInputElement>('[data-testid="photo-video-dropzone"] input[type="file"]'),container=doc.querySelector('[data-testid="photo-video-container"]')
-    if(!input||!container||input.disabled||!input.multiple)return false
+    if(!input||!container||input.disabled||input.matches(':disabled')||!input.multiple)return false
     let node:Element|null=input.parentElement
-    while(node){const style=doc.defaultView!.getComputedStyle(node);if(style.display==='none'||style.visibility==='hidden'||style.pointerEvents==='none'||node.getAttribute('aria-busy')==='true')return false;node=node.parentElement}
+    // MyAuto deliberately hides its native input and may collapse the card.
+    // CSS visibility is independent of the initialized dropzone's change handler.
+    while(node){if(node.hasAttribute('inert')||node.getAttribute('aria-busy')==='true')return false;node=node.parentElement}
     return !container.querySelector('[data-testid^="photo-video-loading-"],[aria-busy="true"],[role="progressbar"]')
   }
+  signal?.throwIfAborted()
   if(ready())return
   photoLog(id,'uploader_not_ready')
   await new Promise<void>((resolve,reject)=>{

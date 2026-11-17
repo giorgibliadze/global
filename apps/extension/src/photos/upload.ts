@@ -1,6 +1,8 @@
+import type {TimingStage} from '@auto-importer/shared'
 import type {PhotoTrace,PhotoErrorCode} from './checkpoints'
 import {uploadNamedGallery} from './galleryUpload'
 export interface UploadResult { verified: number; errors: string[]; confirmedNames?:string[]; retryNames?:string[]; slots?:Record<string,string>; errorCode?:PhotoErrorCode }
+export interface UploadOptions {timeoutMs?:number;signal?:AbortSignal;guard?:()=>void;onSubmitted?:(count:number)=>void;trace?:PhotoTrace;transferId?:string;resumeSlots?:Record<string,string>;onTiming?:(stage:TimingStage,ms:number)=>void}
 export const photoContainerSelector = '[data-testid="photo-video-container"]'
 export const photoInputSelector = '[data-testid="photo-video-dropzone"] input[type="file"]'
 export function photoCount(container: Element): number | undefined {
@@ -28,7 +30,7 @@ export function assertFreshMyauto(doc: Document) {
   const container = doc.querySelector(photoContainerSelector)
   if (container && ((photoCount(container) ?? 0) > 0 || remotePreviews(container).length > 0)) throw new Error('ფორმაში ფოტოები უკვე არის. ავტომობილების ფოტოები არ შეირევა.')
 }
-async function uploadAttempt(doc: Document, files: File[], progress: (confirmed: number) => void, options: { timeoutMs?: number; signal?: AbortSignal; guard?: () => void;onSubmitted?:(count:number)=>void;trace?:PhotoTrace;transferId?:string;resumeSlots?:Record<string,string> } = {}): Promise<UploadResult> {
+async function uploadAttempt(doc: Document, files: File[], progress: (confirmed: number) => void, options: UploadOptions = {}): Promise<UploadResult> {
   if (!files.length) return { verified: 0, errors: ['არცერთი ფოტო არ მომზადდა. ატვირთვა არ დაწყებულა.'] }
   if (files.length > 15) return { verified: 0, errors: ['ფოტოების რაოდენობა აღემატება 15-ს.'] }
   const container = doc.querySelector(photoContainerSelector)
@@ -45,6 +47,7 @@ async function uploadAttempt(doc: Document, files: File[], progress: (confirmed:
     for (const file of files) transfer.items.add(file)
     if(!input.isConnected){options.trace?.mark('PHOTO_UPLOAD_STARTED',0,{errorCode:'INPUT_REPLACED'});return {verified:0,errorCode:'INPUT_REPLACED',errors:['ფოტოების გადატანა ვერ დასრულდა']}}
     input.files = transfer.files
+    if(input.files?.length!==files.length){options.trace?.mark('PHOTO_UPLOAD_STARTED',0,{errorCode:'INPUT_REJECTED'});return {verified:0,errorCode:'INPUT_REJECTED',errors:['ფოტოების გადატანა ვერ დასრულდა']}}
     options.trace?.mark('PHOTO_UPLOAD_STARTED',files.length)
     input.dispatchEvent(new doc.defaultView.Event('input', { bubbles: true }))
     if(!input.isConnected){options.trace?.mark('PHOTO_UPLOAD_STARTED',0,{errorCode:'INPUT_REPLACED'});return {verified:0,errorCode:'INPUT_REPLACED',errors:['ფოტოების გადატანა ვერ დასრულდა']}}
@@ -78,7 +81,7 @@ async function uploadAttempt(doc: Document, files: File[], progress: (confirmed:
   return { verified: confirmed, errors: ['ფაილები გადაეცა ამრჩევს, მაგრამ MyAuto-ს რაოდენობითა და ჩატვირთული სერვერული პრევიუებით ატვირთვა ვერ დადასტურდა. საჭიროა ატვირთული გალერეის DOM-ის ცოცხალი შემოწმება; მხოლოდ ლოკალური პრევიუ წარმატებად არ ჩაითვალა.'] }
 }
 
-export async function uploadPhotos(doc: Document, files: File[], progress: (confirmed: number) => void, options: { timeoutMs?: number; signal?: AbortSignal; guard?: () => void;onSubmitted?:(count:number)=>void;trace?:PhotoTrace;transferId?:string;resumeSlots?:Record<string,string> } = {}): Promise<UploadResult> {
+export async function uploadPhotos(doc: Document, files: File[], progress: (confirmed: number) => void, options: UploadOptions = {}): Promise<UploadResult> {
   if(files.length && files.length<=15 && /ფოტო\s*\d+\s*\/\s*15/.test(doc.querySelector('[data-testid="photo-video-label"]')?.textContent??''))return uploadNamedGallery(doc,files,progress,options)
   let last: UploadResult = { verified: 0, errors: [] }
   for (let attempt = 0; attempt < 2; attempt++) {

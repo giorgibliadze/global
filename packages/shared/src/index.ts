@@ -1,3 +1,5 @@
+// Four 15-MB responses bound active download memory at 60 MB before transport.
+export const PHOTO_DOWNLOAD_CONCURRENCY=4
 export interface VehicleLocationEvidence {
   physicalCountry?:string;physicalCity?:string;physicalVerified?:boolean
   auctionCountry?:string;atAuction?:boolean
@@ -14,7 +16,7 @@ export interface OriginalVehicleIdentity {
   evidence: 'structured-model' | 'structured-standard-description' | 'selected-title'
 }
 export interface NormalizedVehicle {
-  source: 'Manheim24'
+  source: 'Manheim24' | 'ManheimSearch' | 'ManheimSite'
   location?:VehicleLocationEvidence
   original: OriginalVehicleIdentity
   listingId?: string
@@ -76,6 +78,7 @@ export type PreparationStatus='preparing'|'ready'|'updating'|'error'
 export interface PreparationSummary {id:string;extractedAt:number;durationMs:number;normalizationMs:number;cacheHit:boolean}
 export type TransferLifecycle='IDLE'|'PREPARING'|'NAVIGATING'|'FILLING'|'UPLOADING_PHOTOS'|'COMPLETED'|'FAILED'
 export interface TransferRecord {
+  activation?:{schema:1;state:'IDLE'|'PREPARING'|'READY'|'TRANSFERRING'|'COMPLETED'|'FAILED'}
   lifecycle?:TransferLifecycle
   id: string
   sourceTabId: number
@@ -102,6 +105,14 @@ export interface TransferRecord {
 }
 export interface PhotoMetadata { index: number; size: number; name: string; mime: string; sha256: string }
 
-export const timingStages = ['prefetch','prefetchNormalization','sourceExtraction','destinationReadiness','firstField','firstFieldAfterReady','photoComplete','normalization','dropdownDiscovery','matching','dropdownSelection','fieldVerification','formFilling','textPopulation','dropdownBatch','photoDownload','photoUpload','finalValidation','total'] as const
+export const timingStages = ['uploaderReadiness','fileSubmission','uploadQueueWait','uploadAcceptanceWait','sourceDetection','vehicleReadiness','vehicleExtraction','galleryDiscovery','payloadPreparation','messaging','manufacturerDropdown','modelDropdown','yearDropdown','otherDropdowns','filePreparation','galleryVerification','prefetch','prefetchNormalization','sourceExtraction','destinationReadiness','firstField','firstFieldAfterReady','photoComplete','normalization','dropdownDiscovery','matching','dropdownSelection','fieldVerification','formFilling','textPopulation','dropdownBatch','photoDownload','photoUpload','finalValidation','total'] as const
 export type TimingStage = typeof timingStages[number]
 export type TransferTimings = Partial<Record<TimingStage, number>>
+
+export function searchManheimRouteVin(url:string):string|undefined{
+  try{
+    const u=new URL(url)
+    if(u.protocol!=='https:'||u.hostname!=='search.manheim.com'||!/^\/(?:results\/?)?$/.test(u.pathname))return
+    return u.hash.match(/^#\/details\/([A-HJ-NPR-Z0-9]{17})\/[A-Z0-9_-]+\/?(?:\?.*)?$/i)?.[1].toUpperCase()
+  }catch{return}
+}

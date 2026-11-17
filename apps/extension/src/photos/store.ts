@@ -40,6 +40,6 @@ export class IndexedPhotoStore implements PhotoStore {
     await this.run('readwrite',store=>{const request=store.getAll(this.range(id));request.onsuccess=()=>{for(const photo of request.result)store.delete(photo.key)};return request})
   }
   async prune(validIds: Set<string>, snapshotAt = Date.now()) {
-    await this.run('readwrite',store=>{const request=store.getAll();request.onsuccess=()=>{for(const photo of request.result as StoredPhoto[])if((!validIds.has(photo.transferId) && photo.createdAt<snapshotAt) || Date.now()-photo.createdAt>30*60*1000)store.delete(photo.key)};return request})
+    await this.run('readwrite',store=>{const request=store.getAll();request.onsuccess=()=>{for(const photo of request.result as StoredPhoto[])if(!validIds.has(photo.transferId) && photo.createdAt<snapshotAt)store.delete(photo.key)};return request})
   }
 }

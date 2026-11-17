@@ -2,7 +2,7 @@ import type {PhotoTrace} from '../photos/checkpoints'
 import {inspectManheim24Photos} from '@auto-importer/parsers'
 
 // Refresh only gallery data. Never normalize or refill vehicle text here.
-export async function resolveSelectedPhotos(doc:Document,expected:{vin:string;listingId?:string},timeoutMs=6000,trace?:PhotoTrace){
+export async function resolveSelectedPhotos(doc:Document,expected:{vin:string;listingId?:string},timeoutMs=6000,trace?:PhotoTrace,inspect:typeof inspectManheim24Photos=inspectManheim24Photos){
   return new Promise<ReturnType<typeof inspectManheim24Photos>>((resolve,reject)=>{
     const view=doc.defaultView,startUrl=view?.location.href
     let lastSignature=''
@@ -11,7 +11,7 @@ export async function resolveSelectedPhotos(doc:Document,expected:{vin:string;li
     const finish=(error?:Error,value?:ReturnType<typeof inspectManheim24Photos>)=>{observer.disconnect();clearTimeout(timer);view?.removeEventListener('hashchange',navigation);view?.removeEventListener('popstate',navigation);if(error)reject(error);else resolve(value!)}
     const check=(expired:boolean)=>{
       try{
-        const value=inspectManheim24Photos(doc)
+        const value=inspect(doc)
         const signature=JSON.stringify([value.vin,value.listingId,value.images,value.galleryReady,value.galleryStale])
         if(signature!==lastSignature){lastSignature=signature;trace?.mark('PHOTO_SOURCE_READY',value.images.length)}
         if(value.vin!==expected.vin || expected.listingId && value.listingId!==expected.listingId){trace?.mark('PHOTO_SOURCE_READY',0,{errorCode:'IDENTITY_MISMATCH'});finish(new Error('არჩეული ავტომობილი შეიცვალა. სხვა ავტომობილის ფოტოები არ გადაიტანება.'));return}

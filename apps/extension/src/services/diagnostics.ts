@@ -1,4 +1,4 @@
-import type { TimingStage } from '@auto-importer/shared'
+import type { TimingStage,NormalizedVehicle } from '@auto-importer/shared'
 // Intentionally accepts no payloads, URLs, exception text, VINs or session data.
 export type PipelineStage = 'matching' | 'reading' | 'review' | 'detecting' | 'extracting' | 'validating' | 'storing' | 'opening' | 'claiming' | 'preparing' | 'filling' | 'uploading' | 'verifying' | 'finished' | 'cleanup' | 'messaging'
 export function pipelineLog(transferId: unknown, stage: PipelineStage, event: 'started' | 'completed' | 'failed' | 'retry' | 'partial') {
@@ -8,7 +8,7 @@ export function pipelineLog(transferId: unknown, stage: PipelineStage, event: 's
   else console.info('[Auto Importer]', details)
 }
 
-export function timingLog(transferId:string,stage:TimingStage,durationMs:number) {
+export function timingLog(transferId:string,stage:TimingStage,durationMs:number,context?:{platform:NormalizedVehicle['source'];vehicleId:string;status:'completed'|'failed'}) {
   if(!/^[a-f0-9-]{36}$/.test(transferId) || !Number.isFinite(durationMs) || durationMs<0)return
-  console.info('[Auto Importer timing]',{transferId,stage,durationMs:Math.round(durationMs*100)/100})
+  console.info('[Auto Importer timing]',{transferId,stage,durationMs:Math.round(durationMs*100)/100,...(context?{platform:context.platform,vehicleId:/^[a-f0-9]{16}$/.test(context.vehicleId)?context.vehicleId:'pending',status:context.status}:{})})
 }

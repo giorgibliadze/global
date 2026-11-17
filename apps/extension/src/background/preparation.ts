@@ -15,7 +15,7 @@ export class PreparedVehicles {
     assertNormalizedVehicle(vehicle)
     const started=performance.now(),fields=myautoFields(vehicle),normalizationMs=performance.now()-started
     const now=Date.now()
-    const entry:PreparedVehicle={vehicle:structuredClone(vehicle),fields,key:`${tab}:`+(vehicle.listingId?`listing:${vehicle.listingId}`:`vin:${vehicle.vin}`),summary:{id,extractedAt:now,durationMs:Math.max(0,now-observedAt),normalizationMs,cacheHit:false}}
+    const entry:PreparedVehicle={vehicle:structuredClone(vehicle),fields,key:`${tab}:${vehicle.source}:`+(vehicle.listingId?`listing:${vehicle.listingId}`:`vin:${vehicle.vin}`),summary:{id,extractedAt:now,durationMs:Math.max(0,now-observedAt),normalizationMs,cacheHit:false}}
     this.entries.set(entry.key,entry);this.active.set(tab,entry.key)
     timingLog(id,'prefetchNormalization',normalizationMs);timingLog(id,'prefetch',entry.summary.durationMs)
     return structuredClone(entry)

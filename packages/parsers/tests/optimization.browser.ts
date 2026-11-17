@@ -68,13 +68,13 @@ export async function runOptimizationTests(manheim:string,myauto:string,check:(v
   })
   const reviewed=await manager.review(sender),record=await manager.start(sender,reviewed.reviewId)
   sender={id:'fixture',tab:{id:record.destinationTabId,url:'https://myauto.ge/ka/add'},documentId:'optimization-document'}
-  const claimed=await manager.handle({type:'TRANSFER_CLAIM'},sender) as TransferRecord
+  const claimed=await manager.handle({type:'TRANSFER_CLAIM',protocol:1},sender) as TransferRecord
   const old=Object.getOwnPropertyDescriptor(window,'chrome');Object.defineProperty(window,'chrome',{configurable:true,value:api})
   try {
     const duplicates=Promise.all([manager.handle({type:'PHOTO_PREPARE',id:claimed.id,index:0},sender),manager.handle({type:'PHOTO_PREPARE',id:claimed.id,index:0},sender)])
     const prepared=await prepareFiles(claimed.id,6,()=>{});await duplicates
     check(prepared.files.length===6 && prepared.errors.length===0 && calls.length===6 && new Set(calls).size===6,'optimization: concurrent duplicate photo requests download each image once')
-    check(maxActive===3 && prepared.files.every((file,index)=>file.name.endsWith(`-${index+1}.png`)),'optimization: photo concurrency is bounded at three and original image order is preserved')
+    check(maxActive===4 && prepared.files.every((file,index)=>file.name.endsWith(`-${index+1}.png`)),'optimization: photo concurrency is bounded at four and original image order is preserved')
     const seeded:FieldResult[]=[{key:'make',field:'მწარმოებელი',status:'filled',reason:'დადასტურებულია.',optionId:'fixture-bmw',optionLabel:'BMW',match:'exact'},
       {key:'fuel',field:'საწვავი',status:'unfilled',reason:'დროებით მიუწვდომელია.',code:'unavailable',retryable:true},
       {key:'model',field:'მოდელი',status:'unfilled',reason:'ზუსტი ვარიანტი არ არის.',code:'unresolved',retryable:false}]

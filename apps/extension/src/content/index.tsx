@@ -1,3 +1,7 @@
+import {watchSiteManheim} from './siteManheim'
+import {siteManheimAdapter} from './sourceAdapters'
+import {vehicleSource} from '../services/sourceRegistry'
+import {registerSearchManheimParser} from './searchManheim'
 import { registerManheimParser } from './manheim'
 import { createRoot } from 'react-dom/client'
 import { detectWebsite } from '../services/website'
@@ -9,10 +13,8 @@ import styles from './launcher.css?inline'
 const hostId = 'global-auto-transporter-launcher'
 const website = detectWebsite(window.location.href)
 
-// The host lives outside the page body so ordinary SPA route changes cannot remove it.
-// Match again at runtime as a defense in addition to the manifest's URL restrictions.
-if (window.top === window && website.kind === 'auction' && !document.getElementById(hostId)) {
-  if (website.hostname === 'manheim24.com' || website.hostname.endsWith('.manheim24.com')) registerManheimParser()
+function mountLauncher(){
+  if(document.getElementById(hostId))return ()=>{}
   const host = document.createElement('div')
   host.id = hostId
   host.style.setProperty('all', 'initial', 'important')
@@ -29,5 +31,22 @@ if (window.top === window && website.kind === 'auction' && !document.getElementB
   const root = document.createElement('div')
   shadow.append(style, root)
   document.documentElement.append(host)
-  createRoot(root).render(<FloatingLauncher website={website} />)
+  const reactRoot=createRoot(root)
+  reactRoot.render(<FloatingLauncher website={website} />)
+  return ()=>{reactRoot.unmount();host.remove()}
+}
+
+// Informational Site pages have only a read-only component watcher. The same
+// verified vehicle component can arrive through any path/hash or async render.
+if(window.top===window){
+  const source=vehicleSource(window.location.href)
+  if(source?.id==='ManheimSite')watchSiteManheim(document,siteManheimAdapter,()=>{
+    const stop=registerManheimParser(document,siteManheimAdapter),unmount=mountLauncher()
+    return ()=>{try{unmount()}finally{stop?.()}}
+  })
+  else if(website.kind==='auction'&&!document.getElementById(hostId)){
+    if(source?.id==='Manheim24')registerManheimParser()
+    if(source?.id==='ManheimSearch')registerSearchManheimParser()
+    mountLauncher()
+  }
 }

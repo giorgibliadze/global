@@ -41,7 +41,7 @@ const monitor = `<script>
   console.error = (...args) => { window.fixtureErrors.push(args.map(String).join(' ')); originalConsoleError.apply(console, args); };
 </script>`
 
-function fixture(popup, supported, state = 'ready') {
+function fixture(popup, supported, state = 'ready', realSource = false) {
   return `<script type="module">
     const check = (value, label) => { if (!value) throw new Error(label) }
     const wait = () => new Promise(resolve => setTimeout(resolve, 100))
@@ -80,7 +80,7 @@ function fixture(popup, supported, state = 'ready') {
           state === 'loading' ? 'მოწმდება ვებსაიტი' : state === 'error' ? 'ვებსაიტის ამოცნობა ვერ მოხერხდა' : supported ? 'მხარდაჭერილი ვებსაიტი' : ''
         )}), 'Localized detection state')
         checkGeorgian(document.querySelector('.popup'))
-        if (!button.disabled) {
+        if (!button.disabled && ${!realSource}) {
           button.click(); await wait()
           check(document.querySelector('.notice').textContent === 'ამ პლატფორმაზე გადატანა ჯერ მიუწვდომელია.', 'Popup feedback')
           checkGeorgian(document.querySelector('.popup'))
@@ -113,8 +113,8 @@ function fixture(popup, supported, state = 'ready') {
           launcher.click();launcher.click();await wait()
           check(!shadow.querySelector('.panel,.vehicle-review,.review-actions,.transfer-progress,[role=dialog]'), 'No intermediate panel, preview or summary')
           if(location.hostname.endsWith('manheim24.com')){
-            check(window.fixtureStarts===1 && window.fixtureDestinations===1,'Icon directly starts one transfer')
-            check(launcher.disabled && launcher.getAttribute('aria-busy')==='true','Busy indicator prevents repeated clicks')
+            check(window.fixtureStarts===0 && window.fixtureDestinations===0,'No vehicle identity means no transfer')
+            check(launcher.disabled && launcher.getAttribute('aria-busy')==='false','Unverified vehicle launcher is disabled')
           }else check(!!shadow.querySelector('[role=alert]'),'Unsupported transfer gets one concise message')
           checkGeorgian(shadow)
           const pageControl=document.querySelector('#auction-control')
@@ -139,7 +139,7 @@ function fixture(popup, supported, state = 'ready') {
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost')
-    const supported = /^(?:[^.]+\.)*(?:manheim\.com|manheim24\.com|adesa\.com|edgepipeline\.com)$/.test(req.headers.host.split(':')[0])
+    const supported = /^(?:[^.]+\.)*(?:manheim24\.com|adesa\.com|edgepipeline\.com)$/.test(req.headers.host.split(':')[0])
     if (url.pathname === '/fixture') {
       res.setHeader('Content-Type', 'text/html; charset=utf-8')
       const sourceMock = req.headers.host.startsWith('home.manheim24.com:') ? `<script>
@@ -157,10 +157,10 @@ const server = createServer(async (req, res) => {
       const state = url.searchParams.get('state') ?? 'ready'
       const query = state === 'loading' ? '()=>new Promise(()=>{})'
         : state === 'error' ? 'async()=>{throw new Error("Fixture error")}'
-        : `async()=>[{url:${JSON.stringify(url.searchParams.get('tab'))}}]`
-      html = html.replace('<head>', `<head>${monitor}<script>window.chrome={tabs:{query:${query}},runtime:{getManifest:()=>({version:'1.0.0'})}}</script>`)
+        : `async()=>[{id:1,url:${JSON.stringify(url.searchParams.get('tab'))}}]`
+      html = html.replace('<head>', `<head>${monitor}<script>window.chrome={tabs:{query:${query},sendMessage:async()=>({ok:true,value:{source:'ManheimSearch',vehicle:${url.searchParams.get('vehicle')==='ready'}}})},runtime:{getManifest:()=>({version:'1.0.0'}),sendMessage:async()=>({ok:true,value:null})}}</script>`)
       res.setHeader('Content-Type', 'text/html; charset=utf-8')
-      res.end(html.replace('</body>', fixture(true, state === 'ready' && url.searchParams.get('tab') === 'https://manheim.com', state) + '</body>'))
+      res.end(html.replace('</body>', fixture(true,state==='ready'&&(url.searchParams.get('tab')==='https://adesa.com'||url.searchParams.get('vehicle')==='ready'),state,url.searchParams.get('vehicle')==='ready') + '</body>'))
     } else {
       const file = resolve(dist, '.' + url.pathname)
       if (!file.startsWith(dist)) throw new Error('Invalid path')
@@ -175,10 +175,12 @@ const chrome = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Conte
 const profile = await mkdtemp(join(tmpdir(), 'auto-importer-ui-'))
 try {
   const urls = [
-    ...['home.manheim24.com','manheim.com','buy.manheim.com','adesa.com','buy.adesa.com','edgepipeline.com','www.edgepipeline.com','myauto.ge','notmanheim.com','manheim.com.example.org'].map(host => `http://${host}:${port}/fixture`),
-    ...['https://manheim.com','https://myauto.ge','https://example.com','chrome://extensions','invalid-url'].map(tab => `http://localhost:${port}/popup-fixture?tab=${encodeURIComponent(tab)}`),
-    `http://manheim.com:${port}/fixture?motion=reduce`,
-    `http://manheim.com:${port}/fixture?viewport=small`,
+    ...['home.manheim24.com','site.manheim.com','manheim.com','buy.manheim.com','adesa.com','buy.adesa.com','edgepipeline.com','www.edgepipeline.com','myauto.ge','notmanheim.com','manheim.com.example.org'].map(host => `http://${host}:${port}/fixture`),
+    ...['https://adesa.com','https://site.manheim.com/en/locations.html','https://manheim.com','https://myauto.ge','https://example.com','chrome://extensions','invalid-url'].map(tab => `http://localhost:${port}/popup-fixture?tab=${encodeURIComponent(tab)}`),
+    `http://adesa.com:${port}/fixture?motion=reduce`,
+    `http://adesa.com:${port}/fixture?viewport=small`,
+    `http://localhost:${port}/popup-fixture?tab=${encodeURIComponent('https://search.manheim.com/results#/details/SALKZ9F90RA229948/OVE')}`,
+    `http://localhost:${port}/popup-fixture?tab=${encodeURIComponent('https://search.manheim.com/results#/details/SALKZ9F90RA229948/OVE')}&vehicle=ready`,
     ...['loading', 'error'].map(state => `http://localhost:${port}/popup-fixture?state=${state}`),
   ]
   for (const url of urls) {
@@ -195,7 +197,7 @@ try {
     assert.equal(result, 'PASS', `Browser fixture failed: ${url}: ${result ?? 'Fixture did not finish'}`)
     console.log('PASS', url)
   }
-  console.log('Manifest, PNG dimensions, logo integrity, and Georgian text/layout checks in 19 built-UI Chrome fixtures passed.')
+  console.log(`Manifest, PNG dimensions, logo integrity, and Georgian text/layout checks in ${urls.length} built-UI Chrome fixtures passed.`)
 } finally {
   server.close()
   await rm(profile, { recursive: true, force: true })

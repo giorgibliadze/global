@@ -1,0 +1,165 @@
+{
+  "method": "30 timed operations after 5 warmups per adapter stage; same sanitized fixtures in isolated Chrome. Sub-ms values subject to timer resolution. Shared storage/download-scheduler baseline collected separately, after parser changes but before any store/scheduler change; compare only the corresponding stages. These are not authenticated/live network benchmarks.",
+  "before": [
+    {
+      "platform": "Manheim24",
+      "unit": "ms",
+      "iterations": 30,
+      "selected": 15,
+      "discovered": 26,
+      "stages": {
+        "sourceDetection": 0,
+        "vehicleReadiness": 0.046666666865348816,
+        "vehicleExtraction": 0.9966666668653488,
+        "galleryDiscovery": 0.36666666666666664,
+        "normalization": 0.03333333333333333,
+        "payloadPreparation": 0.03666666646798452,
+        "cacheRead": 0.08333333333333333
+      }
+    },
+    {
+      "platform": "ManheimSite",
+      "unit": "ms",
+      "iterations": 30,
+      "selected": 15,
+      "discovered": 98,
+      "stages": {
+        "sourceDetection": 0,
+        "vehicleReadiness": 0.1366666664679845,
+        "vehicleExtraction": 5.326666667064031,
+        "galleryDiscovery": 2.3599999994039536,
+        "normalization": 0.01999999980131785,
+        "payloadPreparation": 0.03000000019868215,
+        "cacheRead": 0.1
+      }
+    },
+    {
+      "platform": "ManheimSearch",
+      "unit": "ms",
+      "iterations": 30,
+      "selected": 15,
+      "discovered": 98,
+      "stages": {
+        "sourceDetection": 0.0033333331346511843,
+        "vehicleReadiness": 0.11999999980131786,
+        "vehicleExtraction": 4.503333333134651,
+        "galleryDiscovery": 2.3900000005960464,
+        "normalization": 0.0600000003973643,
+        "payloadPreparation": 0.03000000019868215,
+        "cacheRead": 0.07333333392937978
+      }
+    }
+  ],
+  "after": [
+    {
+      "platform": "Manheim24",
+      "unit": "ms",
+      "iterations": 30,
+      "selected": 15,
+      "discovered": 26,
+      "stages": {
+        "sourceDetection": 0,
+        "vehicleReadiness": 0.046666666865348816,
+        "vehicleExtraction": 0.9100000003973643,
+        "galleryDiscovery": 0.3466666668653488,
+        "normalization": 0.02666666607062022,
+        "payloadPreparation": 0.03666666646798452,
+        "cacheRead": 0.06666666666666667
+      }
+    },
+    {
+      "platform": "ManheimSite",
+      "unit": "ms",
+      "iterations": 30,
+      "selected": 15,
+      "discovered": 98,
+      "stages": {
+        "sourceDetection": 0,
+        "vehicleReadiness": 0.09333333373069763,
+        "vehicleExtraction": 3.453333333134651,
+        "galleryDiscovery": 0.823333332935969,
+        "normalization": 0.026666667064030966,
+        "payloadPreparation": 0.03000000019868215,
+        "cacheRead": 0.08000000019868216
+      }
+    },
+    {
+      "platform": "ManheimSearch",
+      "unit": "ms",
+      "iterations": 30,
+      "selected": 15,
+      "discovered": 98,
+      "stages": {
+        "sourceDetection": 0.0033333331346511843,
+        "vehicleReadiness": 0.0799999992052714,
+        "vehicleExtraction": 2.513333332538605,
+        "galleryDiscovery": 0.8299999992052715,
+        "normalization": 0.016666666666666666,
+        "payloadPreparation": 0.026666667064030966,
+        "cacheRead": 0.07666666706403097
+      }
+    },
+    {
+      "platform": "shared-destination",
+      "stage": "photoStoreReads",
+      "operations": 60,
+      "durationMs": 29.700000017881393
+    },
+    {
+      "platform": "shared-download-scheduler",
+      "concurrency": 3,
+      "peak": 3,
+      "completed": 15,
+      "durationMs": 608.5,
+      "method": "controlled 120ms successful fixture responses; not live CDN throughput"
+    },
+    {
+      "platform": "shared-download-scheduler",
+      "concurrency": 4,
+      "peak": 4,
+      "completed": 15,
+      "durationMs": 487.2999999821186,
+      "method": "controlled 120ms successful fixture responses; not live CDN throughput"
+    },
+    {
+      "platform": "shared-download-scheduler",
+      "concurrency": 6,
+      "peak": 6,
+      "completed": 15,
+      "durationMs": 364.09999999403954,
+      "method": "controlled 120ms successful fixture responses; not live CDN throughput"
+    }
+  ],
+  "sharedBaseline": [
+    {
+      "platform": "shared-destination",
+      "stage": "photoStoreReads",
+      "operations": 60,
+      "durationMs": 18.19999998807907
+    },
+    {
+      "platform": "shared-download-scheduler",
+      "concurrency": 3,
+      "peak": 3,
+      "completed": 15,
+      "durationMs": 624.3999999761581,
+      "method": "controlled 120ms successful fixture responses; not live CDN throughput"
+    },
+    {
+      "platform": "shared-download-scheduler",
+      "concurrency": 4,
+      "peak": 4,
+      "completed": 15,
+      "durationMs": 488.30000001192093,
+      "method": "controlled 120ms successful fixture responses; not live CDN throughput"
+    },
+    {
+      "platform": "shared-download-scheduler",
+      "concurrency": 6,
+      "peak": 6,
+      "completed": 15,
+      "durationMs": 365.90000000596046,
+      "method": "controlled 120ms successful fixture responses; not live CDN throughput"
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import {safePhotoUrl,deduplicatePhotos,photoIdentity} from './photoUrls'
 interface GalleryOwner {identity:string;photos:Set<string>;forbidden:Set<string>}
+export function createFyusionGalleryExtractor(){
 const ownership=new WeakMap<Document,GalleryOwner>()
 function visible(node:Element){
   for(let el:Element|null=node;el;el=el.parentElement){
@@ -11,8 +12,9 @@ function visible(node:Element){
 }
 // Only inside the already validated, selected vehicle detail root. The numbered
 // tip/counter contract distinguishes this gallery from legacy Fyuse media.
-export function extractFyusionGallery(root:Element,identity:string){
-  const containers=[...root.querySelectorAll('#fyusion-prism-viewer,.svfy_viewer')].filter(visible)
+return function extractFyusionGallery(root:Element,identity:string,options:{includeHidden?:boolean}={}){
+  const candidates=[...(root.matches('#fyusion-prism-viewer,.svfy_viewer')?[root]:[]),...root.querySelectorAll('#fyusion-prism-viewer,.svfy_viewer')]
+  const containers=candidates.filter(el=>!el.closest('#fyusion-prism-viewer-skeleton,.svfy_viewer--skeleton')&&(options.includeHidden||visible(el)))
   const qualifies=(el:Element)=>{
     const tips=[...el.querySelectorAll('.svfy_tip')]
     const numbered=tips.some(tip=>/^Image\s+\d+$/i.test(tip.getAttribute('tip')??''))
@@ -44,3 +46,7 @@ export function extractFyusionGallery(root:Element,identity:string){
   const ready=!stale&&desired>0&&all.length>=desired&&Array.from({length:desired},(_,i)=>i+1).every(i=>indices.has(i))
   return {present:true,images:stale?[]:all.slice(0,15),validCount:stale?0:all.length,galleryCount,ready,stale}
 }
+
+}
+// Manheim24 owns this instance; Manheim adapters create independent instances.
+export const extractFyusionGallery=createFyusionGalleryExtractor()

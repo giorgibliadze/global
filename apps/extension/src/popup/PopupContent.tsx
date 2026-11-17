@@ -1,3 +1,4 @@
+import {supportsVehicleHostname} from '../services/sourceRegistry'
 import { ImportAction } from '../components/ImportAction'
 import { AutoLogo } from '../components/AutoLogo'
 import { getExtensionVersion } from '../services/browser'
@@ -8,14 +9,16 @@ export type Detection = { status: 'loading' | 'error' } | { status: 'ready'; web
 
 export function PopupContent({ detection }: { detection: Detection }) {
   const website = detection.status === 'ready' ? detection.website : undefined
-  const canImport = website?.kind === 'auction'
-  const manheim24 = website?.hostname === 'manheim24.com' || website?.hostname.endsWith('.manheim24.com') === true
+  const manheim24 = supportsVehicleHostname(website?.hostname)
+  const canImport = website?.kind === 'auction'&&(!manheim24||website.transferReady===true)
   const status = detection.status === 'loading' ? 'მოწმდება ვებსაიტი…'
     : detection.status === 'error' ? 'ვებსაიტის ამოცნობა ვერ მოხერხდა'
+    : manheim24&&!canImport?'გახსენით ავტომობილის დეტალები'
     : canImport ? 'მხარდაჭერილი ვებსაიტი'
     : website?.kind === 'destination' ? 'თქვენ MyAuto-ზე ხართ' : 'ვებსაიტი არ არის მხარდაჭერილი'
   const guidance = detection.status === 'loading' ? 'მიმდინარეობს აქტიური ჩანართის ამოცნობა.'
     : detection.status === 'error' ? 'ხელახლა გახსენით გაფართოება ვებსაიტის ამოსაცნობად.'
+    : manheim24&&!canImport?'გახსენით ავტომობილის დეტალური გვერდი და დაელოდეთ ამოცნობას. საჭიროების შემთხვევაში განაახლეთ გვერდი.'
     : manheim24 ? 'ერთი დაჭერით გადაიტანეთ მონაცემები MyAuto-ზე. განცხადებას გადამოწმების შემდეგ თავად გამოაქვეყნებთ.'
     : canImport ? 'ეს აუქციონის ვებსაიტი მხარდაჭერილია. ავტომობილის მონაცემების გადატანის ფუნქცია მალე დაემატება.'
     : website?.kind === 'destination' ? 'MyAuto-ზე ავტომობილის მონაცემების გადასატანად გახსენით მხარდაჭერილი აუქციონის ვებსაიტი.'

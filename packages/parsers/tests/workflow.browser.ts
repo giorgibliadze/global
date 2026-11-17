@@ -1,3 +1,10 @@
+import {runPhotoDestinationTests} from './photoDestination.browser'
+import {runStabilityTests} from './stability.browser'
+import {runPlatformIsolationTests} from './platformIsolation.browser'
+import {runSiteManheimTests} from './siteManheim.browser'
+import {runSourceEligibilityTests} from './sourceEligibility.browser'
+import {runPassiveMyautoTests} from './passiveMyauto.browser'
+import {runSearchManheimTests} from './searchManheim.browser'
 import {runFyusionTests} from './fyusion.browser'
 import {runPhotoCheckpointTests} from './photoCheckpoints.browser'
 import {runLocationTests} from './location.browser'
@@ -29,6 +36,13 @@ function changeData(d: Document, changes: Record<string, unknown>) {
 }
 const expectError = (fn: () => unknown, label: string) => { let threw = false; try { fn() } catch { threw = true } check(threw, label) }
 try {
+  await runSourceEligibilityTests(check)
+  await runPassiveMyautoTests(manheim,check)
+  await runSearchManheimTests(check)
+  await runSiteManheimTests(check)
+  await runPlatformIsolationTests(check)
+  await runStabilityTests(check)
+  await runPhotoDestinationTests(check)
   await runPhotoCheckpointTests(check)
   await runFyusionTests(manheim,check)
   const selected = doc()

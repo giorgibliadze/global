@@ -9,11 +9,8 @@ const text = (root: ParentNode, id: string) => {
 }
 const string = (v: unknown): string | undefined => typeof v === 'string' && v.trim() ? v.trim().slice(0, 500) : undefined
 const positive = (v: unknown): number | undefined => typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : undefined
-export const milesToKm = (miles: number) => miles * 1.609344
-export function engineToCc(value: string): number | undefined {
-  const m = value.match(/^\s*(\d+(?:\.\d+)?)\s*(L|liters?|litres?|cc|cm3|cm³)\s*$/i)
-  return m ? Math.round(Number(m[1]) * (/^l/i.test(m[2]) ? 1000 : 1)) : undefined
-}
+import {milesToKm,engineToCc} from './units'
+export {milesToKm,engineToCc} from './units'
 
 export {safePhotoUrl,deduplicatePhotos} from './photoUrls'
 import {deduplicatePhotos} from './photoUrls'

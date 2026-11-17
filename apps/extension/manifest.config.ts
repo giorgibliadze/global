@@ -43,6 +43,7 @@ export default defineManifest({
   }, {
     matches: ["https://*.myauto.ge/*"],
     js: ["src/myauto/index.tsx"],
+    world: "ISOLATED",
     run_at: "document_idle",
     all_frames: false
   }],

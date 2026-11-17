@@ -8,7 +8,11 @@
     "./myauto": "./src/myauto.ts",
     "./validation": "./src/validation.ts",
     "./normalization": "./src/normalization.ts",
-    "./location": "./src/listingLocation.ts"
+    "./location": "./src/listingLocation.ts",
+    "./search-manheim": "./src/searchManheim.ts",
+    "./site-manheim": "./src/siteManheim.ts",
+    "./photos": "./src/photoUrls.ts",
+    "./identity": "./src/identity.ts"
   },
   "dependencies": {
     "@auto-importer/shared": "*"

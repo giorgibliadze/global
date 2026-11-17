@@ -1,6 +1,5 @@
-import {claimMyautoTransfer,runMyautoTransfer} from './transfer'
-import {transferLifecycle} from '../services/transferLifecycle'
 import {pipelineLog} from '../services/diagnostics'
+import {installMyautoReceiver} from './activation'
 
 function failureNotice(photoFailure=false){
   if(document.getElementById('auto-importer-error'))return
@@ -8,22 +7,8 @@ function failureNotice(photoFailure=false){
   const shadow=host.attachShadow({mode:'open'}),style=document.createElement('style'),message=document.createElement('div')
   style.textContent=':host{all:initial;position:fixed;right:16px;bottom:16px;z-index:2147483647;pointer-events:none}div{max-width:min(320px,calc(100vw - 32px));padding:10px 14px;border:1px solid #E2E8F0;border-radius:10px;background:#fff;color:#0F172A;box-shadow:0 4px 18px #0f172a20;font:12px/1.6 sans-serif}'
   message.lang='ka';message.setAttribute('role','alert');message.textContent=photoFailure?'ფოტოების გადატანა ვერ დასრულდა':'გადატანა ვერ შესრულდა. ხელახლა სცადეთ წყაროს გვერდიდან.'
-  shadow.append(style,message);document.documentElement.append(host);setTimeout(()=>host.remove(),5000)
+  shadow.append(style,message);document.documentElement.append(host)
+  const cleanup=()=>{clearTimeout(timer);removeEventListener('pagehide',cleanup);host.remove()}
+  const timer=setTimeout(cleanup,5000);addEventListener('pagehide',cleanup,{once:true})
 }
-let receiving=false
-async function start(){
-  if(receiving||!/^\/ka\/add\/?$/.test(location.pathname))return
-  receiving=true
-  try{
-    const transfer=await claimMyautoTransfer()
-    if(!transfer)return
-    const result=await runMyautoTransfer(document,transfer,()=>{})
-    if(!result.photos.uploaded || result.photos.uploaded<result.photos.total)failureNotice(true)
-    else if(transferLifecycle(result)==='FAILED')failureNotice()
-  }catch{pipelineLog(undefined,'claiming','failed');failureNotice()}
-  finally{receiving=false}
-}
-let pathname=location.pathname
-new MutationObserver(()=>{if(pathname===location.pathname)return;pathname=location.pathname;void start()}).observe(document.documentElement,{childList:true,subtree:true})
-addEventListener('popstate',()=>void start())
-void start()
+try{installMyautoReceiver(document,{notice:failureNotice})}catch{pipelineLog(undefined,'claiming','failed')}

@@ -6,7 +6,9 @@ export interface ExtensionApi {
   runtime: {
     id: string
     sendMessage(message: unknown): Promise<unknown>
-    onMessage: { addListener(listener: Listener): void }
+    onMessage: { addListener(listener: Listener): void;removeListener?(listener:Listener):void }
+    onInstalled?:{addListener(listener:(details:{reason:string;previousVersion?:string})=>void):void}
+    getManifest?:()=>{version:string}
   }
   tabs: {
     query(query: { active: boolean; currentWindow: boolean }): Promise<Tab[]>
@@ -42,3 +44,5 @@ export async function request<T>(message: unknown): Promise<T> {
   if (!result?.ok) throw new Error(result?.error ?? 'მოთხოვნის შესრულება ვერ მოხერხდა.')
   return result.value as T
 }
+
+export function invalidatedExtensionContext(error:unknown){return error instanceof Error && /extension context invalidated|context has been invalidated/i.test(error.message)}

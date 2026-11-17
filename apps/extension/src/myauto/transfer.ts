@@ -1,3 +1,6 @@
+import {waitForUploader} from '../photos/readiness'
+import {liveClaim,isMyautoAddUrl,TRANSFER_PROTOCOL} from '../services/transferActivation'
+import {assertNormalizedVehicle} from '@auto-importer/parsers/validation'
 import {photoTrace,photoReport,preparationFailureStage} from '../photos/checkpoints'
 import type {PhotoCheckpoint,PhotoErrorCode} from '../photos/checkpoints'
 import {locationField,fillLocation} from '@auto-importer/parsers/myauto'
@@ -10,13 +13,14 @@ import { request } from '../services/extensionApi'
 import { prepareFiles } from '../photos/client'
 import { assertFreshMyauto, uploadPhotos } from '../photos/upload'
 
-export async function claimMyautoTransfer(attempts = 20, intervalMs = 500): Promise<TransferRecord | null> {
+export async function claimMyautoTransfer(attempts = 1, intervalMs = 500): Promise<TransferRecord | null> {
   let failed = false
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
-      const job = await request<TransferRecord | null>({ type: 'TRANSFER_CLAIM' })
+      const job = await request<TransferRecord | null>({ type: 'TRANSFER_CLAIM',protocol:TRANSFER_PROTOCOL })
       failed = false
-      if (job) { pipelineLog(job.id,'claiming','completed'); return job }
+      if (job) {if(!liveClaim(job))throw new Error('გადატანის ნებართვა არასწორია.');assertNormalizedVehicle(job.vehicle);pipelineLog(job.id,'claiming','completed');return job}
+      return null
     } catch { failed = true; pipelineLog(undefined,'claiming','retry') }
     if (attempt + 1 < attempts) await new Promise(resolve => setTimeout(resolve, Math.min(intervalMs,25*2**Math.min(attempt,5))))
   }
@@ -27,19 +31,27 @@ export async function claimMyautoTransfer(attempts = 20, intervalMs = 500): Prom
 const activeForms=new WeakMap<Document,{id:string;controller:AbortController}>()
 
 // The content-script entry and the browser regression harness run this same receiver.
-export async function runMyautoTransfer(doc: Document, transfer: TransferRecord, onUpdate: (record: TransferRecord) => void, options: { pageUrl?: () => string; dropdownTimeoutMs?: number; uploadTimeoutMs?: number } = {}): Promise<TransferRecord> {
+export async function runMyautoTransfer(doc: Document, transfer: TransferRecord, onUpdate: (record: TransferRecord) => void, options: { pageUrl?: () => string; dropdownTimeoutMs?: number; uploadTimeoutMs?: number;signal?:AbortSignal } = {}): Promise<TransferRecord> {
+  if(!liveClaim(transfer))throw new Error('გადატანის ნებართვა არასწორია.')
+  assertNormalizedVehicle(transfer.vehicle)
   if(activeForms.has(doc))throw new Error('ამ ფორმაში გადატანა უკვე მიმდინარეობს.')
   const controller = new AbortController()
   const owner={id:transfer.id,controller};activeForms.set(doc,owner)
-  const trace=await photoTrace(transfer.id,transfer.vehicle.vin)
-  const photoCounts={source:transfer.photos.total,downloaded:0,received:0,attempts:0,verified:0}
+  const cleanups:Array<()=>void>=[]
+  const abort=()=>controller.abort(options.signal?.reason)
+  if(options.signal?.aborted)abort()
+  options.signal?.addEventListener('abort',abort,{once:true})
+  cleanups.push(()=>options.signal?.removeEventListener('abort',abort))
+  try {
+  const trace=await photoTrace(transfer.id,transfer.vehicle.vin,transfer.vehicle.source)
+  const photoCounts={source:transfer.photos.total,discovered:transfer.vehicle.availableImageCount??transfer.photos.total,delivered:0,downloaded:0,received:0,attempts:0,verified:0}
   let photoStage:PhotoCheckpoint='PHOTO_PAYLOAD_RECEIVED',photoCode:PhotoErrorCode|undefined
   const transferStarted=performance.now()
   const pageUrl = options.pageUrl ?? (() => doc.location.href)
   let current = structuredClone(transfer)
   current.timings={...current.timings}
-  const addTiming=(stage:TimingStage,ms:number)=>{current.timings![stage]=(current.timings![stage] ?? 0)+ms;timingLog(transfer.id,stage,ms)}
-  async function measure<T>(stage:TimingStage,fn:()=>Promise<T>):Promise<T>{const started=performance.now();try{return await fn()}finally{addTiming(stage,performance.now()-started)}}
+  const addTiming=(stage:TimingStage,ms:number)=>{current.timings![stage]=(current.timings![stage] ?? 0)+ms;timingLog(transfer.id,stage,ms,{platform:transfer.vehicle.source,vehicleId:trace.vehicleId,status:'completed'})}
+  async function measure<T>(stage:TimingStage,fn:()=>Promise<T>):Promise<T>{const started=performance.now();try{const result=await fn();addTiming(stage,performance.now()-started);return result}catch(error){timingLog(transfer.id,stage,performance.now()-started,{platform:transfer.vehicle.source,vehicleId:trace.vehicleId,status:'failed'});throw error}}
   const update = () => onUpdate(structuredClone(current))
   async function phase(stage: TransferStage) {
     current.currentField=undefined;current.stage = stage; update()
@@ -49,15 +61,17 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
   const guard = () => {
     controller.signal.throwIfAborted()
     if(activeForms.get(doc)!==owner){controller.abort();throw new Error('გადატანა ჩანაცვლებულია.')}
-    if (!/^\/ka\/add\/?$/.test(new URL(pageUrl()).pathname)) { controller.abort(); throw new Error('გვერდის მისამართი შეიცვალა. გადატანა შეჩერებულია.') }
+    if (!isMyautoAddUrl(pageUrl())) { controller.abort(); throw new Error('გვერდის მისამართი შეიცვალა. გადატანა შეჩერებულია.') }
     const vin = doc.querySelector<HTMLInputElement>('input[name="primaryFeatures.vinCode"]')?.value.trim()
     if (vin && vin !== transfer.vehicle.vin) { controller.abort(); throw new Error('ფორმაში სხვა ავტომობილის VIN გამოჩნდა. ფოტოები არ შეირევა.') }
   }
   const navigation=()=>{try{guard()}catch{controller.abort()}}
   const pagehide=()=>controller.abort()
+  cleanups.push(()=>{doc.defaultView?.removeEventListener('popstate',navigation);doc.defaultView?.removeEventListener('hashchange',navigation);doc.defaultView?.removeEventListener('pagehide',pagehide)})
   doc.defaultView?.addEventListener('popstate',navigation);doc.defaultView?.addEventListener('hashchange',navigation);doc.defaultView?.addEventListener('pagehide',pagehide)
   let lastUrl=pageUrl()
   const routeObserver=new doc.defaultView!.MutationObserver(()=>{const url=pageUrl();if(url!==lastUrl){lastUrl=url;navigation()}})
+  cleanups.push(()=>routeObserver.disconnect())
   routeObserver.observe(doc.documentElement,{subtree:true,childList:true})
   let planned:ReturnType<typeof myautoFields>=[]
   const userEdited=new Set<string>()
@@ -69,6 +83,7 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
     }
   }
   const editEvents=['pointerdown','keydown','input','change']
+  cleanups.push(()=>{for(const event of editEvents)doc.removeEventListener(event,noteUser,true)})
   for(const event of editEvents)doc.addEventListener(event,noteUser,true)
   let results: FieldResult[] = [], uploaded = 0
   const errors: string[] = []
@@ -77,7 +92,7 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
     // Authentication/delayed SPA rendering are handled without private API calls.
     const formReady=()=>!!doc.querySelector('input[name="primaryFeatures.vinCode"],input[name="primaryFeatures.model"],select[name="primaryFeatures.model"],[data-testid="single-select-primaryFeatures.model"],[data-testid="description-textarea"]')
     await waitForDomReady(doc,()=>{guard();return formReady() && (!isMyautoControllerForm(doc) || textInteractive(doc))},controller.signal,25000)
-    const formReadyAt=performance.now()
+    const formReadyAt=performance.now();trace.mark('MYAUTO_PAGE_READY',current.photos.total)
     addTiming('destinationReadiness',Math.max(0,Date.now()-transfer.createdAt))
     assertFreshMyauto(doc)
     await phase('preparing')
@@ -100,29 +115,37 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
       guard();current.currentField=undefined;current.activity=undefined;update()
       pipelineLog(transfer.id,'filling',results.some(result=>result.status!=='filled')?'partial':'completed')
     }
-    const photoPipeline=async()=>{
-      pipelineLog(transfer.id,'uploading','started')
+    const preparePhotoFiles=async()=>{
       photoStage='PHOTO_URLS_EXTRACTED';photoCode='MESSAGE_FAILED'
-      if(!current.photos.total){current.photos=await request<TransferRecord['photos']>({type:'PHOTO_REFRESH',id:transfer.id});update()}
-      photoCounts.source=current.photos.total
+      if(!current.photos.total){const refreshed=await request<TransferRecord['photos'] & {availableImageCount?:number}>({type:'PHOTO_REFRESH',id:transfer.id});current.photos=refreshed;if(typeof refreshed.availableImageCount==='number')photoCounts.discovered=Math.max(photoCounts.discovered,refreshed.availableImageCount);update()}
+      photoCounts.source=current.photos.total;photoCounts.discovered=Math.max(photoCounts.discovered,current.photos.total)
       trace.mark('PHOTO_URLS_EXTRACTED',current.photos.total,current.photos.total?{}:{errorCode:'NO_URLS'})
       photoStage='PHOTO_PAYLOAD_RECEIVED'
       const prepared=await measure('photoDownload',()=>prepareFiles(transfer.id,current.photos.total,(ready,failed)=>{
         guard();current.photos.prepared=ready;current.photos.failed=failed;update()
-      },controller.signal,undefined,trace))
-      photoCounts.received=prepared.files.length
+      },controller.signal,undefined,trace,addTiming))
+      photoCounts.received=prepared.files.length;trace.mark('PHOTO_FILES_PREPARED',prepared.files.length)
       // Files are reconstructed only after metadata, complete chunks and SHA verification.
       photoCounts.downloaded=prepared.downloaded
       if(prepared.errors.length)photoCode=prepared.failureCode
+      return prepared
+    }
+    // Known photo lists download concurrently. A missing gallery is resolved only
+    // after text fills: PHOTO_REFRESH holds the job lock also used by form progress.
+    const prefetchedPhotos=current.photos.total>0?preparePhotoFiles():undefined
+    void prefetchedPhotos?.catch(()=>{}) // The original promise is awaited/reported below.
+    const photoPipeline=async()=>{
+      pipelineLog(transfer.id,'uploading','started')
+      const prepared=await (prefetchedPhotos??preparePhotoFiles())
       errors.push(...prepared.errors)
       // The adapter owns one upload operation. Only source-confirmed failed
       // gallery IDs may be resubmitted; successful photos are never cleared.
       if(!prepared.files.length){photoStage=preparationFailureStage(prepared.failureCode);photoCode=prepared.failureCode??(current.photos.total?'FILE_CONVERSION_FAILED':'NO_URLS');throw new Error('ფოტოების გადატანა ვერ დასრულდა')}
       photoStage='MYAUTO_UPLOADER_READY';photoCode='UPLOADER_TIMEOUT'
-      await waitForDomReady(doc,()=>{guard();return !!doc.querySelector('[data-testid="photo-video-dropzone"] input[type="file"]:not(:disabled)')},controller.signal,options.uploadTimeoutMs ?? 25000)
+      guard();await measure('uploaderReadiness',()=>waitForUploader(doc,controller.signal,options.uploadTimeoutMs??25000,transfer.id));guard()
       trace.mark('MYAUTO_UPLOADER_READY',prepared.files.length)
       photoStage='PHOTO_UPLOAD_STARTED';photoCode='INPUT_REJECTED'
-      const upload=await measure('photoUpload',()=>uploadPhotos(doc,prepared.files,count=>{guard();current.photos.uploaded=count;update()},{timeoutMs:options.uploadTimeoutMs,signal:controller.signal,guard,trace,onSubmitted:count=>{photoCounts.attempts++;current.photos.submitted=count;update()}}))
+      const upload=await measure('photoUpload',()=>uploadPhotos(doc,prepared.files,count=>{guard();current.photos.uploaded=count;update()},{timeoutMs:options.uploadTimeoutMs,signal:controller.signal,guard,trace,onTiming:addTiming,onSubmitted:count=>{photoCounts.attempts++;photoCounts.delivered=count;current.photos.submitted=count;update()}}))
       uploaded=upload.verified;photoCounts.verified=uploaded;errors.push(...upload.errors)
       photoStage=photoCounts.attempts?'PHOTO_GALLERY_VERIFIED':'PHOTO_UPLOAD_STARTED';photoCode=upload.errorCode??(!photoCounts.attempts?'INPUT_REJECTED':uploaded===current.photos.total && uploaded>0?undefined:uploaded?'UPLOAD_UNCONFIRMED':'EMPTY_GALLERY')
       if(photoCounts.attempts)trace.mark('PHOTO_UPLOAD_COMPLETED',uploaded,photoCode?{errorCode:photoCode}:{})
@@ -131,7 +154,7 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
       await request({type:'TRANSFER_PROGRESS',id:transfer.id,stage:'uploading',uploaded,submitted:current.photos.submitted})
       pipelineLog(transfer.id,'uploading',upload.errors.length || prepared.errors.length?'partial':'completed')
     }
-    // Only schedule photos after the existing automatic form operations settle.
+    // Only submit photos after the existing automatic form operations settle.
     // Missing/unresolved fields are results, not a requirement for a valid listing.
     try{await formPipeline()}catch(error){
       guard();results=verifyMyautoFields(doc,transfer.vehicle,current.fields)
@@ -164,8 +187,6 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
     errors.push(error instanceof Error && /[\u10A0-\u10FF]/.test(error.message) ? error.message : 'გადატანა ვერ დასრულდა. ველები და ფოტოები გადაამოწმეთ; წარმატება არ დადასტურებულა.')
   }
   photoReport(trace,photoCounts,photoCounts.verified>0 && photoCounts.verified===photoCounts.source?undefined:photoStage,photoCode)
-  routeObserver.disconnect();doc.defaultView?.removeEventListener('popstate',navigation);doc.defaultView?.removeEventListener('hashchange',navigation);doc.defaultView?.removeEventListener('pagehide',pagehide)
-  for(const event of editEvents)doc.removeEventListener(event,noteUser,true)
   current.currentField=undefined;current.activity=undefined
   addTiming('total',performance.now()-transferStarted)
   try {
@@ -176,9 +197,13 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
     current.status = 'error'; current.errors = [...errors, 'საბოლოო შედეგის შენახვა ვერ მოხერხდა. მონაცემები და ფოტოები გადაამოწმეთ MyAuto-ზე.']
   }
   pipelineLog(transfer.id,'finished',current.status==='error'?'partial':'completed')
-  if(activeForms.get(doc)===owner)activeForms.delete(doc)
   update()
   return current
+  } finally {
+    controller.abort()
+    for(const cleanup of cleanups.reverse())try{cleanup()}catch{pipelineLog(transfer.id,'cleanup','failed')}
+    if(activeForms.get(doc)===owner)activeForms.delete(doc)
+  }
 }
 
 // A field retry claims the existing destination job; it never opens a tab, downloads

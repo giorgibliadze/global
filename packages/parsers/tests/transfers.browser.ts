@@ -63,10 +63,10 @@ export async function runTransferTests(manheim: string, myauto: string, check: (
   check(b.id !== a.id && b.destinationTabId !== a.destinationTabId && b.vehicle.vin !== a.vehicle.vin, 'vehicle B isolated by transfer ID/source snapshot/destination')
   const senderA: Sender = { id: 'fixture', tab: { id: a.destinationTabId, url: 'https://myauto.ge/ka/add' }, documentId: 'document-A' }
   const senderB: Sender = { id: 'fixture', tab: { id: b.destinationTabId, url: 'https://myauto.ge/ka/add' }, documentId: 'document-B' }
-  const claimed = await manager.handle({ type: 'TRANSFER_CLAIM' }, senderA) as TransferRecord
-  await manager.handle({ type: 'TRANSFER_CLAIM' }, senderB)
+  const claimed = await manager.handle({ type: 'TRANSFER_CLAIM',protocol:1 }, senderA) as TransferRecord
+  await manager.handle({ type: 'TRANSFER_CLAIM',protocol:1 }, senderB)
   check(claimed.lifecycle==='NAVIGATING','direct UX: destination claim preserves navigation state until the form is ready')
-  check(claimed.id === a.id && await manager.handle({ type: 'TRANSFER_CLAIM' }, senderA) === null, 'single claim prevents reinjection/refresh overwrites')
+  check(claimed.id === a.id && await manager.handle({ type: 'TRANSFER_CLAIM',protocol:1 }, senderA) === null, 'single claim prevents reinjection/refresh overwrites')
   async function rejected(operation: () => Promise<unknown>) { try { await operation(); return false } catch { return true } }
   check(await rejected(() => manager.handle({ type: 'PHOTO_PREPARE', id: a.id, index: 0 }, senderB)), 'B cannot request A photos')
   check(await rejected(() => manager.handle({ type: 'PHOTO_PREPARE', id: a.id, index: 0 }, { ...senderA, documentId: 'replacement-document' })), 'replacement documents cannot reuse claimed transfers')
@@ -166,7 +166,7 @@ export async function runTransferTests(manheim: string, myauto: string, check: (
   const finished = await manager.handle({ type: 'TRANSFER_FINISH', id:a.id,fields:[],uploaded:1,errors:['დანარჩენი ფოტოები სატესტო რეჟიმში არ ატვირთულა.'] },senderA) as TransferRecord
   check(await rejected(() => manager.handle({type:'TRANSFER_PROGRESS',id:a.id,stage:'filling'},senderA)), 'finished transfers cannot be restarted or mutated by progress messages')
   check(finished.lifecycle==='COMPLETED' && !store[`destination:${a.destinationTabId}`] && (store[`active:${sourceSender.tab!.id}`]===b.id),'direct UX: completed partial draft cleans only its destination binding and preserves newer active transfers')
-  check(await manager.handle({type:'TRANSFER_CLAIM'},senderA)===null,'direct UX: reload cannot reclaim a completed transfer')
+  check(await manager.handle({type:'TRANSFER_CLAIM',protocol:1},senderA)===null,'direct UX: reload cannot reclaim a completed transfer')
   check(finished.status === 'error' && finished.photos.uploaded === 1 && finished.photos.failed === a.photos.total - 1, 'partial photo transfer never becomes fake completion')
   check(!await cache.get(a.id,0) && !!await cache.get(b.id,0), 'finish clears A binary data without touching B')
   await manager.tabClosed(b.destinationTabId!)

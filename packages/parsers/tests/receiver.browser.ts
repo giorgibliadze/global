@@ -91,6 +91,7 @@ export async function runReceiverTests(manheim:string, myauto:string, check:(val
         const container=doc.querySelector('[data-testid="photo-video-container"]')!
         const input=doc.querySelector<HTMLInputElement>('[data-testid="photo-video-dropzone"] input[type="file"]')!
         input.addEventListener('change',()=>{
+          check(!!doc.querySelector<HTMLSelectElement>('select[name="primaryFeatures.model"]')!.value,`receiver ${name}: photo submission still follows dependent form operations`)
           check(input.files?.length===1,`receiver ${name}: real photo File reaches upload control`)
           container.querySelector('.fixture-photo-count')!.textContent='ფოტო 1/15'
           const img=doc.createElement('img')
@@ -103,7 +104,7 @@ export async function runReceiverTests(manheim:string, myauto:string, check:(val
         const filledWhileDownloading=new Promise<void>(resolve=>{filled=resolve})
         const running=runMyautoTransfer(doc,claimed,progress=>{if(progress.fields.some(field=>field.key==='mileageKm' && field.persisted))filled()},{pageUrl:()=>sender.tab!.url!,dropdownTimeoutMs:20,uploadTimeoutMs:800})
         await started
-        check(!!doc.querySelector<HTMLSelectElement>('select[name="primaryFeatures.model"]')!.value,`receiver ${name}: automatic form operations finish before photo downloads start`)
+        check(!doc.querySelector<HTMLSelectElement>('select[name="primaryFeatures.model"]')!.value,`receiver ${name}: known photo downloads overlap independent form operations`)
         let duplicateRejected=false
         try{await runMyautoTransfer(doc,claimed,()=>{},{pageUrl:()=>sender.tab!.url!})}catch{duplicateRejected=true}
         check(duplicateRejected,`receiver ${name}: one active pipeline owner per destination form`)
