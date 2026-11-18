@@ -13,6 +13,9 @@ const extensionDist=process.env.AUTO_EXTENSION_DIST ?? join(root,'apps/extension
 for(const file of await readdir(join(extensionDist,'assets'))){
   if(file.endsWith('.js'))assert.ok(!(await readFile(join(extensionDist,'assets',file),'utf8')).includes('vite:preloadError'),'Built extension never dispatches website-global Vite preload errors')
 }
+const stressTabs=Number(process.env.AUTO_STRESS_TABS??0)
+const stressLegacy=stressTabs?await readFile(join(root,'packages/parsers/tests/fixtures/manheim24.html'),'utf8'):''
+const stressRegular=stressTabs?await readFile(join(root,'packages/parsers/tests/fixtures/search-manheim.html'),'utf8'):''
 const snapshot24=process.env.AUTO_24_SNAPSHOT==='1'
 const search24Test=process.env.AUTO_24_SEARCH_TEST==='1'
 const searchTest=process.env.AUTO_SEARCH_TEST==='1'
@@ -102,7 +105,7 @@ try {
       if(message.sessionId===workerSession && !main)photoRequests++
       if(benchmark && message.sessionId===workerSession && !main)await new Promise(resolve=>setTimeout(resolve,120))
       const lazyScript=`<script>(()=>{const node=document.querySelector('.StockWaveInfo'),gallery=document.querySelector('#fyusion-prism-viewer'),data=JSON.parse(node.textContent);const saved={images:data.images,mainImage:data.mainImage,html:gallery.innerHTML};data.images=[];delete data.mainImage;node.textContent=JSON.stringify(data);gallery.innerHTML='';window.fixtureRestorePhotos=()=>{const current=JSON.parse(node.textContent);current.images=saved.images;if(saved.mainImage)current.mainImage=saved.mainImage;node.textContent=JSON.stringify(current);gallery.innerHTML=saved.html}})()</script>`
-      const html=(url.hostname===sourceHost&&url.pathname!=='/en/locations.html')?source+(lazyPhotosTest?lazyScript:''):url.hostname==='myauto.ge'?destination():url.hostname==='site.manheim.com'?'<h1>Find A Manheim Location</h1><img src="https://images.cdn.manheim.com/location-banner.jpg">':null
+      const html=(stressTabs&&url.hostname==='home.manheim24.com'&&sourceHost!=='home.manheim24.com')?stressLegacy:(stressTabs&&url.hostname==='search.manheim.com'&&sourceHost!=='search.manheim.com')?stressRegular:(url.hostname===sourceHost&&url.pathname!=='/en/locations.html')?source+(lazyPhotosTest?lazyScript:''):url.hostname==='myauto.ge'?destination():url.hostname==='site.manheim.com'?'<h1>Find A Manheim Location</h1><img src="https://images.cdn.manheim.com/location-banner.jpg">':null
       await command('Fetch.fulfillRequest',{requestId,responseCode:main&&!html?404:200,responseHeaders:[{name:'Content-Type',value:main?'text/html; charset=utf-8':'image/png'}],body:main?Buffer.from(html ?? '').toString('base64'):png},message.sessionId)
     })().catch(()=>failures.push('Fixture request interception failed'))
     if(message.method==='Target.attachedToTarget')void (async()=>{
@@ -134,6 +137,21 @@ try {
     const result=await command('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true},sessionId)
     assert.ok(!result.exceptionDetails,'Fixture evaluation has no exception')
     return result.result.value
+  }
+  const stressIdleTargets=new Set()
+  let stressMyautoTabs=0
+  if(stressTabs){
+    assert.ok(Number.isInteger(stressTabs)&&stressTabs>=1&&stressTabs<=30)
+    for(let index=1;index<stressTabs;index++){
+      const url=index%3===0?'https://myauto.ge/ka/add':index%3===1?'https://home.manheim24.com/landingPage#/results/stress':'https://search.manheim.com/results#/details/SALKZ9F90RA229948/OVE'
+      const {targetId}=await command('Target.createTarget',{url:'about:blank',background:true})
+      stressIdleTargets.add(targetId);if(url==='https://myauto.ge/ka/add')stressMyautoTabs++
+      await wait(()=>sessions.has(targetId),'stress tab instrumentation')
+      await command('Page.navigate',{url},sessions.get(targetId))
+      await wait(()=>evaluate(sessions.get(targetId),"document.readyState==='complete'"),'stress page fixture')
+    }
+    assert.equal(photoRequests,0,'Inactive fixture tabs never download photos through the worker')
+    console.log('PASS '+stressTabs+' real Chrome page targets: mixed source and ordinary MyAuto fixtures; no background photo downloads before transfer')
   }
   if(process.env.AUTO_PASSIVE_TEST==='1'){
     await evaluate(workerSession,`globalThis.fixtureClaims={};chrome.runtime.onMessage.addListener((message,sender)=>{if(message?.type==='TRANSFER_CLAIM')globalThis.fixtureClaims[sender.tab.id]=(globalThis.fixtureClaims[sender.tab.id]??0)+1})`)
@@ -226,7 +244,7 @@ try {
     if(prefetchTest){
       await wait(()=>evaluate(sourceSession,`${shadow}.querySelector('.dock').dataset.preparationState==='ready'`),'automatic preparation ready '+name)
       assert.equal(photoRequests,downloadsAtSelection,'Prefetch never downloads full-resolution photos')
-      assert.equal((await command('Target.getTargets')).targetInfos.filter(target=>target.type==='page'&&target.url==='https://myauto.ge/ka/add').length,jobs.length,'Prefetch never opens a listing tab')
+      assert.equal((await command('Target.getTargets')).targetInfos.filter(target=>target.type==='page'&&target.url==='https://myauto.ge/ka/add').length,jobs.length+stressMyautoTabs,'Prefetch never opens a listing tab')
     }
     if(locationTest && name==='B')await evaluate(workerSession,`chrome.storage.local.set({'auto-importer:listing-location:v1':'თბილისი'})`)
     await wait(()=>evaluate(sourceSession,`!${shadow}.querySelector('.launcher').disabled`),'verified vehicle action available '+name)
@@ -239,7 +257,7 @@ try {
       job=await evaluate(workerSession,`(async()=>{const entries=await chrome.storage.session.get(null);const records=Object.entries(entries).filter(([key])=>key.startsWith('job:')).map(([,value])=>value);const job=records.find(record=>record.vehicle.model===${JSON.stringify(model)});return job?{id:job.id,createdAt:job.createdAt,destinationTabId:job.destinationTabId,stage:job.stage,status:job.status,uploaded:job.photos.uploaded,total:job.photos.total,timings:job.timings,fields:job.fields,listingLocation:job.listingLocation,errors:job.errors,preparation:job.preparation}:null})()`)
       if(lazyPhotosTest && !photosRestored && job?.stage==='uploading' && job.total===0){await evaluate(sourceSession,'window.fixtureRestorePhotos()');photosRestored=true}
       if(reactTest && !inspected && job?.status==='running' && job.fields.some(field=>field.key==='mileageKm' && field.persisted) && job.uploaded<job.total){
-        const target=(await command('Target.getTargets')).targetInfos.find(target=>target.type==='page'&&target.url==='https://myauto.ge/ka/add'&&!jobs.some(previous=>previous.targetId===target.targetId))
+        const target=(await command('Target.getTargets')).targetInfos.find(target=>target.type==='page'&&target.url==='https://myauto.ge/ka/add'&&!stressIdleTargets.has(target.targetId)&&!jobs.some(previous=>previous.targetId===target.targetId))
         const session=target&&sessions.get(target.targetId)
         if(session){
           const point=await evaluate(session,`(()=>{const button=document.getElementById('fixture-other-field');button.scrollIntoView();const rect=button.getBoundingClientRect();return {x:rect.x+rect.width/2,y:rect.y+rect.height/2}})()`)
@@ -261,7 +279,7 @@ try {
     if(job.uploaded!==job.total)console.error('Transfer verification errors',job.errors)
     assert.equal(job.uploaded,job.total,'Automatic photo transport and upload acknowledgment complete')
     assert.ok(job.total>0)
-    const tabs=(await command('Target.getTargets')).targetInfos.filter(target=>target.type==='page'&&target.url==='https://myauto.ge/ka/add')
+    const tabs=(await command('Target.getTargets')).targetInfos.filter(target=>target.type==='page'&&target.url==='https://myauto.ge/ka/add'&&!stressIdleTargets.has(target.targetId))
     assert.equal(tabs.length,jobs.length+1,'Each new vehicle opens an independent destination')
     const destinationTarget=tabs.find(target=>!jobs.some(previous=>previous.targetId===target.targetId))
     const destinationSession=sessions.get(destinationTarget.targetId)

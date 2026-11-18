@@ -66,11 +66,12 @@ export async function runReceiverTests(manheim:string, myauto:string, check:(val
         source.querySelector('[data-testid="vdp-title-text"]')!.textContent='2026 BMW M3 Touring'
         for(const img of source.querySelectorAll('img'))img.src=img.src.replace('/fixture/','/fixture-b/')
       }
-      if(name==='C'){const element=source.querySelector('.StockWaveInfo')!,data=JSON.parse(element.textContent!);data.trims=['Base','Other'];data.sourceTrim='Other';element.textContent=JSON.stringify(data)}
+      if(name==='C'){const element=source.querySelector('.StockWaveInfo')!,data=JSON.parse(element.textContent!);data.trims=['Base','Other'];data.sourceTrim='Other';data.engineFuelType='Electric';delete data.engineDisplacement;delete data.engineType;element.textContent=JSON.stringify(data);for(const id of ['card-view-engine-displacement','card-view-engine-type'])source.querySelectorAll(`[data-testid="${id}"]`).forEach(node=>{node.textContent=''})}
       const review=await manager.review(sourceSender)
       if(name==='C'){const element=source.querySelector('.StockWaveInfo')!,data=JSON.parse(element.textContent!);data.trims=['Base'];data.sourceTrim='Base';element.textContent=JSON.stringify(data)}
       const job=await manager.start(sourceSender,review.reviewId)
       check(vehicleSnapshot(review.vehicle)===vehicleSnapshot(storageRoundtrip(review.vehicle)),`receiver ${name}: Chrome storage key reordering cannot invalidate unchanged reviewed data`)
+      if(name==='C')check(job.vehicle.fuel==='Electric'&&job.vehicle.engineCc===undefined&&job.vehicle.cylinders===undefined,'receiver EV: missing combustion specifications do not block an electric payload')
       if(name==='C')check(job.vehicle.trim===null && job.vehicle.fullModelName==='M3 Touring','receiver C: ambiguous trim permits independent transfer payload with full designation intact')
       check(job.vehicle.model===(name==='A'?'M5 Touring Wagon':'M3 Touring') && job.vehicle.vin.length===17,`receiver ${name}: valid selected vehicle produces intact exact-model/VIN payload`)
       sender={id:'fixture',tab:{id:job.destinationTabId,url:'https://myauto.ge/ka/add'},documentId:`receiver-${name}`}

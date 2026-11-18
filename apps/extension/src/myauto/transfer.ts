@@ -6,7 +6,7 @@ import type {PhotoCheckpoint,PhotoErrorCode} from '../photos/checkpoints'
 import {locationField,fillLocation} from '@auto-importer/parsers/myauto'
 import {resolveListingLocation} from '@auto-importer/parsers/location'
 import { waitForDomReady } from '../services/domReady'
-import { pipelineLog, timingLog } from '../services/diagnostics'
+import { sessionLog,pipelineLog, timingLog } from '../services/diagnostics'
 import { isMyautoControllerForm,textInteractive,fillMyautoForm, verifyMyautoFields, verifyMyautoPersistence, applyAutofillPolicy, myautoFields } from '@auto-importer/parsers/myauto'
 import type { FieldResult, TransferRecord, TransferStage, TimingStage } from '@auto-importer/shared'
 import { request } from '../services/extensionApi'
@@ -107,6 +107,7 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
         allowAutofillCorrection:true,dropdownTimeoutMs:options.dropdownTimeoutMs,signal:controller.signal,beforeField:guard,
         onResult:async fields=>{
           guard();current.fields=fields
+          if(fields.some(field=>field.status!=='filled'))sessionLog(current,trace.vehicleId,'field-mapping','partial','FIELD_UNRESOLVED')
           if(!firstField && fields.some(field=>field.status==='filled' && field.persisted)){firstField=true;addTiming('firstField',performance.now()-transferStarted);addTiming('firstFieldAfterReady',performance.now()-formReadyAt)}
           update()
           await request({type:'TRANSFER_PROGRESS',id:transfer.id,stage:'filling',fields,formTotal:planned.length,currentField:current.currentField ?? ''})
@@ -192,7 +193,8 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
   try {
     current = await request<TransferRecord>({ type: 'TRANSFER_FINISH', id: transfer.id, fields: results, errors, uploaded, timings:current.timings })
   } catch {
-    pipelineLog(transfer.id,'finished','failed')
+    sessionLog(current,trace.vehicleId,'transfer-completed',current.status==='error'?'partial':'completed')
+  pipelineLog(transfer.id,'finished','failed')
     current.fields=results;current.photos.uploaded=uploaded
     current.status = 'error'; current.errors = [...errors, 'საბოლოო შედეგის შენახვა ვერ მოხერხდა. მონაცემები და ფოტოები გადაამოწმეთ MyAuto-ზე.']
   }

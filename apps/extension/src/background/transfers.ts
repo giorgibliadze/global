@@ -10,8 +10,8 @@ import {myautoFields,applyAutofillPolicy} from '@auto-importer/parsers/myauto'
 import { PreparedVehicles } from './preparation'
 import type { PreparedVehicle } from './preparation'
 import { MODEL_TRIM_WARNING } from '@auto-importer/parsers/identity'
-import { pipelineLog } from '../services/diagnostics'
-import { timingStages,PHOTO_DOWNLOAD_CONCURRENCY } from '@auto-importer/shared'
+import { sessionLog,pipelineLog } from '../services/diagnostics'
+import { timingStages } from '@auto-importer/shared'
 import type { TransferTimings } from '@auto-importer/shared'
 import { assertNormalizedVehicle } from '@auto-importer/parsers/validation'
 import type { NormalizedVehicle, TransferRecord, TransferStage } from '@auto-importer/shared'
@@ -39,6 +39,8 @@ export const vehicleSnapshot = (v: NormalizedVehicle) => JSON.stringify(
 const selectedIdentity=(vehicle:NormalizedVehicle)=>JSON.stringify([vehicle.source,vehicle.listingId,vehicle.vin,vehicle.make,vehicle.fullModelName ?? vehicle.model])
 interface VehicleReview { reviewId: string; sourceTabId: number; vehicle: NormalizedVehicle; createdAt: number }
 export const COMPLETED_TRANSFER_LIMIT=20
+export const MAX_GLOBAL_PHOTO_DOWNLOADS=8
+export const MAX_ACTIVE_TRANSFERS=4
 const REVIEW_TTL = 5 * 60 * 1000
 export class TransferManager {
   private preparations=new PreparedVehicles()
@@ -60,7 +62,7 @@ export class TransferManager {
     try { return await next } finally { if (this.locks.get(key) === next) this.locks.delete(key) }
   }
   private async limitedDownload<T>(fn:()=>Promise<T>):Promise<T> {
-    if(this.activeDownloads>=PHOTO_DOWNLOAD_CONCURRENCY)await new Promise<void>(resolve=>this.downloadQueue.push(resolve))
+    if(this.activeDownloads>=MAX_GLOBAL_PHOTO_DOWNLOADS)await new Promise<void>(resolve=>this.downloadQueue.push(resolve))
     else this.activeDownloads++
     try{return await fn()}finally{const next=this.downloadQueue.shift();if(next)next();else this.activeDownloads--}
   }
@@ -273,8 +275,6 @@ export class TransferManager {
           if (vehicleSnapshot(old.vehicle) === vehicleSnapshot(vehicle) && (old.status === 'running' || Date.now()-old.updatedAt<3000)) return old
         } catch { /* Expired jobs do not prevent a fresh user-initiated transfer. */ }
       }
-      const entries = await this.api.storage.session.get(null)
-      if (Object.entries(entries).filter(([k,v]) => k.startsWith('job:') && (v as TransferRecord).status === 'running').length >= 4) throw new Error('ერთდროულად მაქსიმუმ ოთხი გადატანაა შესაძლებელი. დაელოდეთ მიმდინარე ოპერაციებს.')
       let listingLocation
       try{listingLocation=resolveListingLocation(vehicle,override,override?undefined:await getLocationPreference(this.api))}
       catch{listingLocation={source:'unresolved' as const,original:'შენახული მდებარეობა ვერ წაიკითხა'}}
@@ -287,10 +287,16 @@ export class TransferManager {
         photos: { total: vehicle.images.length, prepared: 0, uploaded: 0, failed: 0 }, fields: [], errors: [],
       }
       const sourceTrace=await photoTrace(record.id,record.vehicle.vin,record.vehicle.source)
+      sessionLog(record,sourceTrace.vehicleId,'transfer-started','started')
       sourceTrace.mark('PHOTO_SOURCE_READY',record.photos.total)
       sourceTrace.mark('PHOTO_URLS_EXTRACTED',record.photos.total,record.photos.total?{}:{errorCode:'NO_URLS'})
       pipelineLog(record.id,'storing','started')
-      await this.save(record)
+      // Admission and reservation must be atomic across different source tabs.
+      await this.lock('admission',async()=>{
+        const entries=await this.api.storage.session.get(null)
+        if(Object.entries(entries).filter(([key,value])=>key.startsWith('job:')&&(value as TransferRecord).status==='running').length>=MAX_ACTIVE_TRANSFERS)throw new Error('ერთდროულად მაქსიმუმ ოთხი გადატანაა შესაძლებელი. დაელოდეთ მიმდინარე ოპერაციებს.')
+        await this.save(record)
+      })
       pipelineLog(record.id,'storing','completed')
       await this.api.storage.session.set({ [`active:${tab.id}`]: record.id })
       try {
@@ -412,6 +418,7 @@ export class TransferManager {
         trace.mark('PHOTO_URLS_EXTRACTED',record.photos.total)
         const cached = await this.photos.get(record.id, index as number)
         if (cached) {trace.mark('PHOTO_DOWNLOAD_COMPLETED',1,{index:index as number});return cached.metadata}
+        sessionLog(record,trace.vehicleId,'photo-download','started')
         const prepared = await this.limitedDownload(async()=>{const current=await this.read(record.id);if(current.status!=='running')throw new Error('ეს გადატანა აღარ მუშავდება.');return this.download(current.vehicle.images[index as number], index as number,undefined,trace,this.downloadSignal(record.id))})
         return this.lock(`job:${record.id}`,async()=>{
         const writable=await this.read(record.id)
@@ -426,6 +433,7 @@ export class TransferManager {
         catch (error) { await this.photos.remove(record.id); throw error }
         latest.photos.prepared = this.photos.count ? await this.photos.count(record.id) : (await Promise.all(record.vehicle.images.map((_, i) => this.photos.get(record.id, i)))).filter(Boolean).length
         await this.save(latest)
+        sessionLog(latest,trace.vehicleId,'photo-prepared','completed')
         return prepared.metadata
         })
       })

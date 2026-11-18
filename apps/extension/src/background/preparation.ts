@@ -3,7 +3,7 @@ import { myautoFields } from '@auto-importer/parsers/myauto'
 import type { NormalizedVehicle, PreparedFormField, PreparationSummary } from '@auto-importer/shared'
 import { timingLog } from '../services/diagnostics'
 
-const TTL=120000,LIMIT=20
+const TTL=120000,LIMIT=64
 export interface PreparedVehicle {vehicle:NormalizedVehicle;fields:PreparedFormField[];summary:PreparationSummary;key:string}
 export class PreparedVehicles {
   private generations=new Map<number,string>()

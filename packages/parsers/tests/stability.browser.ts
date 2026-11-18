@@ -1,3 +1,4 @@
+import {runSessionStress} from './sessionStress.browser'
 import {VehiclePreparation} from '../../../apps/extension/src/content/preparation'
 import {registerManheimParser} from '../../../apps/extension/src/content/manheim'
 import {manheim24Adapter,siteManheimAdapter,searchManheimAdapter} from '../../../apps/extension/src/content/sourceAdapters'
@@ -64,4 +65,5 @@ export async function runStabilityTests(check:(v:unknown,label:string)=>void){
   const stored=(await store.get(id,0))!;stored.createdAt=Date.now()-40*60000
   await new Promise<void>((resolve,reject)=>{const open=indexedDB.open('auto-importer-temporary-photos',1);open.onsuccess=()=>{const db=open.result,tx=db.transaction('photos','readwrite');tx.objectStore('photos').put(stored);tx.oncomplete=()=>{db.close();resolve()};tx.onerror=()=>{db.close();reject(new Error('fixture aging failed'))}}})
   await store.prune(new Set([id]),Date.now());check(!!await store.get(id,0),'stability: owned active photo data survives age-based maintenance');await store.remove(id)
+  await runSessionStress(check)
 }

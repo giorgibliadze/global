@@ -32,6 +32,7 @@ export class VehiclePreparation {
     this.adapter=adapter
     this.doc=doc;this.api=api;this.url=url
     this.route=url()
+    doc.addEventListener('visibilitychange',this.visibility)
     try{this.lastKey=this.adapter.selection(doc,this.url())}catch{ /* Details may render later. */ }
     this.observer=new doc.defaultView!.MutationObserver(records=>this.changed(records))
     this.observer.observe(doc.documentElement,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['hidden','aria-hidden','style','class','src','data-key','data-vin','tip']})
@@ -69,10 +70,11 @@ export class VehiclePreparation {
     if(this.blocked && selected.key===this.blocked.key)throw new Error('ავტომობილის გვერდი ჯერ ახლდება.')
     this.blocked=undefined;this.lastKey=selected;return selected
   }
+  private visibility=()=>{if(!this.doc.hidden)this.schedule()}
   private schedule(){
-    if(this.scheduled || this.disposed)return
+    if(this.scheduled || this.disposed || this.doc.hidden)return
     this.scheduled=true
-    queueMicrotask(()=>{this.scheduled=false;if(!this.disposed)void this.prepare()})
+    queueMicrotask(()=>{this.scheduled=false;if(!this.disposed && !this.doc.hidden)void this.prepare()})
   }
   private prepare():Promise<void>{
     if(this.disposed)return Promise.resolve()
@@ -123,5 +125,5 @@ export class VehiclePreparation {
   verify(id:unknown):boolean {
     try{this.flush();const selected=this.selection();return !!this.ready && this.ready.id===id && Date.now()-this.ready.at<PREPARATION_TTL && selected.key===this.ready.key && selected.root===this.ready.root}catch{return false}
   }
-  dispose(){this.lifetime.abort();this.disposed=true;this.generation++;this.ready=undefined;this.observer.disconnect();this.doc.defaultView?.removeEventListener('hashchange',this.navigation);this.doc.defaultView?.removeEventListener('popstate',this.navigation);this.listeners.clear()}
+  dispose(){this.doc.removeEventListener('visibilitychange',this.visibility);this.lifetime.abort();this.disposed=true;this.generation++;this.ready=undefined;this.observer.disconnect();this.doc.defaultView?.removeEventListener('hashchange',this.navigation);this.doc.defaultView?.removeEventListener('popstate',this.navigation);this.listeners.clear()}
 }
