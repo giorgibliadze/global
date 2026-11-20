@@ -18,7 +18,10 @@ export default defineManifest({
     "https://*.myauto.ge/*",
     "https://i.fyuse.com/*",
     "https://images.cdn.manheim.com/*",
-    "https://images--cdn.manheim24.com/*"
+    "https://images--cdn.manheim24.com/*",
+    "https://file3.autolookout.net/*",
+    "https://dxbrs3zlwqu4z.cloudfront.net/*",
+    "http://file3.autolookout.net/*"
   ],
 
   background: { service_worker: "src/background/index.ts", type: "module" },
@@ -31,6 +34,12 @@ export default defineManifest({
   },
 
   content_scripts: [{
+    matches: ["https://www.edgepipeline.com/components/vehicle/detail/*"],
+    js: ["src/content/edgeGalleryBridge.ts"],
+    world: "MAIN",
+    run_at: "document_idle",
+    all_frames: false
+  }, {
     matches: [
       "*://*.manheim.com/*",
       "https://*.manheim24.com/*",

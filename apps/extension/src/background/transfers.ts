@@ -1,3 +1,6 @@
+import type {EdgePreloads} from './edgePreloads'
+import {downloadEdgePhoto} from './edgeDownloads'
+import {refreshEdgeGallery} from './edgeRefresh'
 import {validStoredTransfer,transferExpired,readyToClaim,stateSchemaKey,isFieldResult} from './transferState'
 import {TRANSFER_PROTOCOL,READY_WINDOW_MS} from '../services/transferActivation'
 import {vehicleSource,vehicleDetailUrl} from '../services/sourceRegistry'
@@ -52,9 +55,11 @@ export class TransferManager {
   private downloadQueue:Array<()=>void>=[]
   private locks = new Map<string, Promise<unknown>>()
   private api: ExtensionApi
+  private edgePreloads?:EdgePreloads
+  preloadEdgePhoto:typeof downloadPhoto=(url,index,fetcher,trace,signal)=>this.limitedDownload(()=>downloadEdgePhoto(url,index,fetcher,trace,signal))
   private photos: PhotoStore
   private download: typeof downloadPhoto
-  constructor(api: ExtensionApi, photos: PhotoStore, download = downloadPhoto) { this.api = api; this.photos = photos; this.download = download }
+  constructor(api: ExtensionApi, photos: PhotoStore, download = downloadPhoto,edgePreloads?:EdgePreloads) { this.api = api; this.photos = photos; this.download = download;this.edgePreloads=edgePreloads }
   private async lock<T>(key: string, fn: () => Promise<T>): Promise<T> {
     const previous = this.locks.get(key) ?? Promise.resolve()
     const next = previous.catch(() => {}).then(fn)
@@ -83,6 +88,7 @@ export class TransferManager {
   }
   private async remove(record: TransferRecord) {
     this.cancelDownloads(record.id)
+    if(record.vehicle.source==='EdgePipeline')await this.edgePreloads?.finish(record.id).catch(()=>{pipelineLog(record.id,'cleanup','failed')})
     try { await this.photos.remove(record.id) } catch { pipelineLog(record.id,'cleanup','failed') }
     await this.api.storage.session.remove(`job:${record.id}`)
     if ((await this.api.storage.session.get(`active:${record.sourceTabId}`))[`active:${record.sourceTabId}`] === record.id) await this.api.storage.session.remove(`active:${record.sourceTabId}`)
@@ -286,6 +292,7 @@ export class TransferManager {
         activation:{schema:TRANSFER_PROTOCOL,state:'PREPARING'},
         photos: { total: vehicle.images.length, prepared: 0, uploaded: 0, failed: 0 }, fields: [], errors: [],
       }
+      if(record.vehicle.source==='EdgePipeline')try{await this.edgePreloads?.bind(record)}catch{pipelineLog(record.id,'preparing','retry')}
       const sourceTrace=await photoTrace(record.id,record.vehicle.vin,record.vehicle.source)
       sessionLog(record,sourceTrace.vehicleId,'transfer-started','started')
       sourceTrace.mark('PHOTO_SOURCE_READY',record.photos.total)
@@ -387,25 +394,36 @@ export class TransferManager {
       })
     }
     this.destination(record, sender)
+    if(message.type==='EDGE_PHOTO_RELEASE')return this.lock(`job:${record.id}`,async()=>{
+      const latest=await this.read(record.id),indices=message.indices
+      if(latest.vehicle.source!=='EdgePipeline'||latest.status!=='running'||!Array.isArray(indices)||indices.length>4||new Set(indices).size!==indices.length||indices.some(index=>!Number.isInteger(index)||index<0||index>=latest.photos.total))throw new Error('ფოტოების საცავის გათავისუფლების მოთხოვნა არასწორია.')
+      if(!this.photos.release)throw new Error('ფოტოების დროებითი საცავის გათავისუფლება მიუწვდომელია.')
+      await this.photos.release(record.id,indices);return true
+    })
     if(message.type==='TRANSFER_RETRY_FIELDS')return this.lock(`job:${record.id}`,async()=>{
       const latest=await this.read(record.id)
       if(latest.status==='running')throw new Error('გადატანა უკვე მიმდინარეობს.')
       if(!latest.fields.some(field=>field.status==='unfilled' && field.retryable))throw new Error('დროებითი შეცდომით შეუვსებელი ველები არ არის. მოუგვარებელი შესაბამისობები ხელით გადაამოწმეთ.')
       latest.status='running';latest.stage='filling';if(latest.activation)latest.activation.state='TRANSFERRING';await this.save(latest);return latest
     })
+    if(message.type==='PHOTO_REFRESH'&&record.vehicle.source==='EdgePipeline')return this.lock(`edge-gallery:${record.id}`,async()=>{
+      const latest=await this.read(record.id)
+      if(message.grow!==true&&latest.vehicle.images.length>0&&await this.edgePreloads?.has(latest).catch(()=>false))return {...latest.photos,availableImageCount:latest.vehicle.availableImageCount}
+      return refreshEdgeGallery(this.api,latest,apply=>this.lock(`job:${record.id}`,async()=>{const writable=await this.read(record.id);apply(writable);await this.save(writable);return {...writable.photos,availableImageCount:writable.vehicle.availableImageCount}}),message.grow===true)
+    })
     if(message.type==='PHOTO_REFRESH')return this.lock(`job:${record.id}`,async()=>{
       const latest=await this.read(record.id)
       if(latest.status!=='running')throw new Error('ეს გადატანა აღარ მუშავდება.')
-      if(latest.photos.total || latest.photos.prepared || latest.photos.uploaded)return latest.photos
+      if(latest.vehicle.source!=='EdgePipeline'&&latest.photos.total || latest.photos.prepared || latest.photos.uploaded)return latest.photos
       let response:{ok?:boolean;error?:string;value?:{vin:string;listingId?:string;images:string[];availableImageCount:number}}
       try{response=await this.api.tabs.sendMessage(latest.sourceTabId,{type:'MANHEIM_PHOTOS',transferId:latest.id,expected:{vin:latest.vehicle.vin,listingId:latest.vehicle.listingId}}) as typeof response}
       catch{throw new Error('ფოტოების წყაროსთან დაკავშირება ვერ მოხერხდა. აუქციონის დეტალური გვერდი გახსნილი დატოვეთ.')}
       if(!response?.ok || !response.value)throw new Error(response?.error ?? 'წყაროს ფოტოგალერეა ვერ წაიკითხა.')
       const value=response.value
       if(value.vin!==latest.vehicle.vin || latest.vehicle.listingId && value.listingId!==latest.vehicle.listingId)throw new Error('ფოტოების ავტომობილი არ ემთხვევა გადატანის ავტომობილს.')
-      const images=deduplicatePhotos(Array.isArray(value.images)?value.images:[])
+      const images=deduplicatePhotos(Array.isArray(value.images)?value.images:[],latest.vehicle.source==='EdgePipeline'?1000:15)
       if(!images.length)throw new Error('არჩეული ავტომობილის გალერეაში ფოტოები ვერ მოიძებნა.')
-      latest.vehicle.images=images;latest.vehicle.availableImageCount=Number.isSafeInteger(value.availableImageCount)&&value.availableImageCount>=images.length&&value.availableImageCount<=10000?value.availableImageCount:images.length;latest.photos.total=images.length
+      latest.vehicle.images=images;latest.vehicle.availableImageCount=Number.isSafeInteger(value.availableImageCount)&&value.availableImageCount>=images.length&&value.availableImageCount<=(latest.vehicle.source==='EdgePipeline'?1000:10000)?value.availableImageCount:images.length;latest.photos.total=images.length
       await this.save(latest);return {...latest.photos,availableImageCount:latest.vehicle.availableImageCount}
     })
     if (message.type === 'PHOTO_PREPARE') {
@@ -419,7 +437,8 @@ export class TransferManager {
         const cached = await this.photos.get(record.id, index as number)
         if (cached) {trace.mark('PHOTO_DOWNLOAD_COMPLETED',1,{index:index as number});return cached.metadata}
         sessionLog(record,trace.vehicleId,'photo-download','started')
-        const prepared = await this.limitedDownload(async()=>{const current=await this.read(record.id);if(current.status!=='running')throw new Error('ეს გადატანა აღარ მუშავდება.');return this.download(current.vehicle.images[index as number], index as number,undefined,trace,this.downloadSignal(record.id))})
+        const preloaded=record.vehicle.source==='EdgePipeline'?await this.edgePreloads?.get(record,index as number,this.downloadSignal(record.id)).catch(()=>undefined):undefined
+        const prepared = preloaded??await this.limitedDownload(async()=>{const current=await this.read(record.id);if(current.status!=='running')throw new Error('ეს გადატანა აღარ მუშავდება.');return this.download(current.vehicle.images[index as number], index as number,undefined,trace,this.downloadSignal(record.id))})
         return this.lock(`job:${record.id}`,async()=>{
         const writable=await this.read(record.id)
         if(writable.status!=='running')throw new Error('ეს გადატანა აღარ მუშავდება.')
@@ -427,11 +446,14 @@ export class TransferManager {
         // Recheck after network/IDB work; an expired or closed destination cannot leave an orphan cache.
         await this.read(record.id)
         prepared.metadata.name = `vehicle-${record.id.slice(0, 8)}-${index as number + 1}.${prepared.metadata.mime === 'image/jpeg' ? 'jpg' : prepared.metadata.mime === 'image/png' ? 'png' : 'webp'}`
-        try{await this.photos.put(record.id, prepared.blob, prepared.metadata)}catch(error){trace.mark('PHOTO_DOWNLOAD_COMPLETED',0,{index:index as number,errorCode:'STORAGE_FAILED'});throw error}
+        try{await this.photos.put(record.id, prepared.blob, prepared.metadata);if(record.vehicle.source==='EdgePipeline')await this.edgePreloads?.consumed(record,index as number).catch(()=>{pipelineLog(record.id,'cleanup','failed')})}catch(error){trace.mark('PHOTO_DOWNLOAD_COMPLETED',0,{index:index as number,errorCode:'STORAGE_FAILED'});throw error}
         let latest: TransferRecord
         try { latest = await this.read(record.id) }
         catch (error) { await this.photos.remove(record.id); throw error }
-        latest.photos.prepared = this.photos.count ? await this.photos.count(record.id) : (await Promise.all(record.vehicle.images.map((_, i) => this.photos.get(record.id, i)))).filter(Boolean).length
+        if(latest.vehicle.source==='EdgePipeline'){
+          latest.edgePreparedIndices=[...new Set([...(latest.edgePreparedIndices??[]),index as number])]
+          latest.photos.prepared=latest.edgePreparedIndices.length
+        }else latest.photos.prepared = this.photos.count ? await this.photos.count(record.id) : (await Promise.all(record.vehicle.images.map((_, i) => this.photos.get(record.id, i)))).filter(Boolean).length
         await this.save(latest)
         sessionLog(latest,trace.vehicleId,'photo-prepared','completed')
         return prepared.metadata
@@ -472,7 +494,7 @@ export class TransferManager {
       latest.status = errors.length || fields.some(f => f.status !== 'filled' || f.reviewRequired) || latest.photos.failed > 0 ? 'error' : 'review'
       latest.stage = latest.status === 'review' ? 'review' : 'verifying'
       this.cancelDownloads(record.id)
-      await this.save(latest); await this.photos.remove(record.id);
+      await this.save(latest); await this.photos.remove(record.id);if(record.vehicle.source==='EdgePipeline')await this.edgePreloads?.finish(record.id).catch(()=>{pipelineLog(record.id,'cleanup','failed')});
       if((await this.api.storage.session.get(`active:${latest.sourceTabId}`))[`active:${latest.sourceTabId}`]===latest.id)await this.api.storage.session.remove(`active:${latest.sourceTabId}`)
       if(latest.destinationTabId!==undefined){await this.api.storage.session.remove(`destination:${latest.destinationTabId}`);await this.api.storage.session.remove(`receiver:${latest.destinationTabId}`)}
       return latest

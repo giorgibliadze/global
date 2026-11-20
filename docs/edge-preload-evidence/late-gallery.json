@@ -1,0 +1,92 @@
+{
+  "scope": "Isolated Chrome, real EDGE CDN images, simulated source HTML/React MyAuto and upload-server completion; not authenticated MyAuto acceptance",
+  "records": [
+    {
+      "event": "EDGE_REAL_FILES",
+      "fixture": "A",
+      "transferId": "263028fa-6a63-42dd-ad88-a97ef5c37783",
+      "downloaded": 15,
+      "prepared": 15,
+      "delivered": 15,
+      "acceptedByMock": 15,
+      "uniqueContent": 15,
+      "mimeTypes": [
+        "image/jpeg",
+        "image/png"
+      ],
+      "minWidth": 1595,
+      "maxWidth": 1600,
+      "minBytes": 152463,
+      "maxBytes": 1172269,
+      "liveMyautoAccepted": null,
+      "clickToFirstPhotoReferenceMs": 1001,
+      "clickToFirstMockAcceptedMs": 9717,
+      "clickToSessionMs": 54,
+      "clickToDestinationReadyMs": 562,
+      "clickToFirstFieldMs": 652,
+      "totalMs": 12904.969666,
+      "timings": {
+        "destinationReadiness": 508,
+        "dropdownDiscovery": 16.700000017881393,
+        "dropdownSelection": 309.3000000715256,
+        "fieldVerification": 344.70000007748604,
+        "finalValidation": 302.7000000178814,
+        "firstField": 135,
+        "firstFieldAfterReady": 133.60000002384186,
+        "formFilling": 1452.4000000059605,
+        "matching": 0.29999998211860657,
+        "normalization": 0.20000001788139343,
+        "photoComplete": 12097,
+        "photoDownload": 10921.5,
+        "photoUpload": 30.19999998807907,
+        "prefetch": 13,
+        "prefetchNormalization": 0.9000000059604645,
+        "sourceExtraction": 1.9000000059604645,
+        "total": 12322.40000000596
+      }
+    },
+    {
+      "event": "EDGE_REAL_FILES",
+      "fixture": "B",
+      "transferId": "1c3b9189-4570-42c7-a686-8c7fbef9c1b5",
+      "downloaded": 1,
+      "prepared": 1,
+      "delivered": 1,
+      "acceptedByMock": 1,
+      "uniqueContent": 1,
+      "mimeTypes": [
+        "image/jpeg"
+      ],
+      "minWidth": 1600,
+      "maxWidth": 1600,
+      "minBytes": 295059,
+      "maxBytes": 295059,
+      "liveMyautoAccepted": null,
+      "clickToFirstPhotoReferenceMs": 47,
+      "clickToFirstMockAcceptedMs": 1799,
+      "clickToSessionMs": 43,
+      "clickToDestinationReadyMs": 413,
+      "clickToFirstFieldMs": 497,
+      "totalMs": 2684.9631370000025,
+      "timings": {
+        "destinationReadiness": 370,
+        "dropdownDiscovery": 19.600000023841858,
+        "dropdownSelection": 265.19999998807907,
+        "fieldVerification": 334.7999999821186,
+        "finalValidation": 328.19999998807907,
+        "firstField": 127.5,
+        "firstFieldAfterReady": 126.80000001192093,
+        "formFilling": 1257.5999999940395,
+        "matching": 0.40000003576278687,
+        "normalization": 0.20000001788139343,
+        "photoComplete": 1802,
+        "photoDownload": 167.80000001192093,
+        "photoUpload": 8.800000011920929,
+        "prefetch": 23,
+        "prefetchNormalization": 0.4000000059604645,
+        "sourceExtraction": 3.199999988079071,
+        "total": 2224.5
+      }
+    }
+  ]
+}

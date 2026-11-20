@@ -1,3 +1,4 @@
+import {transferEdgePhotos} from '../photos/edgeTransfer'
 import {waitForUploader} from '../photos/readiness'
 import {liveClaim,isMyautoAddUrl,TRANSFER_PROTOCOL} from '../services/transferActivation'
 import {assertNormalizedVehicle} from '@auto-importer/parsers/validation'
@@ -131,12 +132,27 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
       if(prepared.errors.length)photoCode=prepared.failureCode
       return prepared
     }
-    // Known photo lists download concurrently. A missing gallery is resolved only
-    // after text fills: PHOTO_REFRESH holds the job lock also used by form progress.
-    const prefetchedPhotos=current.photos.total>0?preparePhotoFiles():undefined
+    // Preserve existing source behavior below. EDGE uses its own bounded lane:
+    // discovery/download may overlap text; upload/final progress await its gate.
+    const prefetchedPhotos=current.vehicle.source!=='EdgePipeline'&&current.photos.total>0?preparePhotoFiles():undefined
     void prefetchedPhotos?.catch(()=>{}) // The original promise is awaited/reported below.
+    let edgeUploadReady:(()=>void)|undefined
+    const edgeUploadGate=current.vehicle.source==='EdgePipeline'?new Promise<void>(resolve=>{edgeUploadReady=resolve}):undefined
     const photoPipeline=async()=>{
       pipelineLog(transfer.id,'uploading','started')
+      if(current.vehicle.source==='EdgePipeline'){
+        photoStage='PHOTO_SOURCE_READY';photoCode='SOURCE_NOT_READY'
+        const refreshed=await request<TransferRecord['photos'] & {availableImageCount?:number}>({type:'PHOTO_REFRESH',id:transfer.id});current.photos=refreshed;if(refreshed.availableImageCount!==undefined)photoCounts.discovered=refreshed.availableImageCount
+        if(!current.photos.total){photoStage='PHOTO_URLS_EXTRACTED';photoCode='NO_URLS';throw new Error('EDGE-ის ფოტოები ვერ მოიძებნა; ტექსტური მონაცემების გადატანა არ შეჩერებულა.')}
+        photoCounts.source=current.photos.total;photoStage='MYAUTO_UPLOADER_READY';photoCode='UPLOADER_TIMEOUT'
+        const result=await transferEdgePhotos(doc,transfer.id,current.photos.total,photoCounts.discovered,trace,{signal:controller.signal,guard,timeoutMs:options.uploadTimeoutMs,beforeUpload:edgeUploadGate,grow:()=>request<TransferRecord['photos'] & {availableImageCount?:number}>({type:'PHOTO_REFRESH',id:transfer.id,grow:true}),update:counts=>{Object.assign(current.photos,counts);update()}})
+        uploaded=result.uploaded;photoCounts.source=result.total;photoCounts.discovered=Math.max(photoCounts.discovered,result.available);photoCounts.downloaded=result.downloaded;photoCounts.received=result.prepared;photoCounts.delivered=result.submitted;photoCounts.attempts=result.attempts;photoCounts.verified=result.uploaded
+        errors.push(...result.errors);addTiming('photoDownload',result.downloadMs);addTiming('photoUpload',result.uploadMs)
+        photoStage=!result.prepared?preparationFailureStage(result.failureCode):'PHOTO_GALLERY_VERIFIED';photoCode=!result.prepared?(result.failureCode??'FILE_CONVERSION_FAILED'):uploaded===current.photos.total&&uploaded>0?undefined:uploaded?'UPLOAD_UNCONFIRMED':'EMPTY_GALLERY'
+        if(uploaded)addTiming('photoComplete',Math.max(0,Date.now()-transfer.createdAt))
+        await request({type:'TRANSFER_PROGRESS',id:transfer.id,stage:'uploading',uploaded,submitted:current.photos.submitted})
+        return
+      }
       const prepared=await (prefetchedPhotos??preparePhotoFiles())
       errors.push(...prepared.errors)
       // The adapter owns one upload operation. Only source-confirmed failed
@@ -155,6 +171,8 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
       await request({type:'TRANSFER_PROGRESS',id:transfer.id,stage:'uploading',uploaded,submitted:current.photos.submitted})
       pipelineLog(transfer.id,'uploading',upload.errors.length || prepared.errors.length?'partial':'completed')
     }
+    const edgePhotos=current.vehicle.source==='EdgePipeline'?photoPipeline():undefined
+    void edgePhotos?.catch(()=>{})
     // Only submit photos after the existing automatic form operations settle.
     // Missing/unresolved fields are results, not a requirement for a valid listing.
     try{await formPipeline()}catch(error){
@@ -166,8 +184,8 @@ export async function runMyautoTransfer(doc: Document, transfer: TransferRecord,
     planned.push(locationPlan);current.formTotal=planned.length
     guard();current.currentField='მდებარეობა';update()
     results.push(await fillLocation(doc,locationPlan,controller.signal));current.fields=results
-    current.textComplete=true;await phase('uploading')
-    try{await photoPipeline()}catch(error){
+    current.textComplete=true;await phase('uploading');edgeUploadReady?.()
+    try{await (edgePhotos??photoPipeline())}catch(error){
       trace.mark(photoStage,photoCounts.verified,{errorCode:controller.signal.aborted?'INTERRUPTED':photoCode??'MESSAGE_FAILED'})
       guard();errors.push(error instanceof Error && /[\u10A0-\u10FF]/.test(error.message)?error.message:'ფოტოების ატვირთვა ვერ შესრულდა.')
       pipelineLog(transfer.id,'uploading','failed')

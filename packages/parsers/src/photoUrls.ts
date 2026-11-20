@@ -1,7 +1,9 @@
+import {edgePhotoUrl} from './edge/urls'
 export function safePhotoUrl(value: unknown): string | undefined {
   if (typeof value !== 'string' || value.length > 2000) return
   try {
     const u = new URL(value)
+    if(['file3.autolookout.net','dxbrs3zlwqu4z.cloudfront.net'].includes(u.hostname))return edgePhotoUrl(value)
     if (u.protocol !== 'https:' || u.username || u.password || u.hash) return
     if (!['i.fyuse.com', 'images.cdn.manheim.com', 'images--cdn.manheim24.com'].includes(u.hostname)) return
     if (!/\.(jpe?g|png|webp)$/i.test(u.pathname) || /\/(tags|icons|logos)\//i.test(u.pathname)) return

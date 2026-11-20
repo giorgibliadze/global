@@ -2,7 +2,7 @@
 import { createElement, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createRoot } from 'react-dom/client'
-interface Configuration {engine?:string;cylinders?:string;mileageUnit?:'mi'|'km';locationLabel?:string;batchedValidation?:boolean;model:string;make?:string;year?:string;fuel?:string;body?:string;resetAfterUpload?:boolean;rejectField?:string;pointerOnly?:boolean;failFuel?:boolean}
+interface Configuration {edgePhotos?:boolean;photoLimit?:number;engine?:string;cylinders?:string;mileageUnit?:'mi'|'km';locationLabel?:string;batchedValidation?:boolean;model:string;make?:string;year?:string;fuel?:string;body?:string;resetAfterUpload?:boolean;rejectField?:string;pointerOnly?:boolean;failFuel?:boolean}
 interface Selection {label:string;id:string}
 declare global {
   interface Window {
@@ -11,6 +11,9 @@ declare global {
     fixtureOpenCounts:Record<string,number>
     fixtureFailFuel:boolean
     fixtureForceRender?:()=>void
+    fixtureDeliveredFiles?:File[]
+    fixtureFirstAcceptedAt?:number
+    fixtureBatchAt?:number
   }
 }
 const config=window.fixtureConfiguration ?? {model:'M5 Touring Wagon'}
@@ -18,17 +21,18 @@ window.fixtureOpenCounts={};window.fixtureFailFuel=!!config.failFuel
 function Form() {
   const [values,setValues]=useState<Record<string,string>>({vin:'',trim:'',mileage:'',description:''})
   const [drafts,setDrafts]=useState<Record<string,string>>({})
-  const [selected,setSelected]=useState<Record<string,Selection|undefined>>({})
+  const [selected,setSelected]=useState<Record<string,Selection|undefined>>(config.mileageUnit?{mileageType:{label:config.mileageUnit==='mi'?'მილი':'კმ',id:'fixture-mileage-'+config.mileageUnit}}:{})
   const [open,setOpen]=useState<string|undefined>()
   const [query,setQuery]=useState('')
   const [ready,setReady]=useState(false)
   const [photos,setPhotos]=useState<string[]>([])
   const [renders,setRenders]=useState(0)
   const [uploads,setUploads]=useState(0),[published,setPublished]=useState(0),[reset,setReset]=useState(false)
-  const labels:Record<string,string>={manufacturer:config.make ?? 'BMW',model:config.model,issueYear:config.year ?? '2026',fuelType:'დამუხტვადი ჰიბრიდი',engineVolume:'4.4',cylinders:'8',vehicleCategory:'უნივერსალი'}
+  const labels:Record<string,string>={manufacturer:config.make ?? 'BMW',model:config.model,issueYear:config.year ?? '2026',fuelType:config.fuel??'დამუხტვადი ჰიბრიდი',engineVolume:config.engine??'4.4',cylinders:config.cylinders??'8',vehicleCategory:config.body??'უნივერსალი'}
   useEffect(()=>{if(!selected.manufacturer)return;const timer=setTimeout(()=>setReady(true),40);return()=>clearTimeout(timer)},[selected.manufacturer])
   useEffect(()=>{
     window.fixtureState={values,selected,photos:photos.length,uploads,published,renders}
+    if(config.edgePhotos&&photos.length)window.fixtureFirstAcceptedAt??=Date.now()
     window.fixtureForceRender=()=>{setDrafts({});setRenders(value=>value+1)}
   })
   function text(key:string,name:string,textarea=false) {
@@ -72,13 +76,13 @@ function Form() {
   const choices=[['gearTypeId','2'],['driveTypeId','3'],['vehicleColorId','19'],['saloonColorId','16'],['saloonMaterialId','1']].map(([key,id])=>createElement('button',{type:'button',key,'data-testid':`single-checkbox-primaryFeatures.${key}-${id}`,onClick:()=>setSelected(previous=>({...previous,[key]:{label:id,id}}))},createElement('input',{type:'hidden',readOnly:true,value:selected[key]?.id ?? '','data-testid':`single-checkbox-input-primaryFeatures.${key}-${id}`})))
   return createElement('form',{onSubmit:(event:{preventDefault:()=>void})=>{event.preventDefault();setPublished(value=>value+1)}},
     text('vin','primaryFeatures.vinCode'),...Object.keys(labels).map(dropdown),text('trim','primaryFeatures.customModel'),text('mileage','primaryFeatures.mileage'),
-    createElement('span',{'data-testid':'single-select-value-primaryFeatures.mileageType'},'კმ'),text('description','description',true),...choices,
-    createElement('div',{'data-testid':'photo-video-container'},createElement('span',{className:'fixture-photo-count'},`ფოტო ${photos.length}/15`),
+    createElement('span',{'data-testid':'single-select-value-primaryFeatures.mileageType'},config.mileageUnit==='mi'?'მილი':'კმ'),text('description','description',true),...choices,
+    createElement('div',{'data-testid':'photo-video-container'},createElement('span',{className:'fixture-photo-count',...(config.edgePhotos?{'data-testid':'photo-video-label'}:{})},`ფოტო ${photos.length}/${config.edgePhotos?(config.photoLimit??15):15}`),
       createElement('div',{'data-testid':'photo-video-dropzone'},createElement('input',{type:'file',multiple:true,onChange:(event:{currentTarget:HTMLInputElement})=>{
         const files=event.currentTarget.files;if(!files)return
-        setUploads(value=>value+1);setPhotos([...files].map(file=>file.name));setDrafts({})
+        if(config.edgePhotos)window.fixtureBatchAt??=Date.now();setUploads(value=>value+1);if(config.edgePhotos){window.fixtureDeliveredFiles??=[];window.fixtureDeliveredFiles.push(...files);setPhotos(previous=>[...previous,...[...files].map(file=>file.name)])}else setPhotos([...files].map(file=>file.name));setDrafts({})
         if(config.resetAfterUpload && !reset){setReset(true);setValues(previous=>({...previous,mileage:''}));setSelected(previous=>({...previous,engineVolume:undefined}))}
-      }})),...photos.map(name=>createElement('img',{key:name,src:'https://cdn.example.test/'+name,alt:''}))),
+      }})),...photos.map(name=>config.edgePhotos?createElement('div',{key:name,'data-testid':'photo-video-item-'+name},createElement('img',{'data-testid':'photo-video-image-'+name,src:'https://cdn.example.test/'+name,alt:''})):createElement('img',{key:name,src:'https://cdn.example.test/'+name,alt:''}))),
     createElement('button',{type:'button',id:'fixture-other-field',onClick:()=>{setDrafts({});setRenders(value=>value+1)}},'სხვა ველი'),
     createElement('button',{type:'submit',id:'fixture-publish'},'გამოქვეყნება'),options,
   )

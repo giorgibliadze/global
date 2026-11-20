@@ -2,11 +2,11 @@ import type {TimingStage} from '@auto-importer/shared'
 import type {PhotoTrace,PhotoErrorCode} from './checkpoints'
 import {uploadNamedGallery} from './galleryUpload'
 export interface UploadResult { verified: number; errors: string[]; confirmedNames?:string[]; retryNames?:string[]; slots?:Record<string,string>; errorCode?:PhotoErrorCode }
-export interface UploadOptions {timeoutMs?:number;signal?:AbortSignal;guard?:()=>void;onSubmitted?:(count:number)=>void;trace?:PhotoTrace;transferId?:string;resumeSlots?:Record<string,string>;onTiming?:(stage:TimingStage,ms:number)=>void}
+export interface UploadOptions {edge?:{limit:number;ownedIds:string[];ownedUrls?:string[]};timeoutMs?:number;signal?:AbortSignal;guard?:()=>void;onSubmitted?:(count:number)=>void;trace?:PhotoTrace;transferId?:string;resumeSlots?:Record<string,string>;onTiming?:(stage:TimingStage,ms:number)=>void}
 export const photoContainerSelector = '[data-testid="photo-video-container"]'
 export const photoInputSelector = '[data-testid="photo-video-dropzone"] input[type="file"]'
-export function photoCount(container: Element): number | undefined {
-  const match = container.textContent?.match(/ფოტო\s*(\d+)\s*\/\s*15/)
+export function photoCount(container: Element,limit=15): number | undefined {
+  const match = container.textContent?.match(new RegExp('\u10e4\u10dd\u10e2\u10dd\\s*(\\d+)\\s*\\/\\s*'+limit+'(?!\\d)'))
   return match ? Number(match[1]) : undefined
 }
 function potentialPreviews(container: Element): HTMLImageElement[] {
@@ -22,6 +22,7 @@ function remotePreviews(container: Element): HTMLImageElement[] {
     try { return new URL(img.currentSrc || img.src).protocol === 'https:' && img.complete && img.naturalWidth >= 128 } catch { return false }
   })
 }
+export function verifiedPhotoUrls(doc:Document){const root=doc.querySelector(photoContainerSelector);return root?[...new Set(remotePreviews(root).map(image=>image.currentSrc||image.src))]:[]}
 export function assertFreshMyauto(doc: Document) {
   for (const selector of ['input[name="primaryFeatures.vinCode"]','input[name="primaryFeatures.customModel"]','input[name="primaryFeatures.mileage"]','[data-testid="description-textarea"]']) {
     if (doc.querySelector<HTMLInputElement>(selector)?.value.trim()) throw new Error('ახალი ფორმა უკვე შეიცავს მონაცემებს. არსებული განცხადება არ გადაგვიწერია. გახსენით სუფთა ფორმა და დაიწყეთ ახალი გადატანა.')
@@ -32,14 +33,15 @@ export function assertFreshMyauto(doc: Document) {
 }
 async function uploadAttempt(doc: Document, files: File[], progress: (confirmed: number) => void, options: UploadOptions = {}): Promise<UploadResult> {
   if (!files.length) return { verified: 0, errors: ['არცერთი ფოტო არ მომზადდა. ატვირთვა არ დაწყებულა.'] }
-  if (files.length > 15) return { verified: 0, errors: ['ფოტოების რაოდენობა აღემატება 15-ს.'] }
+  const edge=options.trace?.platform==='EdgePipeline'?options.edge:undefined,limit=edge?.limit??15,owned=new Set(edge?.ownedUrls??[])
+  if (files.length+owned.size > limit) return { verified: 0, errors: ['ფოტოების რაოდენობა აღემატება 15-ს.'] }
   const container = doc.querySelector(photoContainerSelector)
   const input = doc.querySelector<HTMLInputElement>(photoInputSelector)
   if (!container || !input || input.disabled || !doc.defaultView?.DataTransfer) return { verified: 0, errors: ['MyAuto-ს დადასტურებული ფაილის ამრჩევი ან ბრაუზერის ფაილების გადაცემის მექანიზმი მიუწვდომელია.'] }
   // The saved form confirms the container and count but not an uploaded gallery layout.
   // Verify observed new remote previews AND the site's own count; FileList alone is never success.
-  const beforeCount = photoCount(container)
-  if (beforeCount !== 0 || remotePreviews(container).length) return { verified: 0, errors: ['ფოტოების სია ცარიელი არ არის ან საწყისი რაოდენობა ვერ დადასტურდა. ხელახალი ატვირთვა შეჩერებულია დუბლირების თავიდან ასაცილებლად.'] }
+  const beforeCount = photoCount(container,limit)
+  if (beforeCount !== owned.size || remotePreviews(container).length!==owned.size || remotePreviews(container).some(image=>!owned.has(image.currentSrc||image.src))) return { verified: 0, errors: ['ფოტოების სია ცარიელი არ არის ან საწყისი რაოდენობა ვერ დადასტურდა. ხელახალი ატვირთვა შეჩერებულია დუბლირების თავიდან ასაცილებლად.'] }
   const initial = new Set([...container.querySelectorAll<HTMLImageElement>('img')].map(img => img.currentSrc || img.src))
   options.guard?.(); options.signal?.throwIfAborted()
   try {
@@ -64,10 +66,10 @@ async function uploadAttempt(doc: Document, files: File[], progress: (confirmed:
     const explicitError = [...current.querySelectorAll('[role="alert"], [aria-invalid="true"]')].some(el => !!el.textContent?.trim())
     if (explicitError) return { verified: 0, errors: ['MyAuto-ს ატვირთვის კომპონენტმა შეცდომა აჩვენა. ავტომატური ხელახალი მინიჭება არ შესრულდა შესაძლო დუბლირების გამო.'] }
     const previews = new Set(remotePreviews(current).filter(img => !initial.has(img.currentSrc || img.src)).map(img => img.currentSrc || img.src))
-    const count = photoCount(current)
-    confirmed=Math.min(files.length,previews.size,count??0);progress(confirmed)
+    const count = photoCount(current,limit)
+    confirmed=Math.min(files.length,previews.size,Math.max(0,(count??0)-owned.size));progress(confirmed)
     const busy = !!current.querySelector('[aria-busy="true"], [role="progressbar"], progress')
-    if (previews.size === files.length && count === files.length && !busy) {
+    if (previews.size === files.length && count === files.length+owned.size && !busy) {
       stableSince ||= Date.now()
       if (Date.now() - stableSince >= Math.min(1000, (options.timeoutMs ?? 45000) / 4)) {
         progress(files.length)
@@ -82,6 +84,7 @@ async function uploadAttempt(doc: Document, files: File[], progress: (confirmed:
 }
 
 export async function uploadPhotos(doc: Document, files: File[], progress: (confirmed: number) => void, options: UploadOptions = {}): Promise<UploadResult> {
+  if(options.trace?.platform==='EdgePipeline'&&options.edge&&doc.querySelector('[data-testid="photo-video-gallery"],[data-testid^="photo-video-item-"],[data-testid^="photo-video-loading-"]'))return uploadNamedGallery(doc,files,progress,options)
   if(files.length && files.length<=15 && /ფოტო\s*\d+\s*\/\s*15/.test(doc.querySelector('[data-testid="photo-video-label"]')?.textContent??''))return uploadNamedGallery(doc,files,progress,options)
   let last: UploadResult = { verified: 0, errors: [] }
   for (let attempt = 0; attempt < 2; attempt++) {

@@ -1,0 +1,140 @@
+[
+  {
+    "name": "Console cleared, BFCache default",
+    "file": "console-control.log",
+    "memory": [
+      {
+        "stage": "before",
+        "baselineTabs": 1,
+        "actualTabs": 1,
+        "chromeProcesses": 11,
+        "rssKB": 586792,
+        "sourceHeap": 1682004,
+        "workerHeap": 641860
+      },
+      {
+        "stage": "after-trial-1",
+        "baselineTabs": 1,
+        "actualTabs": 1,
+        "chromeProcesses": 11,
+        "rssKB": 680024,
+        "sourceHeap": 1929676,
+        "workerHeap": 897404
+      },
+      {
+        "stage": "after-trial-2",
+        "baselineTabs": 1,
+        "actualTabs": 1,
+        "chromeProcesses": 11,
+        "rssKB": 729012,
+        "sourceHeap": 3321728,
+        "workerHeap": 937896
+      },
+      {
+        "stage": "after-trial-3",
+        "baselineTabs": 1,
+        "actualTabs": 1,
+        "chromeProcesses": 13,
+        "rssKB": 786868,
+        "sourceHeap": 4709436,
+        "workerHeap": 941100
+      },
+      {
+        "stage": "after-trial-4",
+        "baselineTabs": 1,
+        "actualTabs": 1,
+        "chromeProcesses": 10,
+        "rssKB": 716608,
+        "sourceHeap": 6105600,
+        "workerHeap": 959328
+      },
+      {
+        "stage": "after-trial-5",
+        "baselineTabs": 1,
+        "actualTabs": 1,
+        "chromeProcesses": 9,
+        "rssKB": 750348,
+        "sourceHeap": 7495148,
+        "workerHeap": 983472
+      }
+    ]
+  },
+  {
+    "name": "Console cleared, BFCache disabled in test profile only",
+    "file": "bfcache-control.log",
+    "memory": [
+      {
+        "stage": "before",
+        "baselineTabs": 1,
+        "actualTabs": 1,
+        "chromeProcesses": 11,
+        "rssKB": 586780,
+        "sourceDocuments": 1,
+        "sourceNodes": 519,
+        "sourceListeners": 158,
+        "sourceHeap": 1667656,
+        "workerHeap": 675292
+      },
+      {
+        "stage": "after-trial-1",
+        "baselineTabs": 1,
+        "actualTabs": 1,
+        "chromeProcesses": 11,
+        "rssKB": 681012,
+        "sourceDocuments": 2,
+        "sourceNodes": 459,
+        "sourceListeners": 159,
+        "sourceHeap": 1930344,
+        "workerHeap": 945228
+      },
+      {
+        "stage": "after-trial-2",
+        "baselineTabs": 1,
+        "actualTabs": 1,
+        "chromeProcesses": 11,
+        "rssKB": 717896,
+        "sourceDocuments": 2,
+        "sourceNodes": 459,
+        "sourceListeners": 159,
+        "sourceHeap": 1935528,
+        "workerHeap": 985316
+      },
+      {
+        "stage": "after-trial-3",
+        "baselineTabs": 1,
+        "actualTabs": 1,
+        "chromeProcesses": 13,
+        "rssKB": 752252,
+        "sourceDocuments": 2,
+        "sourceNodes": 460,
+        "sourceListeners": 159,
+        "sourceHeap": 1941632,
+        "workerHeap": 988996
+      },
+      {
+        "stage": "after-trial-4",
+        "baselineTabs": 1,
+        "actualTabs": 1,
+        "chromeProcesses": 10,
+        "rssKB": 660068,
+        "sourceDocuments": 2,
+        "sourceNodes": 460,
+        "sourceListeners": 159,
+        "sourceHeap": 1937204,
+        "workerHeap": 1006752
+      },
+      {
+        "stage": "after-trial-5",
+        "baselineTabs": 1,
+        "actualTabs": 1,
+        "chromeProcesses": 9,
+        "rssKB": 670468,
+        "sourceDocuments": 2,
+        "sourceNodes": 460,
+        "sourceListeners": 159,
+        "sourceHeap": 1937440,
+        "workerHeap": 1031440
+      }
+    ]
+  }
+]

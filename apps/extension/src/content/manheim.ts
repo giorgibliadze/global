@@ -1,3 +1,4 @@
+import {EdgePreparation} from './edgePreparation'
 import {photoTrace} from '../photos/checkpoints'
 import {resolveSelectedPhotos} from './photos'
 import { VehiclePreparation } from './preparation'
@@ -8,7 +9,7 @@ import type {VehicleAdapter} from './sourceAdapters'
 import { operation, optionalExtensionApi } from '../services/extensionApi'
 
 const registrations=new WeakMap<Document,{api:ReturnType<typeof optionalExtensionApi>;dispose:()=>void}>()
-let preparation:VehiclePreparation|undefined
+let preparation:VehiclePreparation|EdgePreparation|undefined
 export function subscribePreparation(listener:(status:PreparationStatus)=>void){return preparation?.subscribe(listener) ?? (()=>{})}
 
 export function registerManheimParser(doc: Document = document,adapter:VehicleAdapter=manheim24Adapter) {
@@ -19,7 +20,7 @@ export function registerManheimParser(doc: Document = document,adapter:VehicleAd
   previous?.dispose()
   // Automatic preparation is restricted to the authenticated HTTPS source,
   // matching the manifest/background permissions.
-  const instance=doc.defaultView && doc.location.protocol==='https:'?new VehiclePreparation(doc,api,()=>doc.location.href,adapter):undefined
+  const instance=doc.defaultView && doc.location.protocol==='https:'?(adapter.id==='EdgePipeline'?new EdgePreparation(doc,api,()=>doc.location.href):new VehiclePreparation(doc,api,()=>doc.location.href,adapter)):undefined
   if(instance)preparation=instance
   const listener:Parameters<typeof api.runtime.onMessage.addListener>[0]=(message, sender, reply) => {
     if(sender.id!==api.runtime.id)return
@@ -31,7 +32,7 @@ export function registerManheimParser(doc: Document = document,adapter:VehicleAd
     if(operation(message)==='MANHEIM_PHOTOS'){
       const expected=(message as {expected?:{vin:string;listingId?:string}}).expected
       if(!expected || !/^[A-HJ-NPR-Z0-9]{17}$/.test(expected.vin)){reply({ok:false,error:'ავტომობილის ფოტოების იდენტიფიკატორი არასწორია.'});return}
-      void photoTrace(String((message as {transferId?:unknown}).transferId??''),expected.vin,adapter.id).then(trace=>resolveSelectedPhotos(doc,expected,6000,trace,current=>adapter.photos(current,current.URL))).then(value=>reply({ok:true,value}),error=>reply({ok:false,error:error instanceof Error?error.message:'ფოტოები ვერ წაიკითხა.'}));return true
+      void photoTrace(String((message as {transferId?:unknown}).transferId??''),expected.vin,adapter.id).then(trace=>{const edge=adapter.id==='EdgePipeline'&&(message as {edgePartial?:unknown}).edgePartial===true,known=edge?Number((message as {edgeKnownCount?:unknown}).edgeKnownCount)||0:0;return resolveSelectedPhotos(doc,expected,edge?3000:6000,trace,current=>{const photos=adapter.photos(current,current.URL);return edge?{...photos,galleryReady:(message as {edgeComplete?:unknown}).edgeComplete===true?photos.galleryReady:photos.images.length>known||photos.galleryReady}:photos})}).then(value=>reply({ok:true,value}),error=>reply({ok:false,error:error instanceof Error?error.message:'ფოტოები ვერ წაიკითხა.'}));return true
     }
     if(operation(message)==='MANHEIM_VERIFY'){reply({ok:true,verified:instance?.verify((message as {preparationId?:unknown}).preparationId) ?? false});return}
     if(operation(message)==='MANHEIM_RESOLVE' && instance){

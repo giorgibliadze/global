@@ -1,6 +1,7 @@
 import type { PhotoMetadata } from '@auto-importer/shared'
 interface StoredPhoto { key: string; transferId: string; createdAt: number; blob: Blob; metadata: PhotoMetadata }
 export interface PhotoStore {
+  release?(transferId:string,indices:number[]):Promise<void>
   get(transferId: string, index: number): Promise<StoredPhoto | undefined>
   put(transferId: string, blob: Blob, metadata: PhotoMetadata): Promise<void>
   count?(transferId:string):Promise<number>
@@ -9,6 +10,9 @@ export interface PhotoStore {
   prune(validIds: Set<string>, snapshotAt?: number): Promise<void>
 }
 export class IndexedPhotoStore implements PhotoStore {
+  async release(id:string,indices:number[]){
+    await this.run('readwrite',store=>{for(const index of indices)store.delete(`${id}:${index}`);return store.count(this.range(id))})
+  }
   private async db(): Promise<IDBDatabase> {
     return await new Promise((resolve, reject) => {
       const request = indexedDB.open('auto-importer-temporary-photos', 1)

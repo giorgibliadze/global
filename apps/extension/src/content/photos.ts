@@ -15,6 +15,7 @@ export async function resolveSelectedPhotos(doc:Document,expected:{vin:string;li
         const signature=JSON.stringify([value.vin,value.listingId,value.images,value.galleryReady,value.galleryStale])
         if(signature!==lastSignature){lastSignature=signature;trace?.mark('PHOTO_SOURCE_READY',value.images.length)}
         if(value.vin!==expected.vin || expected.listingId && value.listingId!==expected.listingId){trace?.mark('PHOTO_SOURCE_READY',0,{errorCode:'IDENTITY_MISMATCH'});finish(new Error('არჩეული ავტომობილი შეიცვალა. სხვა ავტომობილის ფოტოები არ გადაიტანება.'));return}
+        if('galleryLimited' in value&&value.galleryLimited){finish(new Error('წყაროს გალერეა სცდება 1000 ჩანაწერის დამცავ ზღვარს. ფოტოები არ გადაიტანება; ავტომობილის ტექსტური მონაცემები შენარჩუნებულია.'));return}
         if(value.images.length && (value.galleryReady || expired) && !value.galleryStale){trace?.mark('PHOTO_URLS_EXTRACTED',value.images.length);finish(undefined,value)}
         else if(expired){trace?.mark('PHOTO_URLS_EXTRACTED',0,{errorCode:'NO_URLS'});finish(new Error('არჩეული ავტომობილის გალერეაში ფოტოები ვერ მოიძებნა. გახსენით წყაროს ფოტოგალერეა და თავიდან დაიწყეთ გადატანა.'))}
       }catch{if(expired){trace?.mark('PHOTO_SOURCE_READY',0,{errorCode:'SOURCE_NOT_READY'});finish(new Error('არჩეული ავტომობილის ფოტოები ვერ წაიკითხა. გადაამოწმეთ წყაროს დეტალური გვერდი.'))}}

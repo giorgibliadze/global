@@ -17,7 +17,7 @@ export interface OriginalVehicleIdentity {
 }
 export interface VehicleMileage {value:number;unit:'mi'|'km'}
 export interface NormalizedVehicle {
-  source: 'Manheim24' | 'Manheim24Search' | 'ManheimSearch' | 'ManheimSite'
+  source: 'Manheim24' | 'Manheim24Search' | 'ManheimSearch' | 'ManheimSite' | 'EdgePipeline'
   location?:VehicleLocationEvidence
   original: OriginalVehicleIdentity
   listingId?: string
@@ -80,6 +80,7 @@ export type PreparationStatus='preparing'|'ready'|'updating'|'error'
 export interface PreparationSummary {id:string;extractedAt:number;durationMs:number;normalizationMs:number;cacheHit:boolean}
 export type TransferLifecycle='IDLE'|'PREPARING'|'NAVIGATING'|'FILLING'|'UPLOADING_PHOTOS'|'COMPLETED'|'FAILED'
 export interface TransferRecord {
+  edgePreparedIndices?:number[]
   activation?:{schema:1;state:'IDLE'|'PREPARING'|'READY'|'TRANSFERRING'|'COMPLETED'|'FAILED'}
   lifecycle?:TransferLifecycle
   id: string

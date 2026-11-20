@@ -21,7 +21,7 @@ async function photoRequest<T>(message:{type:string;id:string;index:number;offse
   return result.value as T
 }
 export async function prepareFiles(id: string, total: number, progress: (ready: number, failed: number) => void, signal?: AbortSignal,indices?:number[],trace?:PhotoTrace,onTiming?:(stage:TimingStage,ms:number)=>void,options?:{messageTimeoutMs?:number}): Promise<{ files: File[]; errors: string[]; downloaded:number; failureCode?:PhotoErrorCode }> {
-  if(!Number.isInteger(total) || total<0 || total>15)throw new Error('ფოტოების რაოდენობა არასწორია.')
+  if(!Number.isInteger(total) || total<0 || total>(trace?.platform==='EdgePipeline'?1000:15))throw new Error('ფოტოების რაოდენობა არასწორია.')
   let failureCode:PhotoErrorCode|undefined
   const files: File[] = [], errors: string[] = []
   const selected=indices??Array.from({length:total},(_,i)=>i)

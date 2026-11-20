@@ -1,5 +1,6 @@
+import {watchEdge} from './edge'
 import {watchRegularManheim} from './regularManheim'
-import {siteManheimAdapter,searchManheimAdapter,manheim24SearchAdapter} from './sourceAdapters'
+import {siteManheimAdapter,searchManheimAdapter,manheim24SearchAdapter,edgePipelineAdapter} from './sourceAdapters'
 import {vehicleSource} from '../services/sourceRegistry'
 import { registerManheimParser } from './manheim'
 import { createRoot } from 'react-dom/client'
@@ -45,6 +46,8 @@ if(window.top===window){
       const stop=registerManheimParser(document,adapter),unmount=mountLauncher(true)
       return ()=>{try{unmount()}finally{stop?.()}}
     })
+  }else if(source?.id==='EdgePipeline'){
+    watchEdge(document,()=>{const stop=registerManheimParser(document,edgePipelineAdapter),unmount=mountLauncher(true);return ()=>{try{unmount()}finally{stop?.()}}})
   }else if(website.kind==='auction'&&!document.getElementById(hostId)){
     if(source?.id==='Manheim24')registerManheimParser()
     if(source?.id==='Manheim24Search')registerManheimParser(document,manheim24SearchAdapter)

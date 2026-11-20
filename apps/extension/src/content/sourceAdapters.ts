@@ -1,3 +1,4 @@
+import {parseEdgePipeline,inspectEdgeSelection,inspectEdgePhotos} from '@auto-importer/parsers/edge'
 import {parseManheim24Search,inspectManheim24SearchSelection,inspectManheim24SearchPhotos} from '@auto-importer/parsers/manheim24-search'
 import {parseSiteManheim,inspectSiteManheimSelection,inspectSiteManheimPhotos} from '@auto-importer/parsers/site-manheim'
 import {parseManheim24,inspectManheim24Selection,inspectManheim24Photos} from '@auto-importer/parsers'
@@ -17,3 +18,5 @@ export const searchManheimAdapter:VehicleAdapter={...vehicleSources[1],parse:par
 export const siteManheimAdapter:VehicleAdapter={...vehicleSources[2],parse:parseSiteManheim,selection:inspectSiteManheimSelection,photos:inspectSiteManheimPhotos}
 
 export const manheim24SearchAdapter:VehicleAdapter={...vehicleSources[3],parse:parseManheim24Search,selection:inspectManheim24SearchSelection,photos:inspectManheim24SearchPhotos}
+
+export const edgePipelineAdapter:VehicleAdapter={...vehicleSources[4],parse:parseEdgePipeline,selection:inspectEdgeSelection,photos:inspectEdgePhotos}

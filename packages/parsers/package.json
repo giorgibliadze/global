@@ -13,7 +13,10 @@
     "./site-manheim": "./src/siteManheim.ts",
     "./photos": "./src/photoUrls.ts",
     "./identity": "./src/identity.ts",
-    "./manheim24-search": "./src/manheim24Search.ts"
+    "./manheim24-search": "./src/manheim24Search.ts",
+    "./edge": "./src/edge/index.ts",
+    "./edge-urls": "./src/edge/urls.ts",
+    "./edge-runtime": "./src/edge/runtime.ts"
   },
   "dependencies": {
     "@auto-importer/shared": "*"

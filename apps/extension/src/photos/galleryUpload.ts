@@ -7,7 +7,9 @@ export async function uploadNamedGallery(doc:Document,files:File[],progress:(cou
   const selector='[data-testid="photo-video-container"]'
   const root=()=>doc.querySelector(selector)
   const ids=(kind:'item'|'loading')=>[...(root()?.querySelectorAll<HTMLElement>(`[data-testid^="photo-video-${kind}-"]`)??[])].map(node=>node.dataset.testid!.slice(`photo-video-${kind}-`.length))
-  if(ids('item').length || ids('loading').length || !/ფოტო\s*0\s*\/\s*15/.test(root()?.querySelector('[data-testid="photo-video-label"]')?.textContent??''))return {verified:0,errors:['ფოტოგალერეა ცარიელი არ არის. არსებული ფოტოები არ შეცვლილა.']}
+  const edge=options.trace?.platform==='EdgePipeline'?options.edge:undefined,limit=edge?.limit??15,baseline=new Set(edge?.ownedIds??[])
+  const initial=ids('item'),counter=(edge?root()?.textContent:root()?.querySelector('[data-testid="photo-video-label"]')?.textContent)?.match(/ფოტო\s*(\d+)\s*\/\s*(\d+)/)
+  if(!Number.isInteger(limit)||limit<1||limit>1000||files.length+baseline.size>limit||initial.length!==baseline.size||initial.some(id=>!baseline.has(id))||ids('loading').length||Number(counter?.[1])!==baseline.size||Number(counter?.[2])!==limit)return {verified:0,errors:['ფოტოგალერეა ცარიელი არ არის. არსებული ფოტოები არ შეცვლილა.']}
   const mapped=new Map<string,File>(),confirmed=new Set<string>()
   let verified=0,reported=-1,submitted=0,pending=files
   let submissionAt=0,acceptedAt=0,queueAt=0,completeSignature=''
@@ -53,7 +55,7 @@ export async function uploadNamedGallery(doc:Document,files:File[],progress:(cou
           try{if(new URL(image.currentSrc||image.src).protocol==='https:')confirmed.add(id)}catch{/* Pending image, never success. */}
         }
         verified=confirmed.size;if(verified!==reported){reported=verified;progress(verified)}
-        const loading=ids('loading'),count=Number(container.querySelector('[data-testid="photo-video-label"]')?.textContent?.match(/ფოტო\s*(\d+)\s*\/\s*15/)?.[1])
+        const loading=ids('loading'),count=Number((edge?container.textContent:container.querySelector('[data-testid="photo-video-label"]')?.textContent)?.match(new RegExp('ფოტო\\s*(\\d+)\\s*\\/\\s*'+limit+'(?!\\d)'))?.[1])
         const signature=JSON.stringify([ids('item'),loading,count,verified])
         if(signature!==lastSignature){lastSignature=signature;settledAt=Date.now();options.trace?.mark('MYAUTO_UPLOAD_STATE_PROGRESS',loading.length,{accepted:verified})}
         const settled=!loading.length && count===cards.length && Date.now()-settledAt>=Math.min(750,timeout/4)
@@ -61,7 +63,7 @@ export async function uploadNamedGallery(doc:Document,files:File[],progress:(cou
         // the upload response clears isLoading. Preview decoding is independent.
         // Require the same complete queue/count/identity state on a second turn;
         // retain the quiet window below exclusively for safe partial retries.
-        const complete=verified===files.length && !loading.length && count===cards.length && cards.length===files.length && !container.querySelector('[aria-busy="true"],[role="progressbar"],progress')
+        const complete=verified===files.length && !loading.length && count===cards.length && cards.length===files.length+baseline.size&&[...baseline].every(id=>cards.some(card=>card.dataset.testid==='photo-video-item-'+id)) && !container.querySelector('[aria-busy="true"],[role="progressbar"],progress')
         if(complete){
           if(!acceptedAt){acceptedAt=performance.now();options.onTiming?.('uploadAcceptanceWait',acceptedAt-submissionAt);options.trace?.mark('PHOTO_UPLOAD_COMPLETED',verified)}
           if(completeSignature===signature){options.onTiming?.('galleryVerification',performance.now()-acceptedAt);options.trace?.mark('PHOTO_GALLERY_VERIFIED',verified);return {verified,errors:[]}}
@@ -75,7 +77,7 @@ export async function uploadNamedGallery(doc:Document,files:File[],progress:(cou
           const failed=[...mapped].filter(([id])=>!confirmed.has(id) && !present.has(id))
           // Retry only IDs the site removed. A visible/pending local image, unknown
           // mapping or another user's card is not safe to resubmit.
-          if(failed.length && cards.every(card=>confirmed.has(card.dataset.testid!.slice('photo-video-item-'.length)))){
+          if(failed.length && cards.every(card=>baseline.has(card.dataset.testid!.slice('photo-video-item-'.length))||confirmed.has(card.dataset.testid!.slice('photo-video-item-'.length)))){
             options.trace?.mark('MYAUTO_UPLOAD_STATE_PROGRESS',0,{accepted:verified,failed:failed.length})
             retry=true;pending=failed.map(([,file])=>file);for(const [id] of failed)mapped.delete(id)
             break

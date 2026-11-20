@@ -1,0 +1,920 @@
+
+> @auto-importer/parsers@1.0.0 test
+> node tests/run-browser.mjs
+
+source eligibility: locations page is informational, not a vehicle-transfer source
+source eligibility: nonregistered informational and lookalike Manheim hosts are not auction detail sources
+source photos: banner, allowed-CDN thumbnail and fake gallery without vehicle identity cannot be extracted
+source eligibility: supported search host still requires an actual VIN detail route
+popup eligibility: locations page stays disabled without verified vehicle status
+popup eligibility: search results do not query stale vehicle content
+popup eligibility: a VIN-shaped URL without verified vehicle content cannot enable transfer
+popup eligibility: matching source plus verified vehicle identity enables the supported detail page
+background eligibility: invalid page cannot invoke extraction, navigation or photos even through a direct start message
+background eligibility: invalid page cannot invoke extraction, navigation or photos even through a direct start message
+source photos: valid verified search listing keeps 15 distinct ordered vehicle photos
+source photos: missing vehicle gallery never falls back to unrelated document images
+source photos: only delayed vehicle-gallery stage is retried; page banner remains excluded
+source photos: dedicated structured gallery retains original order after readiness
+source eligibility: Manheim24 photo extraction and ADESA/Edge Pipeline recognition unchanged
+passive MyAuto /: no DOM changes, heavy imports, observers or transfer; at most one add-page probe
+passive MyAuto: page mutations do not cause claim polling
+passive MyAuto /ka/s/: no DOM changes, heavy imports, observers or transfer; at most one add-page probe
+passive MyAuto: page mutations do not cause claim polling
+passive MyAuto /ka/pr/fixture: no DOM changes, heavy imports, observers or transfer; at most one add-page probe
+passive MyAuto: page mutations do not cause claim polling
+passive MyAuto /ka/login: no DOM changes, heavy imports, observers or transfer; at most one add-page probe
+passive MyAuto: page mutations do not cause claim polling
+passive MyAuto /ka/add: no DOM changes, heavy imports, observers or transfer; at most one add-page probe
+passive MyAuto: page mutations do not cause claim polling
+passive MyAuto: idle receivers clean up with no user error notice
+passive MyAuto: refresh/history restoration cannot claim an old transfer
+passive MyAuto: refresh/history restoration cannot claim an old transfer
+passive MyAuto: update-invalidated runtime produces no website error UI or mutation
+passive MyAuto: incompatible/completed/expired/invalid payload stays inactive
+passive MyAuto: incompatible/completed/expired/invalid payload stays inactive
+passive MyAuto: incompatible/completed/expired/invalid payload stays inactive
+passive MyAuto: incompatible/completed/expired/invalid payload stays inactive
+passive MyAuto: incompatible/completed/expired/invalid payload stays inactive
+activation: duplicate installation reuses one receiver
+activation: stale protocol/untrusted sender/invalid ID cannot trigger a claim
+activation: READY closes early-probe race once; repeated READY does not repeat execution or listeners
+activation: pagehide cancels a pending lazy import without touching the replacement page
+activation: admitted extension module failure is contained; website DOM and listeners remain intact
+active cleanup: setup exceptions release the form ownership lock and installed listeners
+activation: pre-update claim messages without current protocol cannot activate
+activation: intended transfer ID must match destination mapping
+activation lifecycle: PREPARING to READY to explicitly claimed TRANSFERRING
+activation: completed job cannot reactivate through a stale destination index
+update schema: compatible active bound transfer is preserved without navigation
+activation race: first document can register before payload binding
+activation: refresh cannot claim an unclaimed transfer intended for the original document
+activation: abandoned unclaimed intent cannot resume long after the initiating click
+update schema: legacy pending/corrupt/expired records cannot activate or navigate
+active cleanup: owning document cancellation terminates only its extension job after navigation
+extension update: invalidated old document stops safely, preserves payload/progress and never navigates
+update schema: location preferences and unrelated local/session settings preserved
+search source: registry and existing website detection recognize exact search host
+search source: marketing/lookalike/HTTP pages are not vehicle parser sources
+search source: existing auction/destination detection remains compatible
+search route: hash details can open from the search homepage path
+search snapshot: VIN/listing identity read from confirmed root and matching structured data
+search snapshot: complete original title/model preserved; independently structured trim retained
+search snapshot: 10,005 miles remain 10,005 mi without conversion
+search snapshot: labeled seller specifications and explicit powertrain, no model-based guesses
+search snapshot: detailed original colors/material retained alongside structured form-compatible values
+search snapshot: features available, absent steering/condition and auction price not fabricated
+search snapshot: concise Georgian description and seller notes exclude VIN; public autofill policy unchanged
+search snapshot: 98 original photo candidates; first 15 preserve structured sequence
+search source: homepage/results cannot be mistaken for a selected vehicle even with stale detail DOM
+search photos: sequence sorting, thumbnail normalization and deduplication do not change original order
+search snapshot: account/session fields are never copied from embedded data
+search identity: stale embedded listing cannot override a changed root listing key
+search gallery regression: one structured photo cannot mask the complete 98-photo DOM gallery
+search photos: actual scoped Fyusion DOM supplies ordered fallback
+search photos: empty gallery is not a successful or stale photo list
+search photos: delayed gallery is detected by bounded MutationObserver
+regular carousel: 1 photos on both hosts, including unlabeled/descriptive slots
+regular carousel: distinct similar CDN paths retain order and original URLs
+regular carousel: all selected photos survive vehicle payload construction
+regular carousel: 5 photos on both hosts, including unlabeled/descriptive slots
+regular carousel: distinct similar CDN paths retain order and original URLs
+regular carousel: all selected photos survive vehicle payload construction
+regular carousel: 15 photos on both hosts, including unlabeled/descriptive slots
+regular carousel: distinct similar CDN paths retain order and original URLs
+regular carousel: all selected photos survive vehicle payload construction
+regular carousel: 23 photos on both hosts, including unlabeled/descriptive slots
+regular carousel: distinct similar CDN paths retain order and original URLs
+regular carousel: all selected photos survive vehicle payload construction
+regular carousel: one initial slot cannot satisfy five-photo metadata
+regular carousel: bounded observer resolves lazy data-src slots
+regular carousel: duplicate thumbnail does not duplicate payload
+search prefetch: normalize once, reuse warm prepared payload, no idle network downloads
+search transfer: registry admits prepared payload and opens existing one-click MyAuto route
+search transfer: repeated clicks reuse the active transfer without duplicate tabs
+search SPA: hash navigation invalidates cached previous listing before new DOM arrives
+search SPA: new listing key/VIN prepares independent current-vehicle photos/data
+search transfer: vehicle A and B payload/cache namespaces remain isolated
+search SPA: returning to results invalidates the detail payload
+search results: stale detail DOM cannot start another transfer or open MyAuto
+search receiver: photo submission follows text autofill
+search receiver: photo preparation starts concurrently with text without blocking it
+search mocked workflow: URLs 15, downloads 15, actual Files 15, simulated gallery confirmations 15
+search receiver: description skipping and negotiable price preserved; no auction price copied
+search receiver: missing exact model control remains manual without blocking photos
+site snapshot: validated component works independently of URL path /
+site snapshot: validated component works independently of URL path /results
+site snapshot: validated component works independently of URL path /inventory/selected
+site: exact HTTPS hostname required
+site: one structured photo cannot mask 98-photo gallery; first 15 ordered distinct originals selected
+site: hidden gallery inside verified selected component remains a valid source
+site: same owned gallery node can move into fullscreen portal
+site: unrelated galleries outside verified root never substitute for missing vehicle photos
+site: bounded observer retries only missing gallery stage when correct gallery appears
+site: confirmed smaller gallery transfers all 1 actual photos without padding
+site: confirmed smaller gallery transfers all 5 actual photos without padding
+site SPA: cached portal gallery from previous identity cannot be reused
+site informational page: no launcher or parsing without verified vehicle content
+site SPA: late selected vehicle activates launcher once
+site SPA: unrelated page changes never mount duplicate launcher
+site SPA: returning to informational page removes launcher and parser registration
+site: disposed observer cannot reactivate stale extension context
+site: confirmed legacy detail layout reuses existing parser and privacy rules
+regular Manheim: verified VIN hash contract is independent of outer document path
+regular Manheim: routes without VIN or exact host remain ineligible
+regular ManheimSite: informational/results DOM remains passive
+regular ManheimSite: incomplete root cannot mount a transfer launcher
+regular ManheimSite: late identity attribute activates verified vehicle and 15 photos
+regular ManheimSite: duplicate initialization reuses one watcher and launcher
+regular ManheimSite: BFCache suspension releases active launcher/parser
+regular ManheimSite: BFCache restoration reactivates without page refresh
+regular ManheimSite: route transition removes stale vehicle action before new DOM
+regular ManheimSite: new SPA vehicle activates its own independent identity
+regular ManheimSite: terminal pagehide cleans watcher and cannot remount
+regular ManheimSearch: informational/results DOM remains passive
+regular ManheimSearch: incomplete root cannot mount a transfer launcher
+regular ManheimSearch: late identity attribute activates verified vehicle and 15 photos
+regular ManheimSearch: duplicate initialization reuses one watcher and launcher
+regular ManheimSearch: BFCache suspension releases active launcher/parser
+regular ManheimSearch: BFCache restoration reactivates without page refresh
+regular ManheimSearch: route transition removes stale vehicle action before new DOM
+regular ManheimSearch: new SPA vehicle activates its own independent identity
+regular ManheimSearch: terminal pagehide cleans watcher and cannot remount
+regular Site: hidden stale modern layout cannot mask visible verified legacy details
+Manheim24 Search: explicit distinct hostname routes independently from regular Search and working details
+Manheim24 Search: no detail transfer without VIN hash or on lookalike domains
+Manheim24 Search: confirmed legacy component contract preserves original miles and 15 scoped photos
+Manheim24 detail: original parser output and gallery remain unchanged
+Manheim24 Search regression: empty initializing numbered gallery masks 15 valid structured photos in legacy extractor
+Manheim24 Search fix: complete structured originals survive an initializing empty gallery
+Manheim24 Search gallery: 1 ordered originals, no thumbnail size or padding
+Manheim24 Search gallery: 5 ordered originals, no thumbnail size or padding
+Manheim24 Search gallery: 15 ordered originals, no thumbnail size or padding
+Manheim24 Search gallery: 23 ordered originals, no thumbnail size or padding
+Manheim24 Search: bounded source-only gallery refresh resolves lazy images without rerunning MyAuto fields
+Manheim24 Search: primary metadata cannot mask a complete 23-photo gallery
+Manheim24 Search: previous listing photos cannot survive a vehicle identity switch
+Manheim24 Search: new gallery restores only the current vehicle photos
+supplied Search24 snapshot: one structured photo, 25 ordered carousel slots, six unlabeled slots
+supplied Search24 snapshot: BMW identity/year and 38,548 original miles parsed without conversion
+supplied Search24 snapshot: labeled engine, fuel, drivetrain, doors, colors and material parsed
+supplied Search24 snapshot: confirmed equipment retained, auction price excluded
+supplied Search24 regression: discovery counts gallery items rather than extra main-render frames
+supplied Search24 snapshot: first 15 gallery photos preserve DOM order, including unlabeled slots
+Search24: changing active preview cannot reorder the transferred gallery
+supplied Search24 snapshot: descriptive carousel lazy loading resolves through bounded readiness observer
+Search24 snapshot: mismatched outer listing and scoped metadata cannot transfer stale vehicle data
+mileage: 45,200 mi preserves exact numeric source value and unit
+MyAuto mileage: exact available unit option selected and original value filled for 45,200 mi
+MyAuto mileage: value and unit remain verified after focus change
+mileage description: original miles with Georgian label, no kilometer conversion
+mileage: 78,500 miles preserves exact numeric source value and unit
+MyAuto mileage: exact available unit option selected and original value filled for 78,500 miles
+MyAuto mileage: value and unit remain verified after focus change
+mileage description: original miles with Georgian label, no kilometer conversion
+mileage: 12000 mi preserves exact numeric source value and unit
+MyAuto mileage: exact available unit option selected and original value filled for 12000 mi
+MyAuto mileage: value and unit remain verified after focus change
+mileage description: original miles with Georgian label, no kilometer conversion
+mileage: 12000 km preserves exact numeric source value and unit
+MyAuto mileage: exact available unit option selected and original value filled for 12000 km
+MyAuto mileage: value and unit remain verified after focus change
+mileage: missing/contradictory values or units are not guessed
+MyAuto only-km form: miles stay unfilled rather than converted or mislabeled
+platform isolation: identical listing IDs in concurrent Site/Search tabs retain separate cache namespaces
+platform isolation: invalidating one source cannot clear another source cache
+performance: complete structured galleries are ready without rendering thumbnails
+platform isolation: malformed Site payload fails closed
+platform isolation: Site failure cannot corrupt independent Manheim24 parser/gallery
+platform isolation: Search remains usable after Site failure
+performance: uploader activity observer cancels without leaving a timer
+performance: uploader wakes on scoped DOM and image load events
+EDGE hang reproduced: gallery bridge writes invalidate shared preparation during its own parse
+EDGE text preparation does not request gallery initialization and remains ready through gallery churn
+EDGE actual text changes invalidate the cached preparation
+EDGE refreshed text preserves original mileage units
+EDGE preparation isolates SPA vehicle changes and rejects old preparation IDs
+EDGE missing gallery and optional specifications do not block identified vehicle text
+EDGE missing gallery starts text preparation without a photo-readiness wait
+EDGE unresponsive background preparation has a bounded timeout, not permanent loading
+EDGE destination limit comes from the actual saved form counter, not the photo-video-label heading
+EDGE: exact HTTPS host/detail route registration, informational/lookalike pages rejected
+EDGE larger payload is supported while existing non-EDGE 15-photo validation remains unchanged
+EDGE supplied gasoline fixture: labeled identity and exact manufacturer/model/year, no invented trim
+EDGE gasoline: confirmed specifications only, unknown transmission and engine volume remain missing
+EDGE gasoline: original miles, labeled colors/material/options; no price or description copied
+EDGE gasoline actual snapshot: 47 gallery slots, 17 observed identities retained without fabricating the remaining unloaded photos
+EDGE: gallery order and genuinely distinct identities survive deduplication
+EDGE snapshot: verified large variants preferred; other thumbnail paths are never fabricated
+EDGE CDN registration: protocol-relative/HTTP/HTTPS supported; tokens and unknown hosts rejected
+EDGE: partial stage gallery never masquerades as the complete complete gallery
+EDGE bounded readiness preserves verified stage/print photos when API and thumbnail initialization never finish
+EDGE lazy attributes: invalid data-src never masks a valid src
+EDGE lazy gallery: active primary cannot masquerade as 47 ready photos
+EDGE bounded gallery observer resolves delayed data-src thumbnails
+EDGE empty runtime metadata cannot mask a complete DOM gallery
+EDGE partial runtime metadata cannot reduce a complete gallery to one photo
+EDGE runtime metadata: 1 ordered photos; full URLs preferred without rewriting
+EDGE runtime metadata: 5 ordered photos; full URLs preferred without rewriting
+EDGE runtime metadata: 8 ordered photos; full URLs preferred without rewriting
+EDGE runtime metadata: 15 ordered photos; full URLs preferred without rewriting
+EDGE runtime metadata: 23 ordered photos; full URLs preferred without rewriting
+EDGE runtime metadata: 30 ordered photos; full URLs preferred without rewriting
+EDGE runtime metadata: 47 ordered photos; full URLs preferred without rewriting
+EDGE runtime metadata: 60 ordered photos; full URLs preferred without rewriting
+EDGE video posters are excluded from genuine vehicle photos
+EDGE runtime: an explicit original full URL is never downgraded to a measurable thumbnail
+EDGE reproduced truncation bug: deduplicate all 17 runtime frames without the old 15-photo cap
+EDGE runtime duplicate frames no longer become an empty vehicle photo payload
+EDGE bridge rejects metadata belonging to another VIN
+EDGE SPA: new listing URL cannot reuse old vehicle DOM
+EDGE supplied EV fixture: Cybertruck/CyberBeast, electric/automatic/AWD and exact 30026 miles
+EDGE EV: exactly one genuine photo, no invented combustion values or unknown interior color
+EDGE single-photo gallery can use its actual download-pic link without thumbnail/stage initialization
+EDGE mapping: labeled Pickup Truck uses verified Pickup/MyAuto Georgian equivalent
+EDGE Georgian description audit: translated verified specifications, no VIN, price, placeholders or HTML; autofill remains skipped
+EDGE description audit: trim appears once
+EDGE explicit kilometers remain kilometers without relabeling or conversion
+EDGE independently labeled model takes precedence over title fallback
+EDGE missing optional fuel cannot block model identification or photos
+EDGE: missing gallery never falls back to unrelated page images
+EDGE metadata safety limit preserves valid vehicle text instead of rejecting the entire transfer
+EDGE isolated Gasoline: extracted/downloaded/delivered/simulated-confirmed 15/15/15/15 (none)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE isolated Gasoline: extracted/downloaded/delivered/simulated-confirmed 0/0/0/0 (none)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE no gallery reports photo failure after independent text filling
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE isolated Gasoline: extracted/downloaded/delivered/simulated-confirmed 5/5/5/5 (sourceClosed)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE source closure preserves captured valid photo references and text payload
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE isolated Electric: extracted/downloaded/delivered/simulated-confirmed 1/1/1/1 (none)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE blocked gallery response does not hold text-progress job lock; first text persists before gallery completion
+EDGE isolated Gasoline: extracted/downloaded/delivered/simulated-confirmed 8/8/8/8 (none)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE incremental gallery growth: first four photos upload before remaining five become available; indexes stay isolated
+EDGE isolated Gasoline: extracted/downloaded/delivered/simulated-confirmed 9/9/9/9 (none)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE isolated Gasoline: extracted/downloaded/delivered/simulated-confirmed 15/15/15/14 (none)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE partial acceptance: 14/15 stays partial after one missing-file retry; successful 14 are never resubmitted
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE isolated Gasoline: extracted/downloaded/delivered/simulated-confirmed 15/14/14/14 (one)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE failed download is field-independent: valid files survive; all-failed does not call uploader or claim success
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE isolated Electric: extracted/downloaded/delivered/simulated-confirmed 1/0/0/0 (all)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE failed download is field-independent: valid files survive; all-failed does not call uploader or claim success
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE isolated Gasoline: extracted/downloaded/delivered/simulated-confirmed 30/30/30/30 (none)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE isolated Gasoline: extracted/downloaded/delivered/simulated-confirmed 60/60/60/60 (none)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE service-worker manager restart preserves cumulative prepared indexes and tab-bound photo progress
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE isolated Gasoline: extracted/downloaded/delivered/simulated-confirmed 30/15/15/15 (none)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE actual destination limit is reported explicitly; source payload remains complete
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE isolated Gasoline: extracted/downloaded/delivered/simulated-confirmed 30/15/15/15 (one)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE actual destination limit is reported explicitly; source payload remains complete
+EDGE failed download is field-independent: valid files survive; all-failed does not call uploader or claim success
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE original Fotorama anchor metadata provides a complete ordered gallery before plugin initialization
+EDGE download: transient 503 retries only failed image through existing bounded downloader
+EDGE download: 404 fails once without permanent retries
+EDGE download: 403 fails once without permanent retries
+EDGE download: non-image response fails once without permanent retries
+EDGE transport canonicalizes only the verified scheme, preserving path; unknown host rejected
+EDGE exact CDN redirect is permitted; existing credentials, cancellation, byte validation and metadata contract preserved
+EDGE rejects unapproved final CDN/downgrade once and retains original failure cause
+EDGE rejects unapproved final CDN/downgrade once and retains original failure cause
+EDGE wrapper preserves bounded transient retries
+EDGE authentication failure is not retried or bypassed
+Non-EDGE registration delegates unchanged to existing shared downloader
+EDGE candidate keeps exact photo identity and uses only observed resize instruction
+EDGE failed large candidate falls back to actual gallery thumbnail, preserving PNG/order
+EDGE observed full-size failure can recover through a decoded small variant; bytes override misleading response MIME
+EDGE rejects a JPEG signature with undecodable image bytes before File delivery
+EDGE HTTP-only original has bounded fallback after HTTPS 404 without guessing new paths
+EDGE authorization rejection never tries alternate resolution or scheme
+EDGE rejects empty/HTML/unsupported bytes despite JPEG MIME, without retrying permanent errors
+EDGE rejects empty/HTML/unsupported bytes despite JPEG MIME, without retrying permanent errors
+EDGE rejects empty/HTML/unsupported bytes despite JPEG MIME, without retrying permanent errors
+EDGE timeout has exactly three existing bounded attempts; original cause retained
+EDGE cancelled transfer starts no network request
+EDGE browser-supported GIF is decoded and converted only when necessary into lossless PNG
+EDGE verified direct CDN origin and WebP preserve original bytes without conversion
+Shared downloader retains redirect:error; verified redirect support is EDGE-only
+EDGE watcher mounts exactly once on a verified detail page
+EDGE watcher wakes bounded photo readiness on data-src-only updates, before timeout
+EDGE watcher removes launcher and preparation on informational routes
+EDGE watcher reactivates on valid SPA detail navigation
+EDGE watcher cleanup is idempotent
+stress Manheim24 transition 0: current identity and 15 photos isolated
+stress Manheim24 transition 1: current identity and 15 photos isolated
+stress Manheim24 transition 2: current identity and 15 photos isolated
+stress Manheim24 transition 3: current identity and 15 photos isolated
+stress Manheim24 transition 4: current identity and 15 photos isolated
+stress Manheim24 transition 5: current identity and 15 photos isolated
+stress Manheim24 transition 6: current identity and 15 photos isolated
+stress Manheim24 transition 7: current identity and 15 photos isolated
+stress Manheim24 transition 8: current identity and 15 photos isolated
+stress Manheim24 transition 9: current identity and 15 photos isolated
+stress Manheim24 transition 10: current identity and 15 photos isolated
+stress Manheim24 transition 11: current identity and 15 photos isolated
+stress Manheim24 transition 12: current identity and 15 photos isolated
+stress Manheim24 transition 13: current identity and 15 photos isolated
+stress Manheim24 transition 14: current identity and 15 photos isolated
+stress Manheim24 transition 15: current identity and 15 photos isolated
+stress Manheim24 transition 16: current identity and 15 photos isolated
+stress Manheim24 transition 17: current identity and 15 photos isolated
+stress Manheim24 transition 18: current identity and 15 photos isolated
+stress Manheim24 transition 19: current identity and 15 photos isolated
+stress Manheim24 transition 20: current identity and 15 photos isolated
+stress Manheim24 transition 21: current identity and 15 photos isolated
+stress Manheim24 transition 22: current identity and 15 photos isolated
+stress Manheim24 transition 23: current identity and 15 photos isolated
+stress Manheim24 transition 24: current identity and 15 photos isolated
+stress Manheim24 transition 25: current identity and 15 photos isolated
+stress Manheim24 transition 26: current identity and 15 photos isolated
+stress Manheim24 transition 27: current identity and 15 photos isolated
+stress Manheim24 transition 28: current identity and 15 photos isolated
+stress Manheim24 transition 29: current identity and 15 photos isolated
+stress Manheim24 transition 30: current identity and 15 photos isolated
+stress Manheim24 transition 31: current identity and 15 photos isolated
+stress Manheim24 transition 32: current identity and 15 photos isolated
+stress Manheim24 transition 33: current identity and 15 photos isolated
+stress Manheim24 transition 34: current identity and 15 photos isolated
+stress Manheim24 transition 35: current identity and 15 photos isolated
+stress Manheim24 transition 36: current identity and 15 photos isolated
+stress Manheim24 transition 37: current identity and 15 photos isolated
+stress Manheim24 transition 38: current identity and 15 photos isolated
+stress Manheim24 transition 39: current identity and 15 photos isolated
+stability Manheim24: invalidated context stops API retries and disconnects observer
+stress ManheimSite transition 0: current identity and 15 photos isolated
+stress ManheimSite transition 1: current identity and 15 photos isolated
+stress ManheimSite transition 2: current identity and 15 photos isolated
+stress ManheimSite transition 3: current identity and 15 photos isolated
+stress ManheimSite transition 4: current identity and 15 photos isolated
+stress ManheimSite transition 5: current identity and 15 photos isolated
+stress ManheimSite transition 6: current identity and 15 photos isolated
+stress ManheimSite transition 7: current identity and 15 photos isolated
+stress ManheimSite transition 8: current identity and 15 photos isolated
+stress ManheimSite transition 9: current identity and 15 photos isolated
+stress ManheimSite transition 10: current identity and 15 photos isolated
+stress ManheimSite transition 11: current identity and 15 photos isolated
+stress ManheimSite transition 12: current identity and 15 photos isolated
+stress ManheimSite transition 13: current identity and 15 photos isolated
+stress ManheimSite transition 14: current identity and 15 photos isolated
+stress ManheimSite transition 15: current identity and 15 photos isolated
+stress ManheimSite transition 16: current identity and 15 photos isolated
+stress ManheimSite transition 17: current identity and 15 photos isolated
+stress ManheimSite transition 18: current identity and 15 photos isolated
+stress ManheimSite transition 19: current identity and 15 photos isolated
+stress ManheimSite transition 20: current identity and 15 photos isolated
+stress ManheimSite transition 21: current identity and 15 photos isolated
+stress ManheimSite transition 22: current identity and 15 photos isolated
+stress ManheimSite transition 23: current identity and 15 photos isolated
+stress ManheimSite transition 24: current identity and 15 photos isolated
+stress ManheimSite transition 25: current identity and 15 photos isolated
+stress ManheimSite transition 26: current identity and 15 photos isolated
+stress ManheimSite transition 27: current identity and 15 photos isolated
+stress ManheimSite transition 28: current identity and 15 photos isolated
+stress ManheimSite transition 29: current identity and 15 photos isolated
+stress ManheimSite transition 30: current identity and 15 photos isolated
+stress ManheimSite transition 31: current identity and 15 photos isolated
+stress ManheimSite transition 32: current identity and 15 photos isolated
+stress ManheimSite transition 33: current identity and 15 photos isolated
+stress ManheimSite transition 34: current identity and 15 photos isolated
+stress ManheimSite transition 35: current identity and 15 photos isolated
+stress ManheimSite transition 36: current identity and 15 photos isolated
+stress ManheimSite transition 37: current identity and 15 photos isolated
+stress ManheimSite transition 38: current identity and 15 photos isolated
+stress ManheimSite transition 39: current identity and 15 photos isolated
+stability ManheimSite: invalidated context stops API retries and disconnects observer
+stress ManheimSearch transition 0: current identity and 15 photos isolated
+stress ManheimSearch transition 1: current identity and 15 photos isolated
+stress ManheimSearch transition 2: current identity and 15 photos isolated
+stress ManheimSearch transition 3: current identity and 15 photos isolated
+stress ManheimSearch transition 4: current identity and 15 photos isolated
+stress ManheimSearch transition 5: current identity and 15 photos isolated
+stress ManheimSearch transition 6: current identity and 15 photos isolated
+stress ManheimSearch transition 7: current identity and 15 photos isolated
+stress ManheimSearch transition 8: current identity and 15 photos isolated
+stress ManheimSearch transition 9: current identity and 15 photos isolated
+stress ManheimSearch transition 10: current identity and 15 photos isolated
+stress ManheimSearch transition 11: current identity and 15 photos isolated
+stress ManheimSearch transition 12: current identity and 15 photos isolated
+stress ManheimSearch transition 13: current identity and 15 photos isolated
+stress ManheimSearch transition 14: current identity and 15 photos isolated
+stress ManheimSearch transition 15: current identity and 15 photos isolated
+stress ManheimSearch transition 16: current identity and 15 photos isolated
+stress ManheimSearch transition 17: current identity and 15 photos isolated
+stress ManheimSearch transition 18: current identity and 15 photos isolated
+stress ManheimSearch transition 19: current identity and 15 photos isolated
+stress ManheimSearch transition 20: current identity and 15 photos isolated
+stress ManheimSearch transition 21: current identity and 15 photos isolated
+stress ManheimSearch transition 22: current identity and 15 photos isolated
+stress ManheimSearch transition 23: current identity and 15 photos isolated
+stress ManheimSearch transition 24: current identity and 15 photos isolated
+stress ManheimSearch transition 25: current identity and 15 photos isolated
+stress ManheimSearch transition 26: current identity and 15 photos isolated
+stress ManheimSearch transition 27: current identity and 15 photos isolated
+stress ManheimSearch transition 28: current identity and 15 photos isolated
+stress ManheimSearch transition 29: current identity and 15 photos isolated
+stress ManheimSearch transition 30: current identity and 15 photos isolated
+stress ManheimSearch transition 31: current identity and 15 photos isolated
+stress ManheimSearch transition 32: current identity and 15 photos isolated
+stress ManheimSearch transition 33: current identity and 15 photos isolated
+stress ManheimSearch transition 34: current identity and 15 photos isolated
+stress ManheimSearch transition 35: current identity and 15 photos isolated
+stress ManheimSearch transition 36: current identity and 15 photos isolated
+stress ManheimSearch transition 37: current identity and 15 photos isolated
+stress ManheimSearch transition 38: current identity and 15 photos isolated
+stress ManheimSearch transition 39: current identity and 15 photos isolated
+stability ManheimSearch: invalidated context stops API retries and disconnects observer
+stress: 120 source transitions completed with bounded observers and zero active observers after cleanup
+stability: repeated parser initialization registers exactly one runtime listener
+stability: parser cleanup is idempotent and removes listener
+stability: completed history bounded at 20; recently active long-running transfer preserved
+stability: discarded completed records release receiver bindings
+stability: cancelled photo fetch aborts once without transient retries
+stability: owned active photo data survives age-based maintenance
+sessions: 1 mixed tab caches remain independent
+sessions: closing one source cache preserves other tabs
+sessions: 5 mixed tab caches remain independent
+sessions: closing one source cache preserves other tabs
+sessions: 10 mixed tab caches remain independent
+sessions: closing one source cache preserves other tabs
+sessions: 20 mixed tab caches remain independent
+sessions: closing one source cache preserves other tabs
+sessions: 30 mixed tab caches remain independent
+sessions: closing one source cache preserves other tabs
+EV: missing combustion specifications remain missing, without invented battery or motor values
+EV: one throwing dropdown is a field result and subsequent independent fields continue
+EV: cancellation remains fatal rather than being swallowed as an optional field
+sessions: 30 simultaneous starts respect atomic admission and unique destination ownership
+sessions: 60 queued photo operations respect global concurrency and finish without starvation
+sessions: cached photo bytes stay bound to transfer and source image index
+sessions: repeated photo request uses persistent prepared bytes without duplicate download
+sessions: closing source preserves approved destination transfer
+sessions: closing destination removes only its owned job and photos
+sessions: worker recreation retains persisted job/destination associations
+sessions: closing all destinations releases all prepared blobs
+sessions: synthetic 30-tab metadata/admission and 60-photo queue benchmark 540ms; not a live 30-tab browser benchmark
+destination photos: nonresponding worker message is bounded and cannot stall preparation forever
+destination photos: recreated worker manager recovers persistent photo bytes without redownloading
+destination photos 1: readiness observes enabled multi-file uploader without fixed delay
+destination photos 1: one batch preserves original order and large-file sizes
+destination photos 1: accepted remote cards confirm without waiting for preview downloads
+destination photos 5: readiness observes enabled multi-file uploader without fixed delay
+destination photos 5: one batch preserves original order and large-file sizes
+destination photos 5: accepted remote cards confirm without waiting for preview downloads
+destination photos 15: readiness observes enabled multi-file uploader without fixed delay
+destination photos 15: one batch preserves original order and large-file sizes
+destination photos 15: accepted remote cards confirm without waiting for preview downloads
+destination photos: base64/local previews never count as server acceptance
+photo diagnostics: stable transfer-scoped vehicle pseudonym across contexts
+photo diagnostics: expired URL identifies download checkpoint without permanent retry
+photo diagnostics: checkpoint ID, timestamp, duration and count present
+photo diagnostics: no raw vehicle identity or image URLs
+photo diagnostics: zero upload is a failed stage, never gallery success
+photo diagnostics: discovered, selected and delivered counts remain independent from accepted photos
+photo diagnostics: input replaced between input/change is detected without a duplicate submission
+photo diagnostics: runtime rejection is distinct from HTTP/download failure
+photo diagnostics: background HTTP failure survives JSON response without sensitive text
+photo diagnostics: valid binary chunks produce a real File
+photo diagnostics: downloaded bytes with bad integrity are not counted as received Files
+Fyusion contract: counter 23, 23 valid originals, first 15 selected
+Fyusion contract: numeric Image ordering despite reverse DOM order
+Fyusion contract: thumbnail size removed with other allowed parameters preserved
+Fyusion contract: duplicates, unrelated page images, logos and placeholders excluded
+Fyusion contract: lookalike host and authentication query rejected
+Fyusion contract: numbered gallery supports i.fyuse.com without a host substitution
+Fyusion contract: numbered gallery supports images.cdn.manheim.com without a host substitution
+Fyusion parser: selected vehicle root uses dedicated gallery, not unrelated structured images
+Fyusion lazy gallery: no stale structured fallback before current gallery is ready
+Fyusion lazy gallery: first thumbnail does not freeze a one-photo result
+Fyusion lazy gallery: MutationObserver resolves once ordered selected photos populate
+Fyusion SPA: unchanged previous-vehicle gallery cannot be reused
+Fyusion SPA: thumbnail/quality transform changes cannot disguise a stale photo identity
+Fyusion SPA: same container accepts new vehicle photo identities after content replacement
+Fyusion SPA: previous vehicle transfer cannot read the newly selected vehicle
+Fyusion download: original URL used
+Fyusion download: original URL used
+Fyusion download: original URL used
+Fyusion download: original URL used
+Fyusion download: original URL used
+Fyusion download: original URL used
+Fyusion download: original URL used
+Fyusion download: original URL used
+Fyusion download: original URL used
+Fyusion download: original URL used
+Fyusion download: original URL used
+Fyusion download: original URL used
+Fyusion download: original URL used
+Fyusion download: original URL used
+Fyusion download: original URL used
+Fyusion mocked network: images downloaded 15/15 (separate from URL extraction)
+Fyusion JSON chunks: Files delivered to MyAuto receiver 15/15
+Fyusion simulated MyAuto gallery: images confirmed 15/15; no live upload claim
+selected vehicle identity; not search results
+make/model/year/trim
+visible miles fallback; original values preserved
+engine and cylinders
+fuel/transmission/drivetrain
+colors/body
+condition grade and explicitly labeled buy-now price
+confirmed equipment/announcements/auction/explicit damage flags extracted without damage-free inference
+15 real photo URL limit; no inline icons
+unit conversion edge cases
+duplicate filtering; existing high resolution; order; reject auth query/video
+strict privacy allowlist
+missing structured identity stops extraction instead of falling back to title guesses
+missing optional values remain unavailable
+unknown mileage units not assumed
+stale SPA JSON/VIN mismatch rejected
+ambiguous selected panels rejected
+hash navigation rereads new detail vehicle without cache
+dependent dropdowns deferred without invented options
+confirmed MyAuto choice IDs
+auction price not assumed; photos handled by dedicated adapter
+VIN text field filled
+native setter bypasses tracker; bubbling input updates controlled state
+honest filled/unfilled summary
+existing user values preserved
+kilometers never filled into miles form
+unverified custom choices are not reported as filled
+location: exact alias USA → აშშ
+location: exact alias United States → აშშ
+location: exact alias US → აშშ
+location: exact alias Germany → გერმანია
+location: exact alias Japan → იაპონია
+location: exact alias South Korea → სამხ. კორეა
+location: exact alias Canada → კანადა
+location: exact alias Dubai → დუბაი
+location: exact alias France → საფრანგეთი
+location: exact alias Italy → იტალია
+location: exact alias Netherlands → ჰოლანდია
+location: exact alias England → ინგლისი
+location: exact alias Tbilisi → თბილისი
+location: exact alias Poti → ფოთი
+location: exact alias Batumi → ბათუმი
+location: exact alias Rustavi → რუსთავი
+location: exact alias სამხ. კორეა → სამხ. კორეა
+location: unknown countries and unverified UK-to-England equivalence stay unresolved
+location: auction country alone is not physical vehicle location
+location: explicit at-auction status can confirm auction country
+location: verified pickup/physical country is mapped
+location: per-transfer override > saved default > verified source
+location: verified transit specifically to Georgia selects transit
+location: a transit preference does not fabricate shipping status
+location: default persists across service instances in durable extension storage
+location: default can be changed
+location: default can be cleared
+location: actual child option commits; survives focus/rerender without fabricating hidden input IDs
+location: even explicit override never overwrites a manual MyAuto selection
+location: nonselectable group heading stays manual and menu closes
+location: unresolved source is reported without opening a dropdown
+mandatory: steeringWheel LHD maps to actual option ID 0
+mandatory: steeringWheel Left Hand Drive maps to actual option ID 0
+mandatory: steeringWheel RHD maps to actual option ID 1
+mandatory: steeringWheel Right Hand Drive maps to actual option ID 1
+mandatory: transmission Automatic maps to actual option ID 2
+mandatory: transmission AT maps to actual option ID 2
+mandatory: transmission Manual maps to actual option ID 1
+mandatory: transmission MT maps to actual option ID 1
+mandatory: transmission Tiptronic maps to actual option ID 3
+mandatory: transmission Manual-shift automatic maps to actual option ID 3
+mandatory: transmission CVT maps to actual option ID 4
+mandatory: transmission Continuously Variable Transmission maps to actual option ID 4
+mandatory: drivetrain FWD maps to actual option ID 1
+mandatory: drivetrain Front Wheel Drive maps to actual option ID 1
+mandatory: drivetrain RWD maps to actual option ID 2
+mandatory: drivetrain Rear Wheel Drive maps to actual option ID 2
+mandatory: drivetrain AWD maps to actual option ID 3
+mandatory: drivetrain All Wheel Drive maps to actual option ID 3
+mandatory: drivetrain 4WD maps to actual option ID 3
+mandatory: drivetrain Four Wheel Drive maps to actual option ID 3
+mandatory: doorCount 2 maps to actual option ID 1
+mandatory: doorCount 3 maps to actual option ID 1
+mandatory: doorCount 4 maps to actual option ID 2
+mandatory: doorCount 5 maps to actual option ID 2
+mandatory: doorCount 6 maps to actual option ID 4
+mandatory: doorCount 7 maps to actual option ID 4
+mandatory: DRW never becomes 4WD
+mandatory: ambiguous transmission is manual, never guessed Tiptronic
+mandatory: ambiguous transmission is manual, never guessed Tiptronic
+mandatory: ambiguous transmission is manual, never guessed Tiptronic
+mandatory: structured door fields agree or remain unresolved, never infer from model
+mandatory: explicit equipment preserves steering conflicts without guessing
+mandatory: explicit source equipment and labeled door count survive normalized payload validation
+mandatory: real fixture door count extracted; absent steering is not guessed from BMW or country
+mandatory: all four survive peer focus and source-derived controlled rerender
+mandatory: existing manual steering selection is never overwritten
+mandatory: existing transmission, drivetrain and door choices also remain protected
+mandatory: missing/ambiguous values remain untouched with original values for manual selection
+photos: reproduce a valid prepared vehicle with zero lazy gallery photos
+photos: zero-photo payload can refresh current selected gallery after lazy rendering
+photos: confirmed structured mainImage fallback works without rendered gallery
+photos: changing vehicle cannot supply photos to an old transfer
+photos: a permanently empty source returns an extraction error, never 0/0 success
+photos: partial retry submits only three failed photos
+photos: 12 successful cards preserved; three failed IDs retry to 15 verified gallery images
+photos: upload leaves VIN, mileage, description and negotiable price unchanged
+photos: an existing completed gallery never receives a duplicate batch
+staged: selects the confirmed MyAuto Controller contract
+staged: present but loading/invisible text controls are not interactive
+staged: actual loading visibility transition enables text plan
+staged: all 17 supported fields commit; description skipped and condition manual
+staged: independent native writes use one input event each; no per-field focus/blur/change probing
+staged: dropdowns are serialized and inspected once
+staged: manufacturer succeeds without fabricating a tracking-input ID
+staged: final pass observes a genuine committed-value reset
+staged: targeted text repair does not reopen successful dropdowns
+staged: later manual edits remain untouched
+staged: stale prepared descriptions, verification and retries never touch the textarea
+staged: negotiable enabled once; auction price never written and manual price preserved when site does not clear it
+staged: already enabled negotiable is not toggled off
+staged: final verification detects negotiable reset
+staged: unavailable negotiable is manual without blocking or price fallback
+lifecycle: independently labeled Ford model/trim map separately; complete cab/bed/DRW title is preserved
+lifecycle: compound BMW model is never reduced to M5
+lifecycle: 4000-character description retains complete damage notes, excludes VIN and reports omitted equipment
+lifecycle: damage words in original equipment trigger a critical omission warning, never a silent optional drop
+lifecycle: oversized critical notes require review rather than silent truncation
+lifecycle: intentionally skipped description has no result, verification or failure
+lifecycle: manual description is untouched even on explicit description retry
+lifecycle: explicit value metadata in a linked portal is selected without requiring invented option classes or role attributes
+lifecycle: matching visible label with a different metadata option ID is never verified
+lifecycle: a clicked choice without observable committed state is unverified, not falsely failed or successful
+lifecycle: Ford selects its verified source Model option rather than title/cab/bed/trim text
+lifecycle: dependency operation reports exactly which earlier text fields reset
+lifecycle: targeted text repair after stable dependencies preserves Model without restarting the form
+prefetch: initial detail preparation opens no tab and downloads no photos
+prefetch: warm source cache reuses unique preparation without normalization
+location: background binds explicit override to this vehicle above saved default
+prefetch: click reuses background prepared fields and opens one destination
+prefetch: no generated or source auction description is transferred
+prefetch: repeated prepared clicks still deduplicate transfers
+location: a restarted manager uses the durable default
+prefetch: worker restart cache miss rebuilds verified source payload automatically
+prefetch: hash navigation invalidates previous identity immediately
+prefetch: click during preparation waits for the current generation without cancelling its own task
+prefetch: stale asynchronous B result discarded; compound model C remains exact
+prefetch: superseded preparation never publishes a ready state
+location: next vehicle uses default without inheriting the previous vehicle override
+prefetch: SPA switching produces isolated current-vehicle transfer
+prefetch: old visible detail panel is rejected while a new hash is loading
+prefetch: replacing an old panel does not validate its stale identity on a new route
+prefetch: asynchronously replaced detail panel becomes ready without reload
+prefetch: detail modal switching without route navigation invalidates the old payload
+prefetch: click waits for required asynchronously rendered source data without confirmation
+prefetch: revealing an asynchronously hidden ancestor triggers preparation
+prefetch: preparation uses no binary cache, credentials or automatic upload
+prefetch: missing background cache is a safe miss
+prefetch: short-lived payload expires after two minutes
+prefetch: superseded normalization cannot repopulate the cache
+prefetch: subsequent source selection cannot mutate an existing transfer snapshot
+native input adapter commits blur-dependent state
+blur state survives rerender without submit or unnecessary retry
+rejected controlled value is never reported persisted
+rejected field has bounded retries
+post-fill reset fails persistence verification
+form readiness resolves from a DOM mutation without a startup sleep
+cancelled form readiness disconnects without continuing stale work
+superseded input work cannot write after beforeinput cancellation
+selected and foreign VINs removed from all generated dynamic description sections
+all description-specific VIN labels removed
+sanitized Georgian description preserves exact identity and readable non-VIN details
+VIN-only copied sections do not leave empty description headings
+VIN redaction preserves other lines for encoding/layout 1
+VIN redaction preserves other lines for encoding/layout 2
+VIN redaction preserves other lines for encoding/layout 3
+VIN redaction preserves other lines for encoding/layout 4
+VIN redaction preserves other lines for encoding/layout 5
+VIN redaction preserves other lines for encoding/layout 6
+VIN redaction preserves other lines for encoding/layout 7
+labeled foreign formatted VIN also removed
+privacy cleanup never renames models or matches VIN inside unrelated words
+privacy of an explicitly supplied identifier does not depend on VIN validation succeeding
+VIN cleanup preserves punctuation in exact model and trim names
+final description sanitizer is idempotent
+hidden model tracker/search is not mistaken for a free-text custom model input
+complete model entered into the actual editable Model field
+Touring Wagon is not moved into the trim field
+VIN transferred to dedicated VIN field
+dedicated VIN control is the only control containing the VIN
+editable full model verified in Model field rather than description or body
+description remains entirely user-owned, including on retries
+native predefined Model field selects exact full designation and records accepted ID
+unsupported full model never falls back to M5 or 5 Series
+missing VIN field reported internally without moving VIN into Model
+missing dedicated VIN field cannot leak VIN into any fallback text control
+missing VIN field does not cause description generation or fallback
+exact full structured designation preserved independently of catalog model/trim/body
+original catalog and full structured display evidence preserved for debugging
+explicit full structured model is not shortened to the broader catalog label
+full VIN-matched structured designation is preserved even when catalog taxonomy is a broader family
+hidden vehicle roots and stale hidden detail fields ignored
+stale enrichment VIN cannot supply identity to a different detail vehicle
+missing reliable manufacturer/model blocks transfer; title is not used as a guessed fallback
+numeric model/trim strings never converted as engine or mileage values
+typed dictionary: fuel/Gasoline
+typed dictionary: fuel/Diesel
+typed dictionary: fuel/Hybrid
+typed dictionary: fuel/Gasoline Plug-In Hybrid
+typed dictionary: fuel/Electric
+typed dictionary: transmission/Automatic
+typed dictionary: transmission/Manual
+typed dictionary: transmission/CVT
+typed dictionary: drivetrain/FWD
+typed dictionary: drivetrain/RWD
+typed dictionary: drivetrain/AWD
+typed dictionary: drivetrain/4WD
+typed dictionary: color/Black
+typed dictionary: color/White
+typed dictionary: color/Silver
+typed dictionary: color/Gray
+typed dictionary: color/Blue
+typed dictionary: color/Red
+typed dictionary: body/Wagon
+typed dictionary: interior/Leather
+typed dictionary: equipment/Cornering Lights
+typed dictionary: damage/Hail Damage
+typed dictionary: note/Previous Canadian
+unknown package names preserved whole; no word-by-word replacement
+Georgian description uses verified terminology and preserves uncertain original option names
+review never translates or renames vehicle model
+catalog prefix and similar model families are not valid replacements
+VIN decoder broad-model substitution corrected only to exact full model; accepted IDs recorded separately
+MyAuto accepted IDs never replace source identity; confirmed customModel field remains trim
+no exact model leaves unresolved; neither unrelated option nor trim field is used as a model fallback
+exact dropdown label takes priority over a verified equivalent
+translated description and accepted PHEV option value are kept distinct
+final verification notices changed label/ID after dependent controls rerender
+review displays reliable original identity without opening or filling MyAuto
+switching vehicles after review cannot transfer previous vehicle data
+new review transfers fresh exact model/trim after SPA switch
+exact host validation rejects source and destination lookalikes
+normalization validation rejects credentials hidden in raw fields
+fresh destination without vehicle/query data
+direct UX: navigating state persists and source reload can recover the running job
+direct UX: lifecycle follows form then photo operations
+direct UX: complete failure is distinguished from a populated partial draft
+direct UX: negotiable price alone cannot mask a completely failed vehicle transfer
+repeated/concurrent clicks deduplicate active vehicle A
+fresh destination without vehicle/query data
+vehicle B isolated by transfer ID/source snapshot/destination
+direct UX: destination claim preserves navigation state until the form is ready
+single claim prevents reinjection/refresh overwrites
+B cannot request A photos
+replacement documents cannot reuse claimed transfers
+ordinary authenticated fetch; no credential extraction/redirect forwarding
+ordinary authenticated fetch; no credential extraction/redirect forwarding
+vehicle photo bytes, filenames and URLs never mix after SPA selection
+bounded image chunks stay below Chrome messaging limits
+chunk reassembly creates hash-verified Files with correct MIME/filename
+lost/repeated prepare requests use cached bytes without duplicate downloads
+transient download failure retries
+access denial does not retry or bypass authentication
+login HTML cannot masquerade as photo data
+oversized images rejected before buffering
+confirmed static phone-upload icon does not count as an existing vehicle photo
+async owned accessible options selected and verified without invented IDs
+closed snapshot without owned option evidence remains explicitly unverified
+populated listings rejected before writes/uploads
+DataTransfer dispatches actual Files; remote preview AND widget count verify upload
+existing gallery prevents duplicate upload retries
+local blob preview/FileList are not reported as successful server uploads
+final verification detects fields reset by dependent rerenders
+upload retries only after explicit failure with empty queue/gallery; no blind duplicates
+finished transfers cannot be restarted or mutated by progress messages
+direct UX: completed partial draft cleans only its destination binding and preserves newer active transfers
+direct UX: reload cannot reclaim a completed transfer
+partial photo transfer never becomes fake completion
+finish clears A binary data without touching B
+closing destination cleans only its transfer/cache
+expired records and orphaned temporary images cleaned
+catalog: supplied manufacturer spellings retained without invented IDs
+catalog: case-only matching does not substitute related or partial manufacturer names
+catalog: year range begins at 1990 and automatically grows after 2026
+dropdown: aria-owns portal wrapper and asynchronous options discovered
+dropdown: a closed successful menu does not dispatch Escape to unrelated page handlers
+dropdown: successful selection confirmed by actual label and tracking value
+dropdown: dependent model waits for enabled control, searches and retains complete designation
+dropdown: full Ranger designation remains in actual Model field
+dropdown: unique newly opened unlinked portal selected without clicking existing unrelated options
+dropdown: year option ID verified
+dropdown: aria-labelledby portal uses verified Georgian fuel equivalent
+dropdown: numeric engine labels require confirmed liters contract and stay within supplied range
+dropdown: virtualized options traversed by bounded scrolling; engine units normalized to 2300 cc
+dropdown: cylinder selection waits for async option and verifies the accepted value
+dropdown: ambiguous unlinked portals are not selected
+dropdown: clicking without actual form-state change never reports success
+dropdown: missing option structure reports precise discovery failure
+dropdown: failed opening gets one controlled retry
+dropdown: nested searchable combobox uses its own interactive input and ownership
+dropdown: native async engine uses the same unit contract and actual option ID
+dropdown: diagnostic expectations redact contiguous and formatted VINs
+dropdown: diagnostic redaction also covers labeled, spaced, encoded VINs and session labels
+catalog: canonical dropdown display candidate does not alter original manufacturer
+catalog: newly available live years and manufacturers are not blocked by the reference catalog
+dropdown: normalized engine volume remains searchable when original displacement label is missing
+dropdown: form adapter performs all dependent controls sequentially
+dropdown: Ford/full Ranger model/year/fuel/engine/cylinders filled and verified through custom portal form
+dropdown: existing dedicated VIN handling and VIN-free Georgian description preserved
+optimization: reusable inspection reads owned portal labels, actual metadata and disabled state
+optimization: inspection closes safely without changing the selected value
+optimization: option cache contains data only, not live DOM references
+optimization: cached options are reused as hints while fresh DOM selection is still verified
+optimization: cached option IDs never override newly rendered live selection values
+optimization: model cache is scoped to current manufacturer
+optimization: changing parent selection invalidates model context immediately
+optimization: locale changes invalidate option cache
+optimization: replacement controls cannot reuse stale cached options
+optimization: declared form version changes invalidate cached options
+optimization: stale option entries expire without persisting vehicle information
+optimization: explicit context invalidation clears discovery data
+optimization: VIN-shaped values never enter dropdown option cache
+optimization: concurrent duplicate photo requests download each image once
+optimization: photo concurrency is bounded at four and original image order is preserved
+optimization: field retry touches only transient fuel failure and preserves successful manufacturer
+optimization: field retry creates no tab, downloads no photos and preserves prior photo state
+optimization: unsupported exact models are not retried or replaced
+designation: Ford complete source designation survives normalization and payload validation
+designation: Ford independently labeled trim and manufacturer retained separately
+designation: Ford maps full designation without VIN leakage into description
+designation: Ford MyAuto prefers canonical fullModelName over a shortened legacy model alias
+designation: old non-adjacent model/trim blocker is now the requested non-blocking Georgian warning
+designation: BMW complete source designation survives normalization and payload validation
+designation: BMW independently labeled trim and manufacturer retained separately
+designation: BMW maps full designation without VIN leakage into description
+designation: BMW MyAuto prefers canonical fullModelName over a shortened legacy model alias
+designation: Toyota complete source designation survives normalization and payload validation
+designation: Toyota independently labeled trim and manufacturer retained separately
+designation: Toyota maps full designation without VIN leakage into description
+designation: Toyota MyAuto prefers canonical fullModelName over a shortened legacy model alias
+designation: missing trim stays null and never becomes literal text or guessed title tokens
+designation: a missing null enrichment year does not block verified independent source fields
+designation: placeholder trim values are missing metadata, not a fabricated trim
+designation: conflicting trim sources remain optional instead of blocking the payload
+designation: a complete separately labeled model is never shortened to its display-title prefix
+designation: VIN-scoped selected title retains the full suffix after verified manufacturer/year header
+designation: complete structured designation does not require a separate base model
+designation: unsafe selected-vehicle VIN mismatch remains blocking
+designation: contradictory full model identity cannot enter the transfer payload
+designation: unsupported full MyAuto model produces the exact requested warning and never selects Ranger
+designation: unresolved model/trim does not block VIN, year, mileage, fuel, engine, cylinders while description is intentionally skipped
+designation: optional trim remains empty; complete model is preserved and VIN remains outside description
+designation: supported custom Model entry receives the entire original designation
+source preview: optional photo-cache cleanup failure cannot prevent extraction and payload review
+receiver A: Chrome storage key reordering cannot invalidate unchanged reviewed data
+receiver A: valid selected vehicle produces intact exact-model/VIN payload
+receiver A: payload reaches destination through runtime message and tab-bound claim
+receiver A: known photo downloads overlap independent form operations
+receiver A: one active pipeline owner per destination form
+receiver A: photo submission still follows dependent form operations
+receiver A: real photo File reaches upload control
+receiver A: slow photo download cannot prevent vehicle fields being filled
+receiver A: supported exact model and mileage fields populated and verified
+receiver A: description remains untouched while VIN stays in its dedicated field
+receiver A: missing/rejected VIN reported individually without blocking automatic photos
+receiver B: Chrome storage key reordering cannot invalidate unchanged reviewed data
+receiver B: valid selected vehicle produces intact exact-model/VIN payload
+receiver B: payload reaches destination through runtime message and tab-bound claim
+receiver B: known photo downloads overlap independent form operations
+receiver B: one active pipeline owner per destination form
+receiver B: photo submission still follows dependent form operations
+receiver B: real photo File reaches upload control
+receiver B: slow photo download cannot prevent vehicle fields being filled
+receiver B: supported exact model and mileage fields populated and verified
+receiver B: description remains untouched while VIN stays in its dedicated field
+receiver B: missing/rejected VIN reported individually without blocking automatic photos
+receiver C: Chrome storage key reordering cannot invalidate unchanged reviewed data
+receiver EV: missing combustion specifications do not block an electric payload
+receiver C: ambiguous trim permits independent transfer payload with full designation intact
+receiver C: valid selected vehicle produces intact exact-model/VIN payload
+receiver C: payload reaches destination through runtime message and tab-bound claim
+receiver C: known photo downloads overlap independent form operations
+receiver C: one active pipeline owner per destination form
+receiver C: photo submission still follows dependent form operations
+receiver C: real photo File reaches upload control
+receiver C: slow photo download cannot prevent vehicle fields being filled
+receiver C: supported exact model and mileage fields populated and verified
+receiver C: description remains untouched while VIN stays in its dedicated field
+receiver C: missing/rejected VIN reported individually without blocking automatic photos
+receiver: vehicle A/B payloads, exact models and photo transfers remain independent
+receiver: transient runtime error retries; ordinary visits without a job remain untouched
+receiver: persistent claim/messaging failure is reported in Georgian rather than swallowed
+Sanitized parser, binary photo transport/uploader and orchestration tests passed. This is not a live authenticated end-to-end test.

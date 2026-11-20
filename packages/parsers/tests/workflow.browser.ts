@@ -1,3 +1,4 @@
+import {runEdgeTests} from './edge.browser'
 import {runSearch24SnapshotTests} from './search24Snapshot.browser'
 import {runMileageUnitTests} from './mileageUnits.browser'
 import {runManheim24SearchTests} from './manheim24Search.browser'
@@ -49,6 +50,7 @@ try {
   await runSearch24SnapshotTests(check)
   await runMileageUnitTests(check)
   await runPlatformIsolationTests(check)
+  await runEdgeTests(check)
   await runStabilityTests(check)
   await runPhotoDestinationTests(check)
   await runPhotoCheckpointTests(check)

@@ -1,0 +1,116 @@
+
+> @auto-importer/parsers@1.0.0 test
+> node tests/run-browser.mjs
+
+EDGE destination limit comes from the actual saved form counter, not the photo-video-label heading
+EDGE: exact HTTPS host/detail route registration, informational/lookalike pages rejected
+EDGE larger payload is supported while existing non-EDGE 15-photo validation remains unchanged
+EDGE supplied gasoline fixture: labeled identity and exact manufacturer/model/year, no invented trim
+EDGE gasoline: confirmed specifications only, unknown transmission and engine volume remain missing
+EDGE gasoline: original miles, labeled colors/material/options; no price or description copied
+EDGE gasoline actual snapshot: 47 gallery slots, 17 observed identities retained without fabricating the remaining unloaded photos
+EDGE: gallery order and genuinely distinct identities survive deduplication
+EDGE snapshot: verified large variants preferred; other thumbnail paths are never fabricated
+EDGE CDN registration: protocol-relative/HTTP/HTTPS supported; tokens and unknown hosts rejected
+EDGE: partial stage gallery never masquerades as the complete complete gallery
+EDGE bounded readiness preserves verified stage/print photos when API and thumbnail initialization never finish
+EDGE lazy attributes: invalid data-src never masks a valid src
+EDGE lazy gallery: active primary cannot masquerade as 47 ready photos
+EDGE bounded gallery observer resolves delayed data-src thumbnails
+EDGE empty runtime metadata cannot mask a complete DOM gallery
+EDGE partial runtime metadata cannot reduce a complete gallery to one photo
+EDGE runtime metadata: 1 ordered photos; full URLs preferred without rewriting
+EDGE runtime metadata: 5 ordered photos; full URLs preferred without rewriting
+EDGE runtime metadata: 8 ordered photos; full URLs preferred without rewriting
+EDGE runtime metadata: 15 ordered photos; full URLs preferred without rewriting
+EDGE runtime metadata: 23 ordered photos; full URLs preferred without rewriting
+EDGE runtime metadata: 30 ordered photos; full URLs preferred without rewriting
+EDGE runtime metadata: 47 ordered photos; full URLs preferred without rewriting
+EDGE runtime metadata: 60 ordered photos; full URLs preferred without rewriting
+EDGE video posters are excluded from genuine vehicle photos
+EDGE runtime: an explicit original full URL is never downgraded to a measurable thumbnail
+EDGE reproduced truncation bug: deduplicate all 17 runtime frames without the old 15-photo cap
+EDGE runtime duplicate frames no longer become an empty vehicle photo payload
+EDGE bridge rejects metadata belonging to another VIN
+EDGE SPA: new listing URL cannot reuse old vehicle DOM
+EDGE supplied EV fixture: Cybertruck/CyberBeast, electric/automatic/AWD and exact 30026 miles
+EDGE EV: exactly one genuine photo, no invented combustion values or unknown interior color
+EDGE single-photo gallery can use its actual download-pic link without thumbnail/stage initialization
+EDGE mapping: labeled Pickup Truck uses verified Pickup/MyAuto Georgian equivalent
+EDGE Georgian description audit: translated verified specifications, no VIN, price, placeholders or HTML; autofill remains skipped
+EDGE description audit: trim appears once
+EDGE explicit kilometers remain kilometers without relabeling or conversion
+EDGE independently labeled model takes precedence over title fallback
+EDGE missing optional fuel cannot block model identification or photos
+EDGE: missing gallery never falls back to unrelated page images
+EDGE metadata safety limit preserves valid vehicle text instead of rejecting the entire transfer
+EDGE isolated Gasoline: extracted/downloaded/delivered/simulated-confirmed 15/15/15/15 (none)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE isolated Electric: extracted/downloaded/delivered/simulated-confirmed 1/1/1/1 (none)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE isolated Gasoline: extracted/downloaded/delivered/simulated-confirmed 8/8/8/8 (none)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE isolated Gasoline: extracted/downloaded/delivered/simulated-confirmed 15/15/15/14 (none)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE partial acceptance: 14/15 stays partial after one missing-file retry; successful 14 are never resubmitted
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE isolated Gasoline: extracted/downloaded/delivered/simulated-confirmed 15/14/14/14 (one)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE failed download is field-independent: valid files survive; all-failed does not call uploader or claim success
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE isolated Electric: extracted/downloaded/delivered/simulated-confirmed 1/0/0/0 (all)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE failed download is field-independent: valid files survive; all-failed does not call uploader or claim success
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE isolated Gasoline: extracted/downloaded/delivered/simulated-confirmed 30/30/30/30 (none)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE isolated Gasoline: extracted/downloaded/delivered/simulated-confirmed 60/60/60/60 (none)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE service-worker manager restart preserves cumulative prepared indexes and tab-bound photo progress
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE isolated Gasoline: extracted/downloaded/delivered/simulated-confirmed 30/15/15/15 (none)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE actual destination limit is reported explicitly; source payload remains complete
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE isolated Gasoline: extracted/downloaded/delivered/simulated-confirmed 30/15/15/15 (one)
+EDGE backpressure: at most four temporary photos per transfer; accepted batches released
+EDGE actual destination limit is reported explicitly; source payload remains complete
+EDGE failed download is field-independent: valid files survive; all-failed does not call uploader or claim success
+EDGE receiver: original miles, description untouched, negotiable price, no auction price
+EDGE original Fotorama anchor metadata provides a complete ordered gallery before plugin initialization
+EDGE download: transient 503 retries only failed image through existing bounded downloader
+EDGE download: 404 fails once without permanent retries
+EDGE download: 403 fails once without permanent retries
+EDGE download: non-image response fails once without permanent retries
+EDGE transport canonicalizes only the verified scheme, preserving path; unknown host rejected
+EDGE exact CDN redirect is permitted; existing credentials, cancellation, byte validation and metadata contract preserved
+EDGE rejects unapproved final CDN/downgrade once and retains original failure cause
+EDGE rejects unapproved final CDN/downgrade once and retains original failure cause
+EDGE wrapper preserves bounded transient retries
+EDGE authentication failure is not retried or bypassed
+Non-EDGE registration delegates unchanged to existing shared downloader
+EDGE candidate keeps exact photo identity and uses only observed resize instruction
+EDGE failed large candidate falls back to actual gallery thumbnail, preserving PNG/order
+EDGE observed full-size failure can recover through a decoded small variant; bytes override misleading response MIME
+EDGE rejects a JPEG signature with undecodable image bytes before File delivery
+EDGE HTTP-only original has bounded fallback after HTTPS 404 without guessing new paths
+EDGE authorization rejection never tries alternate resolution or scheme
+EDGE rejects empty/HTML/unsupported bytes despite JPEG MIME, without retrying permanent errors
+EDGE rejects empty/HTML/unsupported bytes despite JPEG MIME, without retrying permanent errors
+EDGE rejects empty/HTML/unsupported bytes despite JPEG MIME, without retrying permanent errors
+EDGE timeout has exactly three existing bounded attempts; original cause retained
+EDGE cancelled transfer starts no network request
+EDGE browser-supported GIF is decoded and converted only when necessary into lossless PNG
+EDGE verified direct CDN origin and WebP preserve original bytes without conversion
+Shared downloader retains redirect:error; verified redirect support is EDGE-only
+EDGE watcher mounts exactly once on a verified detail page
+EDGE watcher wakes bounded photo readiness on data-src-only updates, before timeout
+EDGE watcher removes launcher and preparation on informational routes
+EDGE watcher reactivates on valid SPA detail navigation
+EDGE watcher cleanup is idempotent
+
+Sanitized parser, binary photo transport/uploader and orchestration tests passed. This is not a live authenticated end-to-end test.
