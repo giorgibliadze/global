@@ -1,9 +1,9 @@
+import {specificationCylinders,specificationOdometer,specificationEngine,specificationBody,specificationMaterial,specificationFuel} from './specNumbers'
 import {sourceMileage,mileageDescription} from './mileage'
 import {visible} from './manheimVisibility'
 import {extractSiteManheimGallery} from './manheimSiteGallery'
 import type {NormalizedVehicle} from '@auto-importer/shared'
 import {extractOriginalIdentity} from './identity'
-import {engineToCc} from './units'
 import {deduplicatePhotos,photoIdentity} from './photoUrls'
 import {explicitSteering,sourceDoorCount} from './mandatorySpecifications'
 import {sanitizeDescription} from './vinPrivacy'
@@ -16,7 +16,6 @@ import {searchManheimRouteVin as searchManheimRoute} from '@auto-importer/shared
 
 const object=(v:unknown):Record<string,unknown>=>v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{}
 const value=(v:unknown):string|undefined=>typeof v==='string'&&v.trim()&&v.trim().length<=500&&!/^(?:not specified|unknown|n\/?a|null|undefined|none)$/i.test(v.trim())?v.trim():undefined
-const number=(v:unknown)=>typeof v==='number'&&Number.isFinite(v)&&v>=0?v:undefined
 
 const field=(root:Element,id:string)=>{
   const nodes=[...root.querySelectorAll(`[data-testid="${id}"]`)].filter(visible)
@@ -86,19 +85,18 @@ export function parseSearchManheim(doc:Document,url=doc.URL,source:DetailSource=
   const selection=selected(doc,url,source),{root,data,vin,listingId,title,identity}=selection
   const enrichment=object(data.designatedDescriptionEnrichment),powertrain=object(enrichment.powertrain),engine=object(powertrain.engine),body=object(enrichment.bodyDescription)
   const seller=sellerText(data.comments??data.remarks,vin),label=(key:string)=>seller.labels.get(key)
-  const mileageDisplay=field(root,'vdp-decription-info'),display=mileageDisplay?.match(/(?:^|\s)([\d,]+(?:\.\d+)?)\s*(mi(?:les)?|km)\b/i)
-  const odometer=number(data.odometer)??(display?Number(display[1].replaceAll(',','')):undefined)
-  if(number(data.odometer)!==undefined&&display&&odometer!==Number(display[1].replaceAll(',','')))throw new Error('გარბენის მონაცემები ერთმანეთს არ ემთხვევა.')
-  const unit=value(data.odometerUnits)??display?.[2]
-  const mileage=sourceMileage(data.odometer??odometer,unit,mileageDisplay)
+  const mileageDisplay=field(root,'vdp-decription-info'),display=specificationOdometer(mileageDisplay),structuredMileage=specificationOdometer(data.odometer)
+  const odometer=structuredMileage?.value??display?.value
+  if(structuredMileage&&display&&structuredMileage.value!==display.value)throw new Error('გარბენის მონაცემები ერთმანეთს არ ემთხვევა.')
+  const unit=value(data.odometerUnits)??structuredMileage?.unit??display?.unit
+  const mileage=sourceMileage(odometer,unit,display?.unit?`${display.value} ${display.unit}`:undefined)
   const engineDisplay=value(data.engineDisplacement)??field(root,'card-view-engine-displacement')??label('Engine Size')
   const engineDescription=value(engine.primaryDescription)??value(data.engineType)??label('Engine Size')
-  const engineCc=engineDisplay?engineToCc(engineDisplay)??engineToCc(engineDisplay.match(/\b\d+(?:\.\d+)?\s*L\b/i)?.[0]??''):undefined
-  const cylinderLabel=label('Cylinders'),cylinderMatch=engineDescription?.match(/\b(?:V|I|H)(\d{1,2})\b|\b(\d{1,2})\s*Cylinder/i)
-  const cylinders=cylinderLabel&&/^\d{1,2}$/.test(cylinderLabel)?Number(cylinderLabel):cylinderMatch?Number(cylinderMatch[1]??cylinderMatch[2]):undefined
+  const engineCc=specificationEngine(engineDisplay,value(data.engineFuelType)??label('Fuel'))??specificationEngine(engineDescription,value(data.engineFuelType)??label('Fuel'))
+  const cylinders=specificationCylinders(value(data.engineFuelType)??label('Fuel'),title,label('Cylinders'),engineDescription,value(data.engineType))
   const transmissionSource=value(data.transmission)??label('Gear Box')
   const transmission=transmissionSource?.match(/^(?:\d+-Speed\s+)?(Automatic|Manual|CVT|Tiptronic)$/i)?.[1]??transmissionSource
-  const fuelSource=value(data.engineFuelType)??label('Fuel'),fuel=fuelSource==='Premium Unleaded Gasoline'?'Gasoline':fuelSource
+  const fuelSource=value(data.engineFuelType)??label('Fuel'),fuel=specificationFuel(fuelSource)
   const equipment=Array.isArray(enrichment.installedEquipment)?enrichment.installedEquipment.map(row=>value(object(row).primaryDescription)).filter((v):v is string=>!!v).slice(0,500):[]
   const interior=label('Interior'),material=value(data.interiorType)??interior?.match(/\b(Semi-Aniline Leather|Leather|Cloth|Alcantara)\b/i)?.[1]
   const doorCount=sourceDoorCount(data.doorCount??body.passengerDoors,data.doors??label('Doors'))
@@ -110,7 +108,7 @@ export function parseSearchManheim(doc:Document,url=doc.URL,source:DetailSource=
   const raw:NormalizedVehicle['raw']={title,vin,make:identity.original.manufacturer,model:identity.original.model,fullModelName:identity.original.model}
   const originals={odometer,odometerUnits:unit,mileageDisplay,engineDisplacement:label('Engine Size')??engineDisplay,engineType:engineDescription,engineFuelType:fuelSource,transmission:transmissionSource,driveTrain:value(data.driveTrain)??value(object(powertrain.drivetrain).type),exteriorColor:label('Color')??exteriorColor,interiorColor:interior??interiorColor,interiorType:material,doorCount,description:seller.text||undefined}
   for(const [key,v] of Object.entries(originals))if(v!==undefined)raw[key]=v
-  const vehicle:NormalizedVehicle={source,listingId,title,vin,original:identity.original,make:identity.original.manufacturer,model:identity.original.model,fullModelName:identity.original.fullModelName,baseModel:identity.original.baseModel,trim:identity.original.trim,year:identity.year,mileage,engineCc,cylinders,fuel,transmission,drivetrain:originals.driveTrain,exteriorColor,interiorColor,interiorMaterial:material==='Semi-Aniline Leather'?'Leather':material,body:value(data.bodyStyle)??value(body.primaryBodyStyle)??readOverview('.overview__value.bodyStyle__value'),bodyStyle:value(data.bodyStyle)??value(body.primaryBodyStyle),doorCount,steeringWheel:explicitSteering(equipment),equipment,images:photoSelection.galleryReady?photoSelection.images:[],availableImageCount:photoSelection.availableImageCount,raw,warnings}
+  const vehicle:NormalizedVehicle={source,listingId,title,vin,original:identity.original,make:identity.original.manufacturer,model:identity.original.model,fullModelName:identity.original.fullModelName,baseModel:identity.original.baseModel,trim:identity.original.trim,year:identity.year,mileage,engineCc,cylinders,fuel,transmission,drivetrain:originals.driveTrain,exteriorColor,interiorColor,interiorMaterial:material==='Semi-Aniline Leather'?'Leather':specificationMaterial(material),body:specificationBody(value(data.bodyStyle)??value(body.primaryBodyStyle)??readOverview('.overview__value.bodyStyle__value')),bodyStyle:value(data.bodyStyle)??value(body.primaryBodyStyle),doorCount,steeringWheel:explicitSteering(equipment),equipment,images:photoSelection.galleryReady?photoSelection.images:[],availableImageCount:photoSelection.availableImageCount,raw,warnings}
   vehicle.description=searchManheimDescription(vehicle)
   return vehicle
 }

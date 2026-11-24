@@ -40,7 +40,7 @@ export class EdgePreparation {
       if(record.type==='childList'&&record.addedNodes.length+record.removedNodes.length>0&&[...record.addedNodes,...record.removedNodes].every(node=>this.irrelevant(node)))return false
       const element=record.target.nodeType===1?record.target as Element:record.target.parentElement
       const field=element?.closest('.section.details .field'),label=field?.querySelector(':scope > label')?.textContent?.trim()
-      if(label&&!['Manufacturer','Make','Model','Model Year','Year','Trim','Body Style','Fuel Type','Transmission','Drive Train','Cylinders','Displacement','Color','Interior Color / Material','Doors'].includes(label))return false
+      if(label&&!['Manufacturer','Make','Model','Model Year','Year','Trim','Body Style','Body Type','Vehicle Category','Odometer','Odometer Reading','Vehicle Mileage','Mileage','Miles','Fuel Type','Transmission','Drive Train','Cylinders','Displacement','Color','Interior Color / Material','Doors'].includes(label))return false
       const text='h1.description,.section.details,.section.options,.overview .odometer,.overview .vin'
       return !!element?.closest('#vdp h1.description,#vdp .section.details,#vdp .section.options,#vdp .overview .odometer,#vdp .overview .vin')||element?.matches('meta[property="og:url"]')||[...record.addedNodes,...record.removedNodes].some(node=>node.nodeType===1&&((node as Element).matches('#vdp,'+text)||!!(node as Element).querySelector('#vdp,'+text)))
     }))return

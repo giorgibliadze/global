@@ -1,3 +1,4 @@
+import {runEdgeSpecTests} from './edgeSpecs.browser'
 import {registerManheimParser} from '../../../apps/extension/src/content/manheim'
 import {runEdgePreloadTests} from './edgePreload.browser'
 import {runEdgeStartTests} from './edgeStart.browser'
@@ -22,6 +23,7 @@ import type {TransferRecord} from '@auto-importer/shared'
 const urlA='https://www.edgepipeline.com/components/vehicle/detail/'+'a'.repeat(32),urlB=urlA.replace(/a{32}$/,'b'.repeat(32))
 export async function runEdgeTests(check:(value:unknown,label:string)=>void,onMeasurement?:(record:Record<string,unknown>)=>void){
   const a=await(await fetch('/packages/parsers/tests/fixtures/edge-gasoline.html')).text(),b=await(await fetch('/packages/parsers/tests/fixtures/edge-electric.html')).text()
+  await runEdgeSpecTests(check,a,b,urlA,urlB)
   await runEdgeStartTests(check,a,b,urlA,urlB)
   await runEdgePreloadTests(check,a,urlA)
   const frame=document.createElement('iframe');document.body.append(frame);const doc=frame.contentDocument!

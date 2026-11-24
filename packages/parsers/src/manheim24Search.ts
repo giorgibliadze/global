@@ -1,3 +1,4 @@
+import {specificationCylinders,specificationOdometer,specificationEngine,specificationBody,specificationTransmission,specificationMaterial,specificationFuel} from './specNumbers'
 import {extractSearch24Carousel} from './manheim24SearchGallery'
 import {sanitizeDescription} from './vinPrivacy'
 // Manheim24 Search: independent existing Manheim24 component contract.
@@ -15,7 +16,6 @@ const text = (root: ParentNode, id: string) => {
 }
 const string = (v: unknown): string | undefined => typeof v === 'string' && v.trim() ? v.trim().slice(0, 500) : undefined
 const positive = (v: unknown): number | undefined => typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : undefined
-import {engineToCc} from './units'
 
 export {safePhotoUrl,deduplicatePhotos} from './photoUrls'
 import {deduplicatePhotos} from './photoUrls'
@@ -110,19 +110,19 @@ export function parseManheim24Search(doc: Document,url=doc.URL): NormalizedVehic
   }
   const mileageText = text(root, 'vdp-decription-info')
   raw.mileageDisplay = mileageText
-  const mileageMatch = mileageText.match(/(?:^|[\s•])((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)\s*(mi(?:les)?|km)\b/i)
-  const structuredOdo = positive(data.odometer)
-  const displayedOdo = mileageMatch ? Number(mileageMatch[1].replace(/,/g, '')) : undefined
+  const mileageDisplay = specificationOdometer(mileageText),structuredMileage=specificationOdometer(data.odometer)
+  const structuredOdo = structuredMileage?.value
+  const displayedOdo = mileageDisplay?.value
   const odo = structuredOdo ?? displayedOdo
-  const unit = string(data.odometerUnits) || mileageMatch?.[2]
+  const unit = string(data.odometerUnits) || structuredMileage?.unit || mileageDisplay?.unit
   if (structuredOdo !== undefined && displayedOdo !== undefined && structuredOdo !== displayedOdo) throw new Error('გარბენის მონაცემები ახლდება. ხელახლა სცადეთ.')
-  const mileage=sourceMileage(data.odometer??odo,unit,mileageText)
+  const mileage=sourceMileage(odo,unit,mileageDisplay?.unit?`${mileageDisplay.value} ${mileageDisplay.unit}`:undefined)
   if(odo!==undefined&&!mileage)warnings.push('გარბენის ერთეული უცნობია; გადაამოწმეთ წყარო.')
   const displacement = string(data.engineDisplacement) ?? text(root, 'card-view-engine-displacement')
   const engineType = string(data.engineType) ?? text(root, 'card-view-engine-type')
   if (displacement) raw.engineDisplacement = displacement
   if (engineType) raw.engineType = engineType
-  const cylinders = engineType.match(/\b(\d+)\s*cyl(?:inder)?s?\b/i)
+  const cylinders = specificationCylinders(string(data.engineFuelType) ?? text(root,'card-view-engine-fuel-type'),title,engineType)
   const year = identity.year
   raw.model = identity.original.model
   if(identity.original.catalogModel)raw.catalogModel = identity.original.catalogModel
@@ -156,13 +156,13 @@ export function parseManheim24Search(doc: Document,url=doc.URL): NormalizedVehic
     source: 'Manheim24Search', original: identity.original, listingId: string(data.id), title, vin,
     make: identity.original.manufacturer, model: identity.original.model, fullModelName:identity.original.fullModelName,baseModel:identity.original.baseModel,bodyStyle:string(data.bodyStyle),year,
     trim: identity.original.trim, mileage,
-    engineCc: engineToCc(displacement), cylinders: cylinders ? Number(cylinders[1]) : undefined,
-    fuel: string(data.engineFuelType) ?? (text(root, 'card-view-engine-fuel-type') || undefined),
+    engineCc: specificationEngine(displacement,string(data.engineFuelType) ?? text(root,'card-view-engine-fuel-type')) ?? specificationEngine(engineType,string(data.engineFuelType) ?? text(root,'card-view-engine-fuel-type')), cylinders,
+    fuel: specificationFuel(string(data.engineFuelType) ?? (text(root, 'card-view-engine-fuel-type') || undefined)),
     steeringWheel:explicitSteering(equipment),doorCount:sourceDoorCount(data.doorCount,data.doors),
-    transmission: string(data.transmission) ?? (text(root, 'card-view-engine-transmission') || undefined),
+    transmission: specificationTransmission(string(data.transmission) ?? (text(root, 'card-view-engine-transmission') || undefined)),
     drivetrain: string(data.driveTrain) ?? (text(root, 'card-view-drive-train') || undefined),
     exteriorColor: string(data.exteriorColor), interiorColor: string(data.interiorColor),
-    interiorMaterial: string(data.interiorType), body: string(data.bodyStyle),
+    interiorMaterial: specificationMaterial(string(data.interiorType)), body: specificationBody(string(data.bodyStyle)),
     condition: string(data.conditionType), conditionGrade: positive(data.conditionGradeNumeric),
     description, equipment, optionalEquipmentSummary, announcements, damage, auction, availableImageCount: photoSelection.availableImageCount,
     images: photoSelection.ready?allImages.slice(0,15):[], raw, warnings,

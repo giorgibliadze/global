@@ -32,7 +32,8 @@ import { fillMyautoForm, myautoFields } from '../src/myauto'
 const outcomes: string[] = []
 function check(value: unknown, label: string) { if (!value) throw new Error(label); outcomes.push(label); document.querySelector('pre')!.textContent = outcomes.join('\n') }
 const manheim = await (await fetch('/packages/parsers/tests/fixtures/manheim24.html')).text()
-const myauto = await (await fetch('/packages/parsers/tests/fixtures/myauto.html')).text()
+// This workflow vehicle now carries original miles; keep the simulated form's selected unit aligned.
+const myauto = (await (await fetch('/packages/parsers/tests/fixtures/myauto.html')).text()).replace('single-select-value-primaryFeatures.mileageType">კმ','single-select-value-primaryFeatures.mileageType">მილი')
 const doc = () => new DOMParser().parseFromString(manheim, 'text/html')
 const jsonElement = (d: Document) => d.querySelector('.StockWaveInfo')!
 function changeData(d: Document, changes: Record<string, unknown>) {
@@ -105,14 +106,14 @@ try {
   }
   const result = await fillMyautoForm(formDoc, v, { dropdownTimeoutMs: 30 })
   check(formDoc.querySelector<HTMLInputElement>('[name="primaryFeatures.vinCode"]')!.value === v.vin, 'VIN text field filled')
-  check(controlledState === String(Math.round(v.mileageKm!)) && tracker === '', 'native setter bypasses tracker; bubbling input updates controlled state')
+  check(controlledState === String(v.mileage!.value) && tracker === '', 'native setter bypasses tracker; bubbling input updates controlled state')
   check(result.filter(r => r.status === 'filled').length === 10 && result.some(r => r.field === 'მწარმოებელი' && r.status === 'unfilled'), 'honest filled/unfilled summary')
   mileage.value = '999'
   const noOverwrite = await fillMyautoForm(formDoc, v, { dropdownTimeoutMs: 30 })
   check(mileage.value === '999' && noOverwrite.some(r => r.field === 'გარბენი' && r.status === 'unfilled'), 'existing user values preserved')
-  mileage.value = ''; formDoc.querySelector('[data-testid="single-select-value-primaryFeatures.mileageType"]')!.textContent = 'მილი'
+  mileage.value = ''; formDoc.querySelector('[data-testid="single-select-value-primaryFeatures.mileageType"]')!.textContent = 'კმ'
   await fillMyautoForm(formDoc, v, { dropdownTimeoutMs: 30 })
-  check(mileage.value === '', 'kilometers never filled into miles form')
+  check(mileage.value === '', 'original miles never filled into an unconfirmed kilometers selector')
   frame.remove()
   const unverifiedFrame = document.createElement('iframe'); document.body.append(unverifiedFrame)
   const unverifiedDoc = unverifiedFrame.contentDocument!; unverifiedDoc.open(); unverifiedDoc.write(myauto); unverifiedDoc.close()

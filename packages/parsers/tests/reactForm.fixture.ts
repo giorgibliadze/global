@@ -2,7 +2,7 @@
 import { createElement, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createRoot } from 'react-dom/client'
-interface Configuration {edgePhotos?:boolean;photoLimit?:number;engine?:string;cylinders?:string;mileageUnit?:'mi'|'km';locationLabel?:string;batchedValidation?:boolean;model:string;make?:string;year?:string;fuel?:string;body?:string;resetAfterUpload?:boolean;rejectField?:string;pointerOnly?:boolean;failFuel?:boolean}
+interface Configuration {choices?:[string,string][];edgePhotos?:boolean;photoLimit?:number;engine?:string;cylinders?:string;mileageUnit?:'mi'|'km';locationLabel?:string;batchedValidation?:boolean;model:string;make?:string;year?:string;fuel?:string;body?:string;resetAfterUpload?:boolean;rejectField?:string;pointerOnly?:boolean;failFuel?:boolean}
 interface Selection {label:string;id:string}
 declare global {
   interface Window {
@@ -73,7 +73,7 @@ function Form() {
       if(key==='manufacturer')setReady(false)
       setSelected(previous=>({...previous,[key]:{label:labels[key],id:`fixture-${key}`},...(key==='manufacturer'?{model:undefined}:{})}));setOpen(undefined)
     }},labels[open])),document.body):null
-  const choices=[['gearTypeId','2'],['driveTypeId','3'],['vehicleColorId','19'],['saloonColorId','16'],['saloonMaterialId','1']].map(([key,id])=>createElement('button',{type:'button',key,'data-testid':`single-checkbox-primaryFeatures.${key}-${id}`,onClick:()=>setSelected(previous=>({...previous,[key]:{label:id,id}}))},createElement('input',{type:'hidden',readOnly:true,value:selected[key]?.id ?? '','data-testid':`single-checkbox-input-primaryFeatures.${key}-${id}`})))
+  const choices=(config.choices??[['gearTypeId','2'],['driveTypeId','3'],['vehicleColorId','19'],['saloonColorId','16'],['saloonMaterialId','1']]).map(([key,id])=>createElement('button',{type:'button',key:key+'-'+id,'data-testid':`single-checkbox-primaryFeatures.${key}-${id}`,onClick:()=>setSelected(previous=>({...previous,[key]:{label:id,id}}))},createElement('input',{type:'hidden',readOnly:true,value:selected[key]?.id ?? '','data-testid':`single-checkbox-input-primaryFeatures.${key}-${id}`})))
   return createElement('form',{onSubmit:(event:{preventDefault:()=>void})=>{event.preventDefault();setPublished(value=>value+1)}},
     text('vin','primaryFeatures.vinCode'),...Object.keys(labels).map(dropdown),text('trim','primaryFeatures.customModel'),text('mileage','primaryFeatures.mileage'),
     createElement('span',{'data-testid':'single-select-value-primaryFeatures.mileageType'},config.mileageUnit==='mi'?'მილი':'კმ'),text('description','description',true),...choices,

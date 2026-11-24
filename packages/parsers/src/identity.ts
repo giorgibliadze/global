@@ -1,3 +1,4 @@
+import {sameManufacturer,manufacturerPrefix} from './myautoCatalog'
 import type { OriginalVehicleIdentity } from '@auto-importer/shared'
 export type OriginalIdentity = OriginalVehicleIdentity
 export const MODEL_TRIM_WARNING='მოდელი და კომპლექტაცია ცალ-ცალკე ვერ განისაზღვრა. სრული დასახელება შენარჩუნებულია და გადატანა გაგრძელდება.'
@@ -11,7 +12,7 @@ export function extractOriginalIdentity(data: Record<string, unknown>, title: st
   if (data.vin !== vin || (enrichment.vin !== undefined && enrichment.vin !== vin)) throw new Error('არჩეული ავტომობილის VIN და სტრუქტურირებული მონაცემები არ ემთხვევა. დაელოდეთ გვერდის განახლებას.')
   const manufacturer = name(enrichment.make) ?? name(data.make)
   if(!manufacturer)throw new Error('მწარმოებელი საიმედოდ ვერ განისაზღვრა. გადატანა შეჩერებულია.')
-  if(name(data.make) && name(data.make)!==manufacturer)throw new Error('ავტომობილის მწარმოებლის ჩანაწერები ერთმანეთს არ ემთხვევა. ხელახლა სცადეთ.')
+  if(name(data.make) && !sameManufacturer(name(data.make)!,manufacturer))throw new Error('ავტომობილის მწარმოებლის ჩანაწერები ერთმანეთს არ ემთხვევა. ხელახლა სცადეთ.')
   const enrichmentModel=name(enrichment.model),catalogModel=one(data.models) ?? enrichmentModel
   const baseModel=catalogModel
   // Trim comes only from separately labeled fields, never from splitting a title.
@@ -23,13 +24,14 @@ export function extractOriginalIdentity(data: Record<string, unknown>, title: st
   if (year !== undefined && (year < 1886 || year > 2100)) throw new Error('სტრუქტურირებული გამოშვების წელი არასწორია.')
   if (enrichment.year != null && data.year != null && Number(enrichment.year) !== Number(data.year)) throw new Error('გამოშვების წლის მონაცემები ჯერ ახლდება.')
   const shortDescription = name(record(enrichment.manheimStandardDescription).shortDescription)
-  if(shortDescription && display(shortDescription)!==display(title))throw new Error('სათაური და სტრუქტურირებული აღწერა სხვადასხვა ავტომობილს ეკუთვნის ან ჯერ ახლდება.')
+  const makeTitle=(value:string)=>{const header=value.match(/^\d{4}\s+/)?.[0]??'',prefix=manufacturerPrefix(value.slice(header.length),manufacturer);return display(prefix?header+'MAKE '+value.slice(header.length+prefix.length):value)}
+  if(shortDescription && makeTitle(shortDescription)!==makeTitle(title))throw new Error('სათაური და სტრუქტურირებული აღწერა სხვადასხვა ავტომობილს ეკუთვნის ან ჯერ ახლდება.')
   const source=shortDescription ?? title
   // Remove only the independently known manufacturer/year header. Everything after
   // that header is the full designation, including trim/body/cab/bed words verbatim.
-  const prefix=year===undefined
-    ? source.startsWith(`${manufacturer} `)?`${manufacturer} `:/^\d{4} /.test(source)?`${source.slice(0,4)} ${manufacturer} `:undefined
-    : `${year} ${manufacturer} `
+  const yearPrefix=source.match(/^\d{4}\s+/)?.[0]??''
+  const makePrefix=manufacturerPrefix(source.slice(yearPrefix.length),manufacturer)
+  const prefix=makePrefix&&(year===undefined||Number(yearPrefix.trim())===year)?source.slice(0,yearPrefix.length+makePrefix.length):undefined
   let fullModelName:string | undefined,evidence:OriginalIdentity['evidence']='structured-model'
   if(prefix && source.startsWith(prefix)) {
     fullModelName=name(source.slice(prefix.length))

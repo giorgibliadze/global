@@ -168,9 +168,37 @@ Denza
 HIGER
 KAIYI
 INEOS`.split('\n'))
-const normalizeLabel=(label:string)=>label.trim().replace(/\s+/g,' ').toLowerCase()
+// Manufacturer-only aliases. Never map ambiguous conglomerates such as GM.
+const manufacturerAliases:Readonly<Record<string,readonly string[]>>={
+  Volkswagen:['VW'],Chevrolet:['Chevy'],Citroen:['Citroën'],Skoda:['Škoda'],'Mercedes-Benz':['Mercedes','Mercedes Benz'],BMW:['B.M.W.'],
+}
+const makeKey=(label:string)=>label.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase().replace(/[\s.\-\u2010-\u2015]+/g,'')
+function manufacturerKey(source:string){
+  const key=makeKey(source)
+  if(!/\p{L}/u.test(key)||['unknown','na','n/a','notspecified','notavailable','none','null','undefined','unavailable'].includes(key))return ''
+  const alias=Object.entries(manufacturerAliases).find(([,aliases])=>aliases.some(alias=>makeKey(alias)===key))
+  return alias?makeKey(alias[0]):key
+}
+export function sameManufacturer(a:string,b:string){const key=manufacturerKey(a);return !!key&&key===manufacturerKey(b)}
 export function manufacturerOptionLabel(source:string):string | undefined {
-  return myautoManufacturerLabels.find(label=>normalizeLabel(label)===normalizeLabel(source))
+  return myautoManufacturerLabels.find(label=>sameManufacturer(label,source))
+}
+export function manufacturerOptionLabels(source:string):string[]{
+  const canonical=manufacturerOptionLabel(source)
+  if(!canonical)return []
+  const aliases=manufacturerAliases[canonical]??[]
+  return [...new Set([canonical,...aliases,canonical.replace(/[ -]/g,''),canonical.replace(/-/g,' '),canonical.replace(/-/g,' - '),...['-','–','—','‑'].map(dash=>canonical.split(/[ -]+/).join(dash))])]
+}
+// Locate only a whole manufacturer prefix. Its actual length matters for aliases:
+// removing 'Mercedes' must never slice a model using 'Mercedes-Benz'.length.
+export function manufacturerPrefix(text:string,expected?:string):{manufacturer:string;length:number}|undefined{
+  const matches:{manufacturer:string;length:number}[]=[]
+  for(const boundary of text.matchAll(/\s+/g)){
+    if(boundary.index>Math.max(80,expected?.length??0))break
+    const candidate=text.slice(0,boundary.index)
+    if(expected?sameManufacturer(candidate,expected):!!manufacturerOptionLabel(candidate))matches.push({manufacturer:candidate,length:boundary.index+boundary[0].length})
+  }
+  return matches.at(-1)
 }
 export function knownMyautoYears(now = new Date()):number[] {
   const latest=Math.max(2026,now.getFullYear())

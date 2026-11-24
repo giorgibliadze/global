@@ -13,7 +13,7 @@ import type { DropdownDiagnostic } from './dropdownDiagnostics'
 import type { FieldFailureCode } from '@auto-importer/shared'
 import { reportDropdown } from './dropdownDiagnostics'
 import type { TimingStage } from '@auto-importer/shared'
-import { manufacturerOptionLabel, myautoCatalogHint } from './myautoCatalog'
+import { manufacturerOptionLabels, myautoCatalogHint } from './myautoCatalog'
 import { sanitizeDescription } from './vinPrivacy'
 import { editableModelInput, fillEditableModel, nativeDropdown, selectNativeDropdown } from './modelField'
 import { selectDropdown, matchesOption } from './dropdowns'
@@ -68,7 +68,7 @@ export function myautoFields(v: NormalizedVehicle): FormField[] {
   ] as const) {
     const category: DetailCategory | undefined = field === 'fuel' ? 'fuel' : field === 'body' ? 'body' : undefined
     fields.push({ field, label, mode: 'dropdown', selector: testid(`single-select-trigger-primaryFeatures.${key}`),
-      dropdownKey: key, optionValue: { exactText: field === 'model', candidates: value === undefined ? [] : field === 'engineCc' ? [...(typeof v.raw.engineDisplacement === 'string' ? [v.raw.engineDisplacement] : []),String(v.engineCc! / 1000)] : [String(value)], equivalents: field === 'make' && typeof value === 'string' ? [manufacturerOptionLabel(value)].filter((label):label is string=>!!label && label!==value) : category && value !== undefined ? myautoEquivalents(category,String(value)) : [], engineCc: field === 'engineCc' ? v.engineCc : undefined, engineUnit: field === 'engineCc' ? 'liters' : undefined },
+      dropdownKey: key, optionValue: { exactText: field === 'model', candidates: value === undefined ? [] : field === 'engineCc' ? [...(typeof v.raw.engineDisplacement === 'string' ? [v.raw.engineDisplacement] : []),String(v.engineCc! / 1000)] : [String(value)], equivalents: field === 'make' && typeof value === 'string' ? manufacturerOptionLabels(value).filter(label=>label!==value) : category && value !== undefined ? myautoEquivalents(category,String(value)) : [], engineCc: field === 'engineCc' ? v.engineCc : undefined, engineUnit: field === 'engineCc' ? 'liters' : undefined },
       value: value === undefined ? undefined : String(value), reason: 'ჩამოსაშლელი სიის ზუსტი შესაბამისობა ვერ დადასტურდა.' })
   }
   function choice(field: string, label: string, key: string, source: string | undefined, options: Record<string, number>) {
