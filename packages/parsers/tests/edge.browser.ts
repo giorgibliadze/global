@@ -1,3 +1,4 @@
+import {EdgePreparation} from '../../../apps/extension/src/content/edgePreparation'
 import {runEdgeSpecTests} from './edgeSpecs.browser'
 import {registerManheimParser} from '../../../apps/extension/src/content/manheim'
 import {runEdgePreloadTests} from './edgePreload.browser'
@@ -23,6 +24,7 @@ import type {TransferRecord} from '@auto-importer/shared'
 const urlA='https://www.edgepipeline.com/components/vehicle/detail/'+'a'.repeat(32),urlB=urlA.replace(/a{32}$/,'b'.repeat(32))
 export async function runEdgeTests(check:(value:unknown,label:string)=>void,onMeasurement?:(record:Record<string,unknown>)=>void){
   const a=await(await fetch('/packages/parsers/tests/fixtures/edge-gasoline.html')).text(),b=await(await fetch('/packages/parsers/tests/fixtures/edge-electric.html')).text()
+  const classic=await(await fetch('/packages/parsers/tests/fixtures/edge-classic.html')).text(),urlClassic=urlA.replace(/a{32}$/,'c'.repeat(32))
   await runEdgeSpecTests(check,a,b,urlA,urlB)
   await runEdgeStartTests(check,a,b,urlA,urlB)
   await runEdgePreloadTests(check,a,urlA)
@@ -33,6 +35,35 @@ export async function runEdgeTests(check:(value:unknown,label:string)=>void,onMe
     const actualForm=new DOMParser().parseFromString(await(await fetch('/packages/parsers/tests/fixtures/myauto.html')).text(),'text/html')
     check(edgeDestinationLimit(actualForm)?.limit===15,'EDGE destination limit comes from the actual saved form counter, not the photo-video-label heading')
     check(vehicleSource(urlA)?.id==='EdgePipeline'&&vehicleDetailUrl(urlA)&&!vehicleDetailUrl('https://www.edgepipeline.com/')&&!vehicleDetailUrl(urlA+'/other')&&!edgeDetailId(urlA.replace('www.edgepipeline.com','www.edgepipeline.com.attacker.test')),'EDGE: exact HTTPS host/detail route registration, informational/lookalike pages rejected')
+    load(classic);const classicVehicle=parseEdgePipeline(doc,urlClassic,true);assertNormalizedVehicle(classicVehicle)
+    check(classicVehicle.make==='Ford'&&classicVehicle.model==='Mustang'&&classicVehicle.year===1968&&classicVehicle.trim==='ELEANOR OFFICIALLY LICENSED TRIBUTE EDITION GEN 3 COYOTE','EDGE supplied classic snapshot: labeled trim separated without arbitrary title splitting')
+    check(classicVehicle.vin.length===11&&classicVehicle.mileage?.value===1111&&classicVehicle.mileage.unit==='mi'&&classicVehicle.transmission==='Manual'&&classicVehicle.exteriorColor==='GRAY'&&classicVehicle.interiorColor==='BLACK','EDGE legacy identity, Exempt mileage, transmission and colors survive normalization')
+    check([classicVehicle.engineCc,classicVehicle.cylinders,classicVehicle.fuel,classicVehicle.body,classicVehicle.drivetrain,classicVehicle.interiorMaterial].every(value=>value===undefined),'EDGE collapsed details and unavailable placeholders never fabricate specifications')
+    const classicPreparation=new EdgePreparation(doc,{runtime:{sendMessage:async()=>({ok:true,value:true})}} as unknown as ExtensionApi,()=>urlClassic)
+    try{const preload=await classicPreparation.resolve(),click=await classicPreparation.resolve();check(preload.preparationId===click.preparationId&&click.vehicle.model==='Mustang'&&classicPreparation.verify(click.preparationId),'EDGE legacy fallback reuses the existing fast preparation session on click')}finally{classicPreparation.dispose()}
+    const classicPhotos=inspectEdgePhotos(doc,urlClassic)
+    check(classicPhotos.availableImageCount===48&&classicPhotos.images.length>1&&!classicPhotos.galleryReady,'EDGE actual classic gallery: '+classicPhotos.images.length+'/48 filename-based photos discovered; unloaded slots not invented')
+    const classicRuntime=doc.createElement('script');classicRuntime.id='auto-importer-edge-gallery-data';classicRuntime.type='application/json';classicRuntime.dataset.vehicleId=classicVehicle.listingId!;classicRuntime.dataset.vin=classicVehicle.vin
+    classicRuntime.textContent=JSON.stringify(Array.from({length:48},(_,index)=>({full:'https://file3.autolookout.net/classic-full-'+index+'.jpg'})));doc.querySelector('#vdp')!.append(classicRuntime)
+    const fullClassic=inspectEdgePhotos(doc,urlClassic)
+    check(fullClassic.galleryReady&&fullClassic.images.length===48&&fullClassic.images.every((url,index)=>url.endsWith('/classic-full-'+index+'.jpg')),'EDGE legacy identity accepts a complete 48-photo Fotorama dataset in original order, without changing discovery')
+    classicRuntime.remove()
+    check(!vehicleDescription(classicVehicle).includes(classicVehicle.vin),'EDGE legacy VIN never appears in generated description')
+    for(const source of ['Manheim24','ManheimSearch','ManheimSite','Manheim24Search'])check(rejected(()=>assertNormalizedVehicle({...classicVehicle,source})),'Legacy exception remains EDGE-only: '+source)
+    check(rejected(()=>assertNormalizedVehicle({...classicVehicle,year:2020}))&&rejected(()=>assertNormalizedVehicle({...classicVehicle,listingId:undefined})),'EDGE legacy identity requires pre-1981 year and verified listing ID')
+    for(const vin of ['UNKNOWN','--','?','N/A',''])check(rejected(()=>assertNormalizedVehicle({...classicVehicle,vin})),'EDGE unavailable legacy chassis value remains rejected')
+    const legacyVinField=[...doc.querySelectorAll('.section.details .field')].find(row=>row.querySelector('label')?.textContent==='VIN')!.querySelector('span')!,savedLegacyVin=legacyVinField.textContent!
+    legacyVinField.textContent='8F02X000002';check(rejected(()=>parseEdgePipeline(doc,urlClassic,true)),'EDGE conflicting legacy identifiers cannot mix vehicle data');legacyVinField.textContent=savedLegacyVin
+    const classicTitle=doc.querySelector('h1.description')!,originalClassicTitle=classicTitle.textContent!
+    for(const year of [1908,1955,1980]){classicTitle.textContent=originalClassicTitle.replace('1968',String(year));const old=parseEdgePipeline(doc,urlClassic,true);assertNormalizedVehicle(old);check(old.year===year&&old.model==='Mustang','EDGE legacy fallback supports source year '+year+' without a model-year allowlist')}
+    classicTitle.textContent=originalClassicTitle.replace('1968','2008');check(rejected(()=>parseEdgePipeline(doc,urlClassic,true)),'EDGE modern vehicle cannot bypass standard VIN validation')
+    classicTitle.textContent=originalClassicTitle
+    const trimRow=[...doc.querySelectorAll('.section.details .field')].find(row=>row.querySelector('label')?.textContent==='Trim')!,trimText=trimRow.querySelector('span')!,savedTrim=trimText.textContent!
+    trimText.textContent='N/A';const withoutTrim=parseEdgePipeline(doc,urlClassic,true)
+    check(withoutTrim.trim===null&&withoutTrim.model==='Mustang '+savedTrim,'EDGE unavailable trim retains the complete unseparated designation')
+    trimText.textContent=savedTrim
+    const detailRoot=doc.querySelector('.section.details')!,modelField=doc.createElement('div');modelField.className='field';modelField.innerHTML='<label>Model</label><span>Mustang Special</span>';detailRoot.append(modelField)
+    check(parseEdgePipeline(doc,urlClassic,true).model==='Mustang Special','EDGE legacy fallback preserves independently labeled model exactly')
     load(a);const gas=parseEdgePipeline(doc,urlA);assertNormalizedVehicle(gas)
     const newest=await(await fetch('/packages/parsers/tests/fixtures/edge-28.html')).text()
     load(newest);const missingExtensions=inspectEdgePhotos(doc,urlA)
@@ -52,6 +83,13 @@ export async function runEdgeTests(check:(value:unknown,label:string)=>void,onMe
       completeGallery.querySelector('.fotorama')!.insertAdjacentHTML('beforeend','<img src="https://file3.autolookout.net/complete-two"><img src="https://file3.autolookout.net/complete-three">')
       const completeResult=await completeResponse
       check(completeResult.ok&&completeResult.value?.images.length===3,'EDGE complete-gallery observer resolves on the final discovered frames before batch preparation')
+      // The same source receiver must accept a pre-standard ID; no new photo transport.
+      disposeComplete?.();load(classic)
+      const stopLegacy=registerManheimParser(doc,{...edgePipelineAdapter,photos:current=>inspectEdgePhotos(current,urlClassic)})
+      try{
+        const legacyResponse=await new Promise<{ok?:boolean;value?:{images:string[]}}>(resolve=>sourceListener({type:'MANHEIM_PHOTOS',transferId:crypto.randomUUID(),edgePartial:true,expected:{vin:classicVehicle.vin,listingId:classicVehicle.listingId}},{id:sourceApi.runtime.id},value=>resolve(value as {ok?:boolean;value?:{images:string[]}})))
+        check(legacyResponse.ok&&!!legacyResponse.value?.images.length,'EDGE legacy photo refresh passes the existing source-message identity gate')
+      }finally{stopLegacy?.();load(a)}
     }finally{disposeComplete?.();if(previousChrome)Object.defineProperty(window,'chrome',previousChrome);else Reflect.deleteProperty(window,'chrome');completeGallery.innerHTML=savedCompleteGallery}
     const large={...gas,images:Array.from({length:30},(_,i)=>`https://file3.autolookout.net/validation-${i}.jpg`)};assertNormalizedVehicle(large)
     check(rejected(()=>assertNormalizedVehicle({...large,source:'Manheim24'})),'EDGE larger payload is supported while existing non-EDGE 15-photo validation remains unchanged')
@@ -146,7 +184,7 @@ export async function runEdgeTests(check:(value:unknown,label:string)=>void,onMe
     let manager=new TransferManager(api,store,edgeDownloader)
     const chrome=Object.getOwnPropertyDescriptor(window,'chrome');Object.defineProperty(window,'chrome',{configurable:true,value:api})
     try{
-      for(const [html,url,expected,partial,failure,limit] of [[a,urlA,15,false,'none',15],[a,urlA,0,false,'none',15],[a,urlA,5,false,'sourceClosed',15],[b,urlB,1,false,'none',15],[a,urlA,8,false,'none',15],[a,urlA,9,false,'none',15],[a,urlA,5,false,'reject',15],[a,urlA,15,true,'none',15],[a,urlA,15,false,'one',15],[b,urlB,1,false,'all',15],[a,urlA,28,false,'none',28],[a,urlA,47,false,'none',47],[a,urlA,30,false,'none',30],[a,urlA,60,false,'none',60],[a,urlA,30,false,'none',15],[a,urlA,30,false,'one',15]] as const){
+      for(const [html,url,expected,partial,failure,limit] of [[classic,urlClassic,15,false,'none',15],[a,urlA,15,false,'none',15],[a,urlA,0,false,'none',15],[a,urlA,5,false,'sourceClosed',15],[b,urlB,1,false,'none',15],[a,urlA,8,false,'none',15],[a,urlA,9,false,'none',15],[a,urlA,5,false,'reject',15],[a,urlA,15,true,'none',15],[a,urlA,15,false,'one',15],[b,urlB,1,false,'all',15],[a,urlA,28,false,'none',28],[a,urlA,47,false,'none',47],[a,urlA,30,false,'none',30],[a,urlA,60,false,'none',60],[a,urlA,30,false,'none',15],[a,urlA,30,false,'one',15]] as const){
         photoFailure=failure;delivered=0;peakCache=0;restart=expected===60;restarted=false;galleryGate=expected===8?new Promise<void>(resolve=>{releaseGallery=resolve}):undefined;textBeforeGallery=false
         load(html);const photos=expected>17?Array.from({length:expected},(_,i)=>`https://file3.autolookout.net/universal-${i}${expected===28?'':'.png'}`):inspectEdgePhotos(doc,url).images.slice(0,expected);doc.querySelector('.gallery')!.innerHTML='<div class="fotorama"></div><div class="slide-counts">1 of '+expected+'</div><div class="fotorama__nav__shaft">'+photos.map(photo=>'<div class="fotorama__nav__frame--thumb"><img src="'+photo+'"></div>').join('')+'</div>';sourceSender.tab!.url=url;const lazy=expected===9?[...doc.querySelectorAll<HTMLImageElement>('.gallery .fotorama__nav__frame--thumb img')].slice(4).map(image=>({image,url:image.getAttribute('src')!})):[];for(const item of lazy)item.image.removeAttribute('src');const job=await manager.begin(sourceSender)
         sender={id:'edge-fixture',tab:{id:job.destinationTabId,url:'https://myauto.ge/ka/add'},documentId:'edge-'+job.id}
@@ -169,6 +207,10 @@ export async function runEdgeTests(check:(value:unknown,label:string)=>void,onMe
           const pipelineStarted=performance.now()
           const result=await runMyautoTransfer(destination,claimed,current=>{if(lazy.length&&current.fields.some(field=>field.key==='mileageKm'&&field.persisted))for(const item of lazy)item.image.setAttribute('src',item.url);if(galleryGate&&current.fields.some(field=>field.key==='mileageKm'&&field.persisted)){textBeforeGallery=true;releaseGallery?.();galleryGate=undefined}},{pageUrl:()=>sender.tab!.url!,dropdownTimeoutMs:1,uploadTimeoutMs:1000})
           onMeasurement?.({transferId:job.id,vehicleId:'synthetic-'+job.vehicle.fuel,scenario:job.vehicle.fuel+(partial?'-partial':'-complete'),wallMs:performance.now()-pipelineStarted,selected:expected,downloaded:downloads-before,prepared:result.photos.prepared,submittedUnique:delivered,accepted:result.photos.uploaded,batches,stages:result.timings})
+          if(url===urlClassic){
+            check(destination.querySelector<HTMLInputElement>('input[name="primaryFeatures.vinCode"]')!.value===job.vehicle.vin&&destination.querySelector<HTMLInputElement>('input[name="primaryFeatures.mileage"]')!.value==='1111','EDGE legacy payload reaches destination VIN and mileage fields despite unsupported optional dropdowns')
+            check(!destination.querySelector<HTMLTextAreaElement>('textarea')!.value&&batches.length===1&&result.photos.uploaded===15,'EDGE classic vehicle keeps description untouched and uses one verified simulated photo batch')
+          }
           if(expected===9)check(submissions===1&&result.photos.total===9&&result.photos.uploaded===9,'EDGE delayed gallery grows during text filling, then all nine photos use one input change')
           if(expected===8)check(textBeforeGallery&&performance.now()-pipelineStarted<2000,'EDGE blocked gallery response does not hold text-progress job lock; first text persists before gallery completion')
           const failedFiles=failure==='all'?expected:failure==='one'?1:0,eligible=Math.min(expected,limit+failedFiles)

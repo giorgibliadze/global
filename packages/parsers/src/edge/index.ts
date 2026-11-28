@@ -4,6 +4,8 @@ import {manufacturerPrefix,sameManufacturer} from '../myautoCatalog'
 import {engineToCc} from '../units'
 import {edgeDetailId} from './urls'
 import {edgeGallery} from './gallery'
+import {edgeLegacyIdentity} from './legacy'
+export {edgeLegacyIdentity} from './legacy'
 import {edgeValue as clean,normalizeEdgeVehicle} from './normalization'
 const fields=(root:Element)=>{
   const values=new Map<string,string>()
@@ -84,12 +86,14 @@ function selected(doc:Document,url=doc.URL){
   if(!id||canonical!==id||roots.length!==1)throw new Error('გახსენით EDGE Pipeline-ის ავტომობილის დეტალები.')
   const root=roots[0],titles=[...root.querySelectorAll('h1.description')].map(n=>clean(n.textContent)).filter(Boolean)
   const vin=clean(root.querySelector('.overview .general-section .vin')?.textContent)?.replace(/^VIN\s*:\s*/i,'').replace(/\s/g,'')
-  if(!vin||!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)||!titles.length||new Set(titles).size!==1)throw new Error('ავტომობილის საიდენტიფიკაციო მონაცემები ჯერ არ არის მზად.')
+  const legacy=!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin??'')&&edgeLegacyIdentity(vin,Number(titles[0]?.match(/^(\d{4})\s/)?.[1]),id)
+  if(!vin||!(/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)||legacy)||!titles.length||new Set(titles).size!==1)throw new Error('ავტომობილის საიდენტიფიკაციო მონაცემები ჯერ არ არის მზად.')
   const previous=selections.get(doc)
   if(previous&&previous.id!==id&&previous.vin===vin&&previous.root===root)throw new Error('ავტომობილის გვერდი ჯერ ახლდება.')
   selections.set(doc,{id,vin,root})
   const title=titles[0]!,values=fields(root)
-  return {root,id,vin,title,values,key:JSON.stringify(['EdgePipeline',id,vin,title])}
+  if(legacy&&values.get('VIN')&&values.get('VIN')!==vin)throw new Error('ავტომობილის საიდენტიფიკაციო მონაცემები ერთმანეთს არ ემთხვევა.')
+  return {root,id,vin,title,values,legacy,key:JSON.stringify(['EdgePipeline',id,vin,title])}
 }
 export function inspectEdgeSelection(doc:Document,url=doc.URL){const {root,key}=selected(doc,url);return {root,key}}
 export function inspectEdgePhotos(doc:Document,url=doc.URL){const s=selected(doc,url);return {vin:s.vin,listingId:s.id,...edgeGallery(s.root,s.id,s.vin)}}
@@ -105,6 +109,12 @@ export function parseEdgePipeline(doc:Document,url=doc.URL,textOnly=false):Norma
   const cylindersText=get('Cylinders'),fuel=get('Fuel Type')
   const trim=get('Trim')??null,structuredModel=get('Model')
   let model=structuredModel
+  if(!model&&s.legacy){
+    // Only the legacy fallback: a separately labeled trim supplies an exact
+    // boundary. '?' is an unavailable trailing source specification, not a model.
+    const designation=afterYear.slice(makePrefix.length).replace(/\s+\?+$/,'').trim()
+    model=trim&&designation.endsWith(' '+trim)?designation.slice(0,-trim.length).trim():designation
+  }
   if(!model){
     const remainder=afterYear.slice(makePrefix.length),body=get('Body Style'),drive=get('Drive Train')
     // Boundary comes from labeled metadata, not arbitrary word positions. Fuel,

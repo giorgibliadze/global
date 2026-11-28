@@ -1,4 +1,5 @@
 import {EdgePreparation} from './edgePreparation'
+import {edgeLegacyIdentity} from '@auto-importer/parsers/edge'
 import {photoTrace} from '../photos/checkpoints'
 import {resolveSelectedPhotos} from './photos'
 import { VehiclePreparation } from './preparation'
@@ -31,7 +32,8 @@ export function registerManheimParser(doc: Document = document,adapter:VehicleAd
     }
     if(operation(message)==='MANHEIM_PHOTOS'){
       const expected=(message as {expected?:{vin:string;listingId?:string}}).expected
-      if(!expected || !/^[A-HJ-NPR-Z0-9]{17}$/.test(expected.vin)){reply({ok:false,error:'ავტომობილის ფოტოების იდენტიფიკატორი არასწორია.'});return}
+      const legacy=adapter.id==='EdgePipeline'&&expected&&edgeLegacyIdentity(expected.vin,Number(doc.querySelector('#vdp h1.description')?.textContent?.trim().match(/^(\d{4})\s/)?.[1]),expected.listingId)
+      if(!expected || !(/^[A-HJ-NPR-Z0-9]{17}$/.test(expected.vin)||legacy)){reply({ok:false,error:'ავტომობილის ფოტოების იდენტიფიკატორი არასწორია.'});return}
       void photoTrace(String((message as {transferId?:unknown}).transferId??''),expected.vin,adapter.id).then(trace=>{const edge=adapter.id==='EdgePipeline'&&(message as {edgePartial?:unknown}).edgePartial===true,known=edge?Number((message as {edgeKnownCount?:unknown}).edgeKnownCount)||0:0;return resolveSelectedPhotos(doc,expected,edge?3000:6000,trace,current=>{const photos=adapter.photos(current,current.URL);return edge?{...photos,galleryReady:(message as {edgeComplete?:unknown}).edgeComplete===true?photos.galleryReady:photos.images.length>known||photos.galleryReady}:photos})}).then(value=>reply({ok:true,value}),error=>reply({ok:false,error:error instanceof Error?error.message:'ფოტოები ვერ წაიკითხა.'}));return true
     }
     if(operation(message)==='MANHEIM_VERIFY'){reply({ok:true,verified:instance?.verify((message as {preparationId?:unknown}).preparationId) ?? false});return}

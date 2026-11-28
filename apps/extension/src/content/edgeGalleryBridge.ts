@@ -1,4 +1,5 @@
 import {collectEdgeRuntimePhotos} from '@auto-importer/parsers/edge-runtime'
+import {edgeLegacyIdentity} from '@auto-importer/parsers/edge'
 // EDGE only, MAIN world: read the documented Fotorama data API, never account state.
 const observed=new WeakSet<Element>()
 let initObserved=false
@@ -11,7 +12,8 @@ function update(){
   try{if(new URL(canonical).pathname.replace(/\/$/,'')!==location.pathname.replace(/\/$/,''))return}catch{return}
   const roots=document.querySelectorAll('#vdp');if(roots.length!==1)return
   const root=roots[0],gallery=root.querySelector('.gallery .fotorama'),vin=root.querySelector('.overview .vin span')?.textContent?.trim()
-  if(!gallery||!vin||!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin))return
+  const year=Number(root.querySelector('h1.description')?.textContent?.trim().match(/^(\d{4})\s/)?.[1])
+  if(!gallery||!vin||!(/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)||edgeLegacyIdentity(vin,year,id)))return
   const jq=(window as unknown as {jQuery?:(element:Element|Document)=>{data:(key:string)=>unknown;on?:(events:string,handler:()=>void)=>unknown}}).jQuery
   if(typeof jq!=='function')return
   if(!initObserved){const events=jq(document);if(typeof events.on==='function'){events.on('vdp:gallery:init',()=>queueMicrotask(update));initObserved=true}}
