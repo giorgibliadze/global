@@ -1,3 +1,4 @@
+import {watchEdge} from '../../../apps/extension/src/content/edge'
 import {EdgePreparation} from '../../../apps/extension/src/content/edgePreparation'
 import {VehiclePreparation} from '../../../apps/extension/src/content/preparation'
 import {edgePipelineAdapter} from '../../../apps/extension/src/content/sourceAdapters'
@@ -11,6 +12,23 @@ export async function runEdgeStartTests(check:(value:unknown,label:string)=>void
   const api={runtime:{sendMessage:async(message:unknown)=>{await tick(1);return {ok:true,value:(message as {type:string}).type==='PREFETCH_PREPARE'}}}} as ExtensionApi
   let dispose=()=>{}
   try{
+    // Stream an early vehicle subtree while an unrelated document tail is
+    // still pending. document_idle cannot run before DOMContentLoaded.
+    doc.open();doc.write('<!doctype html><html><head></head><body>')
+    Object.defineProperty(doc,'URL',{configurable:true,get:()=>urlA})
+    let mounts=0,earlyMs=0,early:EdgePreparation|undefined
+    const start=performance.now()
+    const stopEarly=watchEdge(doc,()=>{mounts++;early=new EdgePreparation(doc,api,()=>urlA);earlyMs=performance.now()-start;return()=>early?.dispose()})
+    const parsed=new DOMParser().parseFromString(a,'text/html')
+    doc.head.innerHTML=parsed.head.innerHTML;doc.body.innerHTML=parsed.body.innerHTML
+    await tick(20)
+    check(mounts===1&&early?.status==='ready'&&doc.readyState==='loading','EDGE prepares verified text while the unrelated document tail is still loading')
+    const first=await early!.resolve(),again=await early!.resolve()
+    check(first.preparationId===again.preparationId&&mounts===1,'EDGE early preload and repeated clicks reuse one preparation session')
+    await tick(580);doc.close()
+    const idleLowerBoundMs=performance.now()-start
+    check(earlyMs<idleLowerBoundMs-400,'EDGE streaming benchmark '+JSON.stringify({beforeIdleLowerBoundMs:Math.round(idleLowerBoundMs),afterActivationMs:Math.round(earlyMs)}))
+    stopEarly();delete (doc as unknown as {URL?:string}).URL
     load(a);let requests=0
     const bridge=()=>{requests++;let output=doc.querySelector('#auto-importer-edge-gallery-fixture');if(!output){output=doc.createElement('script');output.id='auto-importer-edge-gallery-fixture';output.setAttribute('type','application/json');doc.querySelector('#vdp')!.append(output)}output.textContent=String(requests)}
     doc.addEventListener('auto-importer-edge-gallery-request',bridge)

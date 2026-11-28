@@ -40,11 +40,17 @@ export default defineManifest({
     run_at: "document_idle",
     all_frames: false
   }, {
+    // EDGE preparation observes the vehicle as it renders, independently of
+    // unrelated page resources. Other auction startup timing stays unchanged.
+    matches: ["*://*.edgepipeline.com/*"],
+    js: ["src/content/edgeEntry.ts"],
+    run_at: "document_start",
+    all_frames: false
+  }, {
     matches: [
       "*://*.manheim.com/*",
       "https://*.manheim24.com/*",
-      "*://*.adesa.com/*",
-      "*://*.edgepipeline.com/*"
+      "*://*.adesa.com/*"
     ],
     js: ["src/content/index.tsx"],
     run_at: "document_idle",

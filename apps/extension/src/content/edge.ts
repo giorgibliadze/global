@@ -17,7 +17,9 @@ export function watchEdge(doc:Document,activate:()=>()=>void){
       if(root){let marker=root.querySelector('#auto-importer-edge-gallery-revision');if(!marker){marker=doc.createElement('script');marker.id='auto-importer-edge-gallery-revision';marker.setAttribute('type','application/json');root.append(marker)}marker.textContent=String(++revision)}
     }
 if(records.some(r=>{const el=r.target.nodeType===1?r.target as Element:r.target.parentElement;return !!el?.closest('#vdp')||el?.matches('meta[property="og:url"]')||[...r.addedNodes,...r.removedNodes].some(n=>n.nodeType===1&&((n as Element).matches('#vdp')||!!(n as Element).querySelector('#vdp')))}))schedule()})
-  const observe=()=>observer.observe(doc.documentElement,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['content','data-src','data-full','data-img','data-thumb']})
+  // At document_start even <html> may not exist yet. Observe the document so
+  // inserting the initial vehicle subtree wakes preparation immediately.
+  const observe=()=>observer.observe(doc,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['content','data-src','data-full','data-img','data-thumb']})
   const pagehide=(event:PageTransitionEvent)=>{if(!event.persisted){dispose();return}suspended=true;observer.disconnect();stop?.();stop=undefined}
   const pageshow=(event:PageTransitionEvent)=>{if(event.persisted&&!disposed){suspended=false;observe();schedule()}}
   const dispose=()=>{if(disposed)return;disposed=true;observer.disconnect();stop?.();stop=undefined;doc.defaultView?.removeEventListener('popstate',schedule);doc.defaultView?.removeEventListener('hashchange',schedule);doc.defaultView?.removeEventListener('pagehide',pagehide);doc.defaultView?.removeEventListener('pageshow',pageshow);navigation?.removeEventListener('currententrychange',schedule);if(watchers.get(doc)===dispose)watchers.delete(doc)}
